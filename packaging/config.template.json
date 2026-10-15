@@ -1,0 +1,16 @@
+{
+  "pollIntervalMs": 1000,
+  "fotoIntervalMs": 60000,
+  "mqtt": {
+    "broker": "mqtt://mosquitto:1883",
+    "topicPrefix": "frio",
+    "statusTopic": "frio/status"
+  },
+  "influxdb": {
+    "url": "http://influxdb:8086",
+    "org": "tecnoelectric",
+    "bucket": "camaras",
+    "token": ""
+  },
+  "plc": { "ip": "__PLC_IP__", "port": 502, "unitId": __PLC_UNIT__ }
+}

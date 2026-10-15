@@ -1,0 +1,48 @@
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Node modules
+node_modules/
+
+# Environment (secrets)
+.env
+nodered/.env
+
+# Config viva (editada por la UI en el servidor — no versionar)
+nodered/config/
+
+# Backups
+nodered/backups/
+
+# Reportes diarios generados en runtime
+nodered/reports/
+
+# Temp files
+*.tmp
+*.bak
+
+# Build artifacts
+*.tsbuildinfo
+frontend-react/tsconfig.tsbuildinfo
+frontend-react/dist/
+
+# Deploy artifacts (tar.gz generados para subir a servidores)
+*.tar.gz
+
+# Paquete pre-compilado generado por packaging/build-bundle.sh
+frio-scada-*-prebuilt-*.zip
+
+# Assets originals
+
+# Documents
+*.xlsx
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+npm-debug.log*

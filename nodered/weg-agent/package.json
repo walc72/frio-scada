@@ -1,0 +1,7 @@
+{
+  "name": "frio-agent",
+  "version": "1.0.0",
+  "description": "Agente con privilegios minimos: opera el Tailscale del sistema para frio-api",
+  "main": "src/index.js",
+  "scripts": { "start": "node src/index.js", "test": "node --test" }
+}

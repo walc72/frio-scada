@@ -1,0 +1,81 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Tema claro */
+    --background: 216 33% 97%;
+    --foreground: 217 29% 15%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 217 29% 15%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 217 29% 15%;
+
+    --primary: 221 83% 53%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 214 33% 96%;
+    --secondary-foreground: 217 29% 15%;
+
+    --muted: 214 33% 96%;
+    --muted-foreground: 213 12% 40%;
+
+    --accent: 214 33% 96%;
+    --accent-foreground: 217 29% 15%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 216 25% 91%;
+    --input: 216 25% 91%;
+    --ring: 221 83% 53%;
+
+    /* Marca (naranja) */
+    --brand: 27 87% 56%;
+    --brand-foreground: 33 88% 6%;
+
+    --radius: 0.6rem;
+  }
+
+  .dark {
+    /* Tema oscuro "control room" */
+    --background: 216 22% 7%;
+    --foreground: 213 33% 93%;
+
+    --card: 216 20% 11%;
+    --card-foreground: 213 33% 93%;
+
+    --popover: 216 20% 11%;
+    --popover-foreground: 213 33% 93%;
+
+    --primary: 217 91% 60%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 218 25% 15%;
+    --secondary-foreground: 213 33% 93%;
+
+    --muted: 216 18% 14%;
+    --muted-foreground: 213 14% 60%;
+
+    --accent: 218 25% 15%;
+    --accent-foreground: 213 33% 93%;
+
+    --destructive: 3 84% 62%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 217 20% 17%;
+    --input: 217 20% 17%;
+    --ring: 217 91% 60%;
+
+    --brand: 27 87% 56%;
+    --brand-foreground: 33 88% 6%;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}

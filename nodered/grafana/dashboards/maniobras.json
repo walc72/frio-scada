@@ -1,0 +1,128 @@
+{
+  "uid": "maniobras",
+  "title": "Maniobras de cámaras",
+  "editable": false,
+  "schemaVersion": 39,
+  "version": 2,
+  "tags": [
+    "frio"
+  ],
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "refresh": "1m",
+  "timezone": "browser",
+  "description": "Maniobras (compresor, evaporador, resistencia) por grupo. ponytail: sin panel de temperatura todavia, no hay datos de temperatura hasta el subproyecto 1 (Full Gauge); agregar panel cuando existan. Cortes de comunicacion: hueco \"sin datos\" (ver la consulta).",
+  "templating": {
+    "list": [
+      {
+        "name": "camara",
+        "label": "Cámara",
+        "type": "custom",
+        "query": "C4,C5",
+        "current": {
+          "text": "C4",
+          "value": "C4"
+        },
+        "options": [
+          {
+            "text": "C4",
+            "value": "C4",
+            "selected": true
+          },
+          {
+            "text": "C5",
+            "value": "C5",
+            "selected": false
+          }
+        ]
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "state-timeline",
+      "title": "Maniobras",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-frio"
+      },
+      "gridPos": {
+        "h": 14,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-frio"
+          },
+          "query": "import \"strings\"\n\n// Huecos: el poller escribe estado solo en cambios. Para que un corte no estire el ultimo valor:\n//  - foto (cada 60 s mientras lee, y enseguida al reconectar) da un punto por serie y por minuto;\n//  - cada minuto con comunicacion.conectado=false agrega a TODAS las series un -1 (\"sin datos\", transparente);\n//  - insertNulls (180 s) corta la linea si no llega nada (poller o PC caidos).\n// Nada de esto se guarda: es solo como se dibuja.\ncam = \"${camara}\"\nrango = from(bucket: \"camaras\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\ncambios = rango\n  |> filter(fn: (r) => r._measurement == \"estado\" and r._field == \"valor\" and r.camara == cam)\n  |> filter(fn: (r) => r.campo == \"comp\" or r.campo == \"eva\" or r.campo == \"res\")\n  |> map(fn: (r) => ({_time: r._time, _value: float(v: r._value), serie: r.grupo + \" \" + r.campo}))\nfotos = rango\n  |> filter(fn: (r) => r._measurement == \"foto\" and r._field =~ /^${camara}\\.G[0-9]\\.(comp|eva|res)$/)\n  |> map(fn: (r) => ({_time: r._time, _value: float(v: r._value), serie: strings.replaceAll(v: strings.trimPrefix(v: r._field, prefix: cam + \".\"), t: \".\", u: \" \")}))\ndatos = union(tables: [cambios, fotos])\n  |> group(columns: [\"serie\"])\nclaves = datos\n  |> last()\n  |> map(fn: (r) => ({serie: r.serie, k: 1}))\n  |> group()\ncaidas = rango\n  |> filter(fn: (r) => r._measurement == \"comunicacion\" and r._field == \"conectado\" and r._value == false)\n  |> window(every: 1m)\n  |> first()\n  |> map(fn: (r) => ({_time: r._time, k: 1}))\n  |> group()\nhuecos = join(tables: {s: claves, c: caidas}, on: [\"k\"])\n  |> map(fn: (r) => ({_time: r._time, _value: -1.0, serie: r.serie}))\n  |> group(columns: [\"serie\"])\nunion(tables: [datos, huecos])\n  |> group(columns: [\"serie\"])\n  |> sort(columns: [\"_time\"])"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "displayName": "${__field.labels.serie}",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "transparent",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "1": {
+                  "text": "ON",
+                  "color": "green",
+                  "index": 0
+                },
+                "0": {
+                  "text": "off",
+                  "color": "#555555",
+                  "index": 1
+                },
+                "-1": {
+                  "text": "sin datos",
+                  "color": "transparent",
+                  "index": 2
+                }
+              }
+            }
+          ],
+          "custom": {
+            "fillOpacity": 80,
+            "lineWidth": 0,
+            "insertNulls": 180000,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showValue": "never",
+        "mergeValues": true,
+        "alignValue": "left",
+        "rowHeight": 0.8,
+        "legend": {
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      }
+    }
+  ]
+}

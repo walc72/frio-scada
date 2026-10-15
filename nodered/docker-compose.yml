@@ -1,0 +1,379 @@
+name: frio-scada
+##############################################################################
+# Frío SCADA Stack - Docker Compose
+# React SCADA (nginx) + frio-api + modbus-poller + InfluxDB 2.x + Grafana
+# + Mosquitto
+#
+# Usage:
+#   cp .env.example .env   # fill in your credentials
+#   docker compose up -d
+#
+# Access:
+#   React SCADA:         http://localhost:9090
+#   Grafana:             solo via portal (http://localhost/grafana/, con sesion)
+#   InfluxDB:            http://127.0.0.1:8086 (solo loopback)
+#
+# Stop:
+#   docker compose down
+#
+# View logs:
+#   docker compose logs -f frio-api modbus-poller
+##############################################################################
+
+networks:
+  frio-network:
+    driver: bridge
+  # Grafana aislado: solo lo ven nginx (frontend) e influxdb.
+  grafana-net:
+    driver: bridge
+
+volumes:
+  influxdb-data:
+    driver: local
+  influxdb-config:
+    driver: local
+  grafana-data:
+    driver: local
+  mosquitto-data:
+    driver: local
+  mosquitto-log:
+    driver: local
+
+services:
+
+  ##########################################################################
+  # INFLUXDB 2.x - Time-series database
+  ##########################################################################
+  influxdb:
+    image: influxdb:2.7
+    container_name: frio-influxdb
+    restart: unless-stopped
+    networks:
+      - frio-network
+      - grafana-net
+    ports:
+      # Solo loopback: los contenedores llegan via red interna; para admin
+      # remoto usar tunel SSH/Tailscale (issue de seguridad: no exponer en 0.0.0.0)
+      - "127.0.0.1:8086:8086"
+    volumes:
+      - influxdb-data:/var/lib/influxdb2
+      - influxdb-config:/etc/influxdb2
+    environment:
+      - TZ=${TZ:-America/Asuncion}
+      # --- Auto-setup on first run ---
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=${INFLUXDB_USERNAME:-admin}
+      - DOCKER_INFLUXDB_INIT_PASSWORD=${INFLUXDB_PASSWORD}
+      - DOCKER_INFLUXDB_INIT_ORG=${INFLUXDB_ORG:-tecnoelectric}
+      - DOCKER_INFLUXDB_INIT_BUCKET=${INFLUXDB_BUCKET:-camaras}
+      # Retención 3 años (solo aplica al init; para un bucket existente lo
+      # ajusta el contenedor frio-backup al arrancar). Ver INFLUXDB_RETENTION.
+      - DOCKER_INFLUXDB_INIT_RETENTION=${INFLUXDB_RETENTION:-1095d}
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=${INFLUXDB_TOKEN}
+    healthcheck:
+      test: ["CMD", "influx", "ping"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 512M
+
+  ##########################################################################
+  # GRAFANA - Advanced dashboards & alerting
+  ##########################################################################
+  grafana:
+    image: grafana/grafana-oss:11.6.0
+    container_name: frio-grafana
+    restart: unless-stopped
+    networks:
+      - grafana-net
+    # Sin ports: solo nginx (frontend) llega a Grafana por la red interna,
+    # en /grafana/ y detrás de auth_request /api/auth/grafana.
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
+    environment:
+      - TZ=${TZ:-America/Asuncion}
+      - GF_SECURITY_ADMIN_USER=${GF_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GF_ADMIN_PASSWORD}
+      # Token de SOLO LECTURA del bucket camaras (crear-token-grafana.sh).
+      # Sin fallback al token admin: si esta vacio, los paneles fallan (a proposito).
+      - INFLUXDB_GRAFANA_TOKEN=${INFLUXDB_GRAFANA_TOKEN:-}
+      - GF_INSTALL_PLUGINS=
+      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/var/lib/grafana/dashboards/maniobras.json
+      # --- SMTP for email alerts ---
+      - GF_SMTP_ENABLED=true
+      - GF_SMTP_HOST=smtp.gmail.com:587
+      - GF_SMTP_USER=${GF_SMTP_USER}
+      - GF_SMTP_PASSWORD=${GF_SMTP_PASSWORD}
+      - GF_SMTP_FROM_ADDRESS=${GF_SMTP_FROM}
+      - GF_SMTP_FROM_NAME=Frío SCADA
+      # --- Alerting ---
+      - GF_UNIFIED_ALERTING_ENABLED=true
+      # Anonymous auth DESHABILITADO (issue #7) - requiere login para ver dashboards
+      - GF_AUTH_ANONYMOUS_ENABLED=false
+      # --- Embebido detrás del portal (nginx auth_request + auth proxy) ---
+      - GF_SERVER_ROOT_URL=%(protocol)s://%(domain)s/grafana/
+      - GF_SERVER_SERVE_FROM_SUB_PATH=true
+      - GF_SECURITY_ALLOW_EMBEDDING=true
+      - GF_AUTH_BASIC_ENABLED=false
+      - GF_AUTH_PROXY_ENABLED=true
+      - GF_AUTH_PROXY_HEADER_NAME=X-WEBAUTH-USER
+      - GF_AUTH_PROXY_HEADER_PROPERTY=username
+      - GF_AUTH_PROXY_AUTO_SIGN_UP=true
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_USERS_AUTO_ASSIGN_ORG_ROLE=Viewer
+      - GF_AUTH_DISABLE_LOGIN_FORM=true
+    depends_on:
+      influxdb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 128M
+
+  ##########################################################################
+  # TAILSCALE - Instalado directamente en el host (no en Docker)
+  # El host corre: tailscale up --accept-routes --accept-dns=false
+  ##########################################################################
+  # tailscale: (disabled - runs on host)
+
+  ##########################################################################
+  # MOSQUITTO - MQTT Broker
+  ##########################################################################
+  mosquitto:
+    image: eclipse-mosquitto:2.0.21
+    container_name: frio-mosquitto
+    restart: unless-stopped
+    networks:
+      - frio-network
+    # Sin puertos publicados: 1883 es interno (red Docker) y el websocket 9001
+    # se accede via nginx en /mqtt (solo lectura por ACL)
+    volumes:
+      - mosquitto-data:/mosquitto/data
+      - mosquitto-log:/mosquitto/log
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - ./mosquitto/acl-websocket.conf:/mosquitto/config/acl-websocket.conf
+    healthcheck:
+      test: ["CMD", "mosquitto_sub", "-t", "$$SYS/#", "-C", "1", "-i", "healthcheck", "-W", "3"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+        reservations:
+          memory: 32M
+
+  ##########################################################################
+  # FRIO POLLER - Standalone Modbus TCP polling service
+  # Reads the cold-room devices via Modbus, publishes to MQTT + writes InfluxDB
+  # Config: ./config/config.json. plc.{ip,port,unitId} se recarga solo (mira
+  # el archivo cada 5 s y reconecta); el resto se toma al reiniciar el contenedor.
+  ##########################################################################
+  modbus-poller:
+    build: ./weg-modbus-poller
+    container_name: frio-poller
+    restart: unless-stopped
+    networks:
+      - frio-network
+    volumes:
+      - ./config:/app/config
+    environment:
+      - TZ=${TZ:-America/Asuncion}
+      - CONFIG_PATH=/app/config/config.json
+      - MQTT_BROKER=mqtt://mosquitto:1883
+      - INFLUXDB_TOKEN=${INFLUXDB_TOKEN}
+    depends_on:
+      mosquitto:
+        condition: service_healthy
+      influxdb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "try{require('fs').readFileSync('/tmp/poller-healthy');process.exit(0)}catch(e){process.exit(1)}"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 64M
+
+  ##########################################################################
+  # FRIO API - REST API for config, setpoints, alerts, reports
+  ##########################################################################
+  frio-api:
+    build: ./weg-api
+    command: ["node", "src/server.js"]
+    container_name: frio-api
+    restart: unless-stopped
+    networks:
+      - frio-network
+    ports:
+      # Solo loopback: el frontend llega via nginx (/api); no exponer en 0.0.0.0
+      - "127.0.0.1:3200:3200"
+    volumes:
+      - ./config:/app/config
+      # Reportes diarios generados automáticamente (PDF por día)
+      - ${REPORTS_DIR:-./reports}:/app/reports
+    environment:
+      - TZ=${TZ:-America/Asuncion}
+      - PORT=3200
+      - CONFIG_PATH=/app/config/config.json
+      - MQTT_BROKER=mqtt://mosquitto:1883
+      - POLLER_URL=http://modbus-poller:3100
+      # Reporte diario automático (cron interno)
+      - REPORTS_DIR=/app/reports
+      - DAILY_REPORT_ENABLED=${DAILY_REPORT_ENABLED:-true}
+      - DAILY_REPORT_HOUR=${DAILY_REPORT_HOUR:-7}
+      - DAILY_REPORT_EMAIL=${DAILY_REPORT_EMAIL:-}
+      # Zona de planta para "día"/"hora" de consultas, reportes y alertas (Paraguay = UTC-3 fijo)
+      - TZ_OFFSET_MIN=${TZ_OFFSET_MIN:--180}
+      # Token de Influx para los reportes (prioridad sobre config.json)
+      - INFLUXDB_TOKEN=${INFLUXDB_TOKEN}
+      # Auth — dos roles: admin y operador (texto plano o *_HASH scrypt)
+      - AUTH_USER=${AUTH_USER:-admin}
+      - AUTH_PASSWORD=${AUTH_PASSWORD}
+      - AUTH_PASSWORD_HASH=${AUTH_PASSWORD_HASH:-}
+      - OPERADOR_USER=${OPERADOR_USER:-operador}
+      - OPERADOR_PASSWORD=${OPERADOR_PASSWORD:-}
+      - OPERADOR_PASSWORD_HASH=${OPERADOR_PASSWORD_HASH:-}
+      - ALLOWED_ORIGIN=${ALLOWED_ORIGIN:-*}
+      # Réplica de oficina: token de la API /api/replica (vacío = apagada)
+      - REPLICA_TOKEN=${REPLICA_TOKEN:-}
+      # Agente del sistema (Tailscale desde Configuración)
+      - AGENT_TOKEN=${AGENT_TOKEN:-}
+      - AGENT_URL=http://frio-agent:3400
+      # Websocket /mqtt: frio-api lo proxea (con auth) al listener 9001 de Mosquitto
+      - MQTT_WS_HOST=mosquitto
+      - MQTT_WS_PORT=9001
+      # Alert notifications (optional, configure when ready)
+      - SMTP_HOST=${SMTP_HOST:-smtp.gmail.com}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USER=${SMTP_USER:-${GF_SMTP_USER:-}}
+      - SMTP_PASS=${SMTP_PASS:-${GF_SMTP_PASSWORD:-}}
+      - ALERT_EMAIL=${ALERT_EMAIL:-}
+      - TELEGRAM_TOKEN=${TELEGRAM_TOKEN:-}
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID:-}
+    depends_on:
+      mosquitto:
+        condition: service_healthy
+      influxdb:
+        condition: service_healthy
+    healthcheck:
+      # 127.0.0.1 explicito: en la imagen, localhost resuelve a ::1 y el
+      # server escucha solo IPv4 — con localhost el check daba refused
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:3200/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 64M
+
+  ##########################################################################
+  # FRIO AGENT - privilegios mínimos: opera el Tailscale del sistema
+  # (status/login/logout) para Configuración → Conexión. Sin puertos
+  # publicados; solo frio-api lo llama, con AGENT_TOKEN.
+  ##########################################################################
+  frio-agent:
+    build: ./weg-agent
+    container_name: frio-agent
+    restart: unless-stopped
+    networks:
+      - frio-network
+    volumes:
+      - /var/run/tailscale:/var/run/tailscale
+    environment:
+      - AGENT_TOKEN=${AGENT_TOKEN:-}
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+
+  ##########################################################################
+  # FRONTEND (React SCADA) - Nginx serving built React app
+  # Access: http://<server-ip>:8080
+  # /api/* proxied to frio-api:3200
+  ##########################################################################
+  frontend:
+    image: nginx:1.27-alpine
+    container_name: frio-frontend
+    restart: unless-stopped
+    networks:
+      - frio-network
+      - grafana-net
+    ports:
+      - "80:80"
+      - "9090:80"
+    volumes:
+      - ../frontend-react/dist:/usr/share/nginx/html:ro
+      - ./nginx/frontend.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - frio-api
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:80/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+        reservations:
+          memory: 16M
+
+  ##########################################################################
+  # BACKUP - cron mensual de InfluxDB + guardián de disco
+  #   - Día 1 de cada mes 03:00 -> backup comprimido en ./backups
+  #   - Fija la retención del bucket (3 años) al arrancar
+  #   - Rota (conserva BACKUP_KEEP) y no deja que el disco se llene
+  #   - Segundo destino (disco externo/red): montar en /external y setear
+  #     BACKUP_EXTERNAL=/external (ver .env.example)
+  ##########################################################################
+  backup:
+    build: ./weg-backup
+    container_name: frio-backup
+    restart: unless-stopped
+    networks:
+      - frio-network
+    environment:
+      - TZ=${TZ:-America/Asuncion}
+      - INFLUXDB_URL=http://frio-influxdb:8086
+      - INFLUXDB_TOKEN=${INFLUXDB_TOKEN}
+      - INFLUXDB_ORG=${INFLUXDB_ORG:-tecnoelectric}
+      - INFLUXDB_BUCKET=${INFLUXDB_BUCKET:-camaras}
+      - RETENTION=${INFLUXDB_RETENTION:-1095d}
+      - BACKUP_KEEP=${BACKUP_KEEP:-12}
+      - DISK_FLOOR_GB=${DISK_FLOOR_GB:-15}
+      - BACKUP_EXTERNAL=${BACKUP_EXTERNAL:-}
+    volumes:
+      - ${BACKUP_LOCAL_DIR:-./backups}:/backups
+      # Descomentar y ajustar para el segundo destino (disco externo / red):
+      # - E:/frio-backups:/external
+    depends_on:
+      influxdb:
+        condition: service_healthy

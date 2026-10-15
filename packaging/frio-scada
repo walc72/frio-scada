@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+# =============================================================================
+# frio-scada — administración de una instalación hecha con install.sh
+#
+#   sudo frio-scada status            estado de los servicios
+#   sudo frio-scada logs [servicio]   logs en vivo (p.ej. frio-api, modbus-poller)
+#   sudo frio-scada restart           reinicia todo
+#   sudo frio-scada stop | start      detiene / levanta (los datos se conservan)
+#   sudo frio-scada update [versión]  actualiza (por defecto, al último release)
+#   sudo frio-scada superadmin        cambia usuario/contraseña del superadmin
+#   sudo frio-scada version           versión instalada
+# =============================================================================
+set -euo pipefail
+
+REPO="walc72/frio-scada"
+DIR="${FRIO_DIR:-/opt/frio-scada}"
+
+die() { echo "✘ $*" >&2; exit 1; }
+[ -f "$DIR/.env" ] || die "No hay una instalación en $DIR"
+cd "$DIR"
+docker info >/dev/null 2>&1 || die "Sin acceso a Docker: correlo con sudo"
+
+current() { sed -n 's/^FRIO_VERSION=//p' .env | head -1; }
+
+update() {
+  local ver=${1:-}
+  if [ -z "$ver" ]; then
+    ver=$(curl -fsSL "https://api.github.com/repos/$REPO/releases/latest" | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' | head -1)
+    [ -n "$ver" ] || die "No se pudo averiguar el último release"
+  fi
+  local cur; cur=$(current)
+  if [ "$ver" = "$cur" ]; then echo "Ya está en $ver"; return; fi
+  echo "==> Actualizando $cur → $ver"
+
+  local tmp; tmp=$(mktemp -d); trap 'rm -rf "$tmp"' RETURN
+  if [ -n "${FRIO_PACKAGE:-}" ]; then            # paquete local (pruebas / sin GitHub)
+    cp "$FRIO_PACKAGE" "$tmp/pkg.tgz"
+  else
+    curl -fsSL "https://github.com/$REPO/releases/download/$ver/frio-scada-$ver.tar.gz" -o "$tmp/pkg.tgz" \
+      || die "No se pudo bajar el paquete del release $ver"
+  fi
+  tar xzf "$tmp/pkg.tgz" -C "$tmp"
+
+  # Copia de lo que se reemplaza (no toca datos, .env ni config/)
+  mkdir -p backups
+  local bk="backups/pre-update-$cur-$(date +%Y%m%d-%H%M%S).tgz"
+  tar czf "$bk" docker-compose.yml docker-compose.replica.yml nginx mosquitto grafana .env VERSION 2>/dev/null || true
+  echo "    copia previa: $DIR/$bk"
+
+  for f in docker-compose.yml docker-compose.replica.yml config.template.json .env.example VERSION frio-scada crear-token-grafana.sh; do
+    cp "$tmp/frio-scada/$f" "$DIR/$f"
+  done
+  rm -rf nginx mosquitto grafana
+  cp -r "$tmp/frio-scada/nginx" "$tmp/frio-scada/mosquitto" "$tmp/frio-scada/grafana" "$DIR/"
+  sed -i "s/^FRIO_VERSION=.*/FRIO_VERSION=$ver/" .env
+
+  docker compose pull -q --ignore-pull-failures 2>&1 | grep -vi 'warn' || true
+  docker compose up -d --remove-orphans
+  bash "$DIR/crear-token-grafana.sh" "$DIR/.env" || echo "AVISO: no se pudo crear el token de Grafana; ver README"
+  # rename atómico: no pisar en el lugar el script que se está ejecutando
+  install -m 755 "$DIR/frio-scada" /usr/local/bin/.frio-scada.new 2>/dev/null \
+    && mv -f /usr/local/bin/.frio-scada.new /usr/local/bin/frio-scada || true
+  echo "✔ Actualizado a $ver"
+}
+
+case "${1:-}" in
+  status)     docker compose ps ;;
+  logs)       shift; docker compose logs -f --tail=100 "$@" ;;
+  restart)    docker compose restart ;;
+  stop)       docker compose stop ;;
+  start)      docker compose up -d ;;
+  update)     shift; update "${1:-}" ;;
+  superadmin) docker compose exec frio-api node src/cli/superadmin.js ;;
+  version)    echo "frio-scada $(current) en $DIR" ;;
+  *)          sed -n '3,13p' "$0" | sed 's/^# \{0,1\}//' ;;
+esac

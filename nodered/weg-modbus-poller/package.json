@@ -1,0 +1,14 @@
+{
+  "name": "frio-poller",
+  "version": "1.0.0",
+  "description": "Poller Modbus TCP de las cámaras frías (stub)",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "modbus-serial": "^8.0.17",
+    "mqtt": "^5.10.0"
+  }
+}

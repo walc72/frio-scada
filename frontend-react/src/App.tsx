@@ -1,0 +1,200 @@
+import { lazy, Suspense, useState, useEffect, Component, type ReactNode, type ErrorInfo } from 'react'
+import { Routes, Route, NavLink } from 'react-router-dom'
+import { LayoutDashboard, Snowflake, Thermometer, Gauge, Bell, FileText, Activity, Settings, Sun, Moon, Menu, LogOut, ShieldCheck, Eye, Lock, Wifi, WifiOff } from 'lucide-react'
+import { useTheme } from './lib/theme'
+import { Button } from './components/ui/button'
+import { cn } from './lib/utils'
+import { useLiveStore } from './store/live'
+import { useConfigStore } from './store/config'
+import { useAuthStore, isAdminRole, ROLE_LABEL } from './store/auth'
+import { useBrandingStore } from './store/branding'
+import { useServerStore } from './store/server'
+import ReplicaBadge from './components/ReplicaBadge'
+import General from './views/General'
+import Camara from './views/Camara'
+import Descongelados from './views/Descongelados'
+import Compresores from './views/Compresores'
+import Eventos from './views/Eventos'
+import Reportes from './views/Reportes'
+import Sistema from './views/Sistema'
+import Login from './views/Login'
+
+class RouteErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
+  state = { error: null }
+  static getDerivedStateFromError(e: Error) { return { error: e } }
+  componentDidCatch(e: Error, info: ErrorInfo) { console.error('[RouteErrorBoundary]', e, info) }
+  render() {
+    if (this.state.error) {
+      const msg = (this.state.error as Error).message
+      return (
+        <div className="flex flex-col items-center justify-center h-full gap-3 text-destructive py-16">
+          <div className="text-lg font-bold">Error al cargar la vista</div>
+          <pre className="text-xs bg-muted p-3 rounded max-w-xl overflow-auto">{msg}</pre>
+          <button className="text-xs underline" onClick={() => this.setState({ error: null })}>Reintentar</button>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
+
+const Config        = lazy(() => import('./views/Config'))
+
+const navItems = [
+  { to: '/', label: 'General', icon: LayoutDashboard, adminOnly: false },
+  { to: '/camara/C4', label: 'Cámara 4', icon: Snowflake, adminOnly: false },
+  { to: '/camara/C5', label: 'Cámara 5', icon: Snowflake, adminOnly: false },
+  { to: '/descongelados', label: 'Descongelados', icon: Thermometer, adminOnly: false },
+  { to: '/compresores', label: 'Compresores', icon: Gauge, adminOnly: false },
+  { to: '/eventos', label: 'Alarmas y eventos', icon: Bell, adminOnly: false },
+  { to: '/reportes', label: 'Reportes', icon: FileText, adminOnly: false },
+  { to: '/sistema', label: 'Sistema', icon: Activity, adminOnly: false },
+  { to: '/config', label: 'Configuración', icon: Settings, adminOnly: true }
+]
+
+// Vista para operador que intenta entrar a una ruta solo-admin
+function NoAutorizado() {
+  return (
+    <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground py-16">
+      <Lock className="h-10 w-10 opacity-40" />
+      <div className="text-lg font-semibold">Acceso restringido</div>
+      <p className="text-sm">La Configuración solo está disponible para el rol administrador.</p>
+    </div>
+  )
+}
+
+export default function App() {
+  const { theme, toggle } = useTheme()
+  // En mobile el menú arranca cerrado (drawer); en desktop abierto.
+  const [sidebarOpen, setSidebarOpen] = useState(() => typeof window !== 'undefined' ? window.innerWidth >= 768 : true)
+  const connect = useLiveStore(s => s.connect)
+  const disconnect = useLiveStore(s => s.disconnect)
+  const connected = useLiveStore(s => s.connected)
+  const loadConfig = useConfigStore(s => s.load)
+  const configLoaded = useConfigStore(s => s.config)
+  const authed = useAuthStore(s => s.authed)
+  const logout = useAuthStore(s => s.logout)
+  const role = useAuthStore(s => s.role)
+  const user = useAuthStore(s => s.user)
+  const isAdmin = isAdminRole(role)
+  const visibleNav = navItems.filter(i => !i.adminOnly || isAdmin)
+  const logoUrl = useBrandingStore(s => s.logoUrl)
+  const brandName = useBrandingStore(s => s.name)
+
+  // Marca pública: se carga una vez, antes del login
+  useEffect(() => { useBrandingStore.getState().load() }, [])
+
+  const replica = useServerStore(s => s.replica)
+  useEffect(() => { if (authed) useServerStore.getState().load() }, [authed])
+
+  // Conectar MQTT y cargar config solo con sesion activa (issues #3/#4 de la
+  // revision): antes corria una vez pre-login (config daba 401 y nunca se
+  // recargaba) y el websocket quedaba abierto incluso deslogueado.
+  useEffect(() => {
+    if (!authed) return
+    connect()
+    if (!configLoaded) loadConfig()
+    return () => disconnect()
+  }, [authed])
+
+  if (!authed) return <Login />
+
+  return (
+    <div className="h-screen flex flex-col overflow-hidden">
+      {/* Fixed header */}
+      <header className="h-16 border-b px-4 flex items-center gap-3 bg-card shrink-0 z-20">
+        <Button variant="ghost" size="icon" onClick={() => setSidebarOpen((v) => !v)} title="Mostrar/Ocultar menú">
+          <Menu className="h-5 w-5" />
+        </Button>
+        <img src={logoUrl} alt={brandName} className="h-8 w-auto max-w-[160px] object-contain" />
+        <div className="hidden md:block text-sm text-muted-foreground border-l border-border pl-3 leading-none">
+          Frío SCADA · Monitoreo de Cámaras
+        </div>
+        <div className="ml-auto flex items-center gap-2">
+          {replica && <ReplicaBadge />}
+          {/* Conexión */}
+          {connected ? (
+            <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-green-500/10 text-green-600 dark:text-green-400 text-xs font-medium">
+              <span className="w-1.5 h-1.5 rounded-full bg-green-500" /><Wifi className="h-3 w-3" />Conectado
+            </div>
+          ) : (
+            <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 text-xs font-medium animate-pulse">
+              <WifiOff className="h-3 w-3" />Reconectando
+            </div>
+          )}
+          {/* Usuario + rol */}
+          <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-muted border border-border text-xs font-medium" title={`Sesión: ${user} (${role})`}>
+            {isAdmin ? <ShieldCheck className="h-3.5 w-3.5 text-primary" /> : <Eye className="h-3.5 w-3.5 text-muted-foreground" />}
+            <span className="text-foreground">{user}</span>
+            <span className="text-muted-foreground">· {ROLE_LABEL[role] || 'Operador'}</span>
+          </div>
+          <Button variant="ghost" size="icon" onClick={toggle} title={theme === 'dark' ? 'Modo claro' : 'Modo oscuro'}>
+            {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          </Button>
+          <Button variant="ghost" size="icon" onClick={logout} title="Cerrar sesión">
+            <LogOut className="h-4 w-4" />
+          </Button>
+        </div>
+      </header>
+
+      <div className="flex-1 flex min-h-0 relative">
+        {/* Backdrop (solo mobile, cuando el drawer está abierto) */}
+        {sidebarOpen && (
+          <div className="fixed inset-0 top-16 z-20 bg-black/40 md:hidden" onClick={() => setSidebarOpen(false)} />
+        )}
+        {/* Sidebar: drawer overlay en mobile, en-flujo en desktop */}
+        <aside
+          className={cn(
+            'border-r bg-card flex flex-col transition-all duration-200 overflow-hidden z-30',
+            'fixed top-16 bottom-0 left-0 md:static md:top-0 md:bottom-auto',
+            sidebarOpen ? 'w-60' : 'w-0'
+          )}
+        >
+          <nav className="flex-1 p-3 space-y-1 min-w-[15rem]">
+            {visibleNav.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                onClick={() => { if (typeof window !== 'undefined' && window.innerWidth < 768) setSidebarOpen(false) }}
+                className={({ isActive }) =>
+                  cn(
+                    'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+                    isActive
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                  )
+                }
+              >
+                <item.icon className="h-4 w-4" />
+                {item.label}
+              </NavLink>
+            ))}
+          </nav>
+        </aside>
+
+        {/* Main content */}
+        <div className="flex-1 flex flex-col min-w-0">
+          <main className="flex-1 p-3 sm:p-6 overflow-auto">
+            <RouteErrorBoundary>
+            <Suspense fallback={<div className="flex items-center justify-center h-full text-muted-foreground text-sm">Cargando...</div>}>
+              <Routes>
+                <Route path="/" element={<General />} />
+                <Route path="/camara/:c" element={<Camara />} />
+                <Route path="/descongelados" element={<Descongelados />} />
+                <Route path="/compresores" element={<Compresores />} />
+                <Route path="/eventos" element={<Eventos />} />
+                <Route path="/reportes" element={<Reportes />} />
+                <Route path="/sistema" element={<Sistema />} />
+                <Route path="/config" element={isAdmin ? <Config /> : <NoAutorizado />} />
+              </Routes>
+            </Suspense>
+            </RouteErrorBoundary>
+          </main>
+          <footer className="h-8 border-t px-6 flex items-center justify-center text-xs text-muted-foreground bg-card shrink-0">
+            Powered By <strong className="ml-1">Tecno Electric S.A.</strong>
+          </footer>
+        </div>
+      </div>
+    </div>
+  )
+}
