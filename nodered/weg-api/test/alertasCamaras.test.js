@@ -2,7 +2,14 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { evaluar } = require('../src/services/alertasCamaras');
+const { evaluar, desvioRelojS } = require('../src/services/alertasCamaras');
+
+test('desvioRelojS: hora_plc local de planta (UTC-3, huso 0) -> 0; 5 min adelantado -> +300', () => {
+  const ts = Date.parse('2026-10-15T15:00:00Z');
+  const local = (s) => new Date(ts - 180 * 60000 + s * 1000).toISOString().slice(0, 19).replace('T', ' ');
+  assert.equal(desvioRelojS({ _ts: ts, hora_plc: local(0), huso_min: 0 }), 0);
+  assert.equal(desvioRelojS({ _ts: ts, hora_plc: local(300), huso_min: 0 }), 300);
+});
 
 const T0 = Date.parse('2026-10-15T15:00:00Z');
 const MIN = 60000;

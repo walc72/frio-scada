@@ -37,6 +37,17 @@ test('avisos/prueba: ok, límite de 1 por minuto por canal, canal inválido', as
   assert.match(enviados[0][1], /^\u2705 Aviso de prueba de frio-scada \(\d\d:\d\d\)$/);
 });
 
+test('avisos/prueba: tras un fallo se puede reintentar enseguida', async () => {
+  let falla = true;
+  const router = createAvisosRouter({ notifyCanal: async () => { if (falla) throw new Error('El mail no está configurado'); } });
+  await servir('admin', router, '/api/avisos', async (f) => {
+    assert.equal((await f('/prueba', { canal: 'mail' })).body.ok, false);
+    falla = false;
+    assert.deepEqual((await f('/prueba', { canal: 'mail' })).body, { ok: true });
+    assert.equal((await f('/prueba', { canal: 'mail' })).status, 429);
+  });
+});
+
 test('avisos/prueba: canal que falla -> 200 {ok:false,error legible}', async () => {
   const router = createAvisosRouter({ notifyCanal: async () => { throw new Error('Telegram no está configurado'); } });
   const r = await servir('superadmin', router, '/api/avisos', (f) => f('/prueba', { canal: 'telegram' }));
@@ -62,10 +73,29 @@ test('sistema/resumen: cortes de 7 días y estado vivo', async () => {
     + ',,0,2026-10-15T10:00:00Z,false\n,,0,2026-10-15T10:30:00Z,true\n,,0,2026-10-16T11:00:00Z,false\n';
   const router = createSistemaResumenRouter({
     queryCsv: async (q) => (q.includes('"comunicacion"') ? csv : ''), ahora: () => Date.parse('2026-10-16T12:00:00Z'),
-    getEstado: () => ({ _conectado: true, _version: 2, version_programa: 20 }),
+    getEstado: () => ({ _conectado: true, _ts: Date.parse('2026-10-16T11:59:00Z'), _version: 2, version_programa: 20 }),
     telegramConfigurado: () => true, mailConfigurado: () => false, desvioRelojS: () => 3.4, backupDir: '/no/existe',
   });
   const r = await servir('operador', router, '/api/sistema', (f) => f('/resumen'));
   assert.deepEqual(r.body.plc, { conectado: true, mapaVersion: 2, programa: 20, desvioRelojS: 3 });
   assert.deepEqual(r.body.cortes7d, { cantidad: 2, minutos: 90 });
+});
+
+test('sistema/resumen: estado viejo (más de 2 min) no cuenta como conectado', async () => {
+  const router = createSistemaResumenRouter({
+    queryCsv: async () => '', ahora: () => Date.parse('2026-10-16T12:00:00Z'),
+    getEstado: () => ({ _conectado: true, _ts: Date.parse('2026-10-16T11:50:00Z') }),
+    telegramConfigurado: () => true, mailConfigurado: () => false, desvioRelojS: () => null, backupDir: '/no/existe',
+  });
+  assert.equal((await servir('operador', router, '/api/sistema', (f) => f('/resumen'))).body.plc.conectado, false);
+});
+
+test('sistema/resumen: la consulta de foto no agrupa tipos distintos', async () => {
+  let q = '';
+  const router = createSistemaResumenRouter({
+    queryCsv: async (x) => { if (x.includes('"foto"')) q = x; return ''; }, getEstado: () => null,
+    telegramConfigurado: () => false, mailConfigurado: () => false, desvioRelojS: () => null, backupDir: '/no/existe',
+  });
+  await servir('operador', router, '/api/sistema', (f) => f('/resumen'));
+  assert.ok(q.indexOf('keep(columns: ["_time"])') > 0 && q.indexOf('keep(') < q.indexOf('group()'));
 });

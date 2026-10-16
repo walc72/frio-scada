@@ -31,6 +31,23 @@ test('parseTramos: ESCURRIENDO, ALARMA RES y MANUAL cuentan como frio', () => {
   assert.deepEqual(tr(csv, { hasta: '2026-10-01T08:00:00.000Z' }), [['G1', '03:00', '08:00', 'frio']]);
 });
 
+test('parseTramos: DETENIDO y DESHABILITADO son apagado', () => {
+  const csv = CAB + est('2026-09-30T20:00:00Z', 'FRIO') + est('2026-10-01T05:00:00Z', 'DETENIDO') + est('2026-10-01T06:00:00Z', 'DESHABILITADO') + est('2026-10-01T07:00:00Z', 'FRIO');
+  assert.deepEqual(tr(csv, { hasta: '2026-10-01T08:00:00.000Z' }), [['G1', '03:00', '05:00', 'frio'], ['G1', '05:00', '07:00', 'apagado'], ['G1', '07:00', '08:00', 'frio']]);
+});
+
+test('fluxLatidos: cada rama se pasa a texto antes del union (bool y string chocan en Influx)', () => {
+  const q = s.fluxLatidos({ desde: D, hasta: H, bucket: 'camaras' });
+  assert.ok(q.lastIndexOf('string(v: r._value)') < q.indexOf('union('));
+  assert.equal(q.split('string(v: r._value)').length - 1, 4);
+});
+
+test('parseTramos: CSV de latidos con filas de foto (texto) y comunicacion (bool) mezcladas', () => {
+  const lat = LAT + foto('2026-09-30T20:00:00Z', '2026-10-01T04:00:00Z') + ',,0,2026-10-01T04:00:00Z,comunicacion,true\n' + foto('2026-10-01T04:01:00Z', '2026-10-05T00:00:00Z');
+  const csv = CAB + est('2026-09-30T20:00:00Z', 'FRIO');
+  assert.deepEqual(tr(csv, { latidos: lat, hasta: '2026-10-01T06:00:00.000Z' }), [['G1', '03:00', '06:00', 'frio']]);
+});
+
 test('parseTramos: hueco de 2 h sin latidos -> sin-datos en el medio', () => {
   const lat = LAT + foto('2026-09-30T20:00:00Z', '2026-10-01T05:00:00Z') + foto('2026-10-01T07:00:00Z', '2026-10-05T00:00:00Z');
   const csv = CAB + est('2026-09-30T20:00:00Z', 'FRIO');

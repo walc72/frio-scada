@@ -54,13 +54,13 @@ function fluxLatidos({ desde, hasta, bucket }) {
   const previo = new Date(new Date(desde).getTime() - MAX_DIAS * DIA_MS).toISOString();
   const una = (m, campo, r) => `${fuente(bucket, r)}
   |> filter(fn: (r) => r._measurement == "${m}" and r._field == "${campo}")
-  |> group()`;
+  |> group()
+  |> map(fn: (r) => ({_time: r._time, _measurement: r._measurement, _value: string(v: r._value)}))`;
   const par = (n, m, campo) => `${n}p = ${una(m, campo, rango(previo, desde))}
   |> last()
 ${n}a = ${una(m, campo, rango(desde, hasta))}
 `;
   return `${par('f', 'foto', 'hora_plc')}${par('c', 'comunicacion', 'conectado')}union(tables: [fp, fa, cp, ca])
-  |> map(fn: (r) => ({_time: r._time, _measurement: r._measurement, _value: string(v: r._value)}))
   |> group()`;
 }
 
@@ -204,8 +204,8 @@ function parseCompresores(csv, { desde, hasta, ahora = Date.now(), latidos = '' 
   return salida.sort((a, b) => a.dia.localeCompare(b.dia) || a.camara.localeCompare(b.camara) || a.grupo.localeCompare(b.grupo, 'en', { numeric: true }));
 }
 
-// CSV de fluxTramos (+ latidos) -> [{camara, grupo, inicio, fin, estado}] con estado frio|descongelando|sin-datos.
-// Todo estado que no sea DESCONGELANDO cuenta como frio. Los huecos (mismo criterio que parseCompresores) y el tiempo antes del primer dato son sin-datos.
+// CSV de fluxTramos (+ latidos) -> [{camara, grupo, inicio, fin, estado}] con estado frio|descongelando|apagado|sin-datos.
+// DETENIDO y DESHABILITADO son apagado; el resto (FRIO, ESCURRIENDO, ALARMA RES, MANUAL) cuenta como frio. Los huecos (mismo criterio que parseCompresores) y el tiempo antes del primer dato son sin-datos.
 function parseTramos(csv, { desde, hasta, ahora = Date.now(), latidos = '' }) {
   const t0 = Date.parse(desde); const t1 = Math.min(Date.parse(hasta), ahora);
   const series = new Map(); const muestras = new Set();
@@ -213,7 +213,7 @@ function parseTramos(csv, { desde, hasta, ahora = Date.now(), latidos = '' }) {
     if (!r.grupo || !r.camara) return;
     const k = `${r.camara}|${r.grupo}`;
     if (!series.has(k)) series.set(k, { camara: r.camara, grupo: r.grupo, cambios: [] });
-    series.get(k).cambios.push([ms(r._time), r._value === 'DESCONGELANDO' ? 'descongelando' : 'frio']);
+    series.get(k).cambios.push([ms(r._time), r._value === 'DESCONGELANDO' ? 'descongelando' : r._value === 'DETENIDO' || r._value === 'DESHABILITADO' ? 'apagado' : 'frio']);
     muestras.add(ms(r._time));
   });
   if (t1 <= t0) return [];

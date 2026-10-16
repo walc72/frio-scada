@@ -2,6 +2,7 @@
 
 const express = require('express');
 const { requireAdmin } = require('../middleware/auth');
+const { hhmm } = require('../services/alertasCamaras');
 
 // POST /api/avisos/prueba {canal:'telegram'|'mail'} — solo admin, 1 por minuto por canal.
 function createAvisosRouter({ notifyCanal, ahora = Date.now }) {
@@ -13,11 +14,11 @@ function createAvisosRouter({ notifyCanal, ahora = Date.now }) {
     const t = ahora();
     if (t - (ultimo.get(canal) ?? -Infinity) < 60000) return res.status(429).json({ ok: false, error: 'Esperá un minuto antes de probar de nuevo' });
     ultimo.set(canal, t);
-    const hm = new Date(t + Number(process.env.TZ_OFFSET_MIN ?? -180) * 6e4).toISOString().slice(11, 16);
     try {
-      await notifyCanal(canal, `✅ Aviso de prueba de frio-scada (${hm})`);
+      await notifyCanal(canal, `✅ Aviso de prueba de frio-scada (${hhmm(t)})`);
       res.json({ ok: true });
     } catch (e) {
+      ultimo.delete(canal); // solo los envíos exitosos cuentan para el límite
       res.json({ ok: false, error: e.message || 'No se pudo enviar el aviso' });
     }
   });

@@ -35,7 +35,7 @@ function createSistemaResumenRouter({ queryCsv, getEstado, telegramConfigurado, 
     const t = ahora();
     const est = getEstado() || null;
     const ultimaEscritura = await seguro(async () => {
-      const csv = await queryCsv(`from(bucket: ${JSON.stringify(influxRaw.bucket())})\n  |> range(start: -30d)\n  |> filter(fn: (r) => r._measurement == "foto")\n  |> group()\n  |> last()`);
+      const csv = await queryCsv(`from(bucket: ${JSON.stringify(influxRaw.bucket())})\n  |> range(start: -30d)\n  |> filter(fn: (r) => r._measurement == "foto")\n  |> keep(columns: ["_time"])\n  |> group()\n  |> sort(columns: ["_time"], desc: true)\n  |> limit(n: 1)`);
       let ts = null; eachRow(csv, (r) => { ts = r._time; });
       return ts;
     });
@@ -44,7 +44,7 @@ function createSistemaResumenRouter({ queryCsv, getEstado, telegramConfigurado, 
     const dv = est ? desvioRelojS(est) : null;
     res.json({
       plc: {
-        conectado: est && typeof est._conectado === 'boolean' ? est._conectado : null,
+        conectado: est && typeof est._conectado === 'boolean' ? est._conectado && t - est._ts <= 120000 : null,
         mapaVersion: est?._version ?? est?.version_mapa ?? null,
         programa: est?.version_programa ?? null,
         desvioRelojS: dv === null || dv === undefined || !isFinite(dv) ? null : Math.round(dv),

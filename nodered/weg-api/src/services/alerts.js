@@ -75,11 +75,11 @@ const mailConfigurado = () => { const c = settings.getSmtpFull(); return !!(c.us
 async function notifyCanal(canal, texto) {
   if (canal === 'telegram') {
     if (!telegramConfigurado()) throw new Error('Telegram no está configurado');
-    try { await sendTelegram(texto); } catch (e) { throw new Error('Telegram rechazó el envío o no respondió'); }
+    try { await sendTelegram(texto); } catch (e) { console.error('[TG] Error:', e.message); throw new Error('Telegram rechazó el envío o no respondió'); }
   } else if (canal === 'mail') {
     const p = mailConfigurado() ? sendMail(texto) : null;
     if (!p) throw new Error('El mail no está configurado');
-    try { await p; } catch (e) { throw new Error('El servidor de mail rechazó el envío'); }
+    try { await p; } catch (e) { console.error('[EMAIL] Error:', e.message); throw new Error('El servidor de mail rechazó el envío'); }
   } else throw new Error('Canal desconocido');
 }
 

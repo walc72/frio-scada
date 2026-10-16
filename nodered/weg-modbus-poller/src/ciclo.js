@@ -102,8 +102,8 @@ function createCiclo({ plc, leerMapa, leerEventos, decodificar, nuevosEventos, e
     const regs = r.regs;
     const estado = limpiar(decodificar(regs));
     const veniaCaido = !com.estado().conectado;
-    // Reloj UTC del PLC (regs 6-7 = hora local regs 4-5 - huso, HORA.st): hora_plc leída como UTC - huso_min
-    com.lecturaOk(Date.parse(estado.hora_plc.replace(' ', 'T') + 'Z') / 1000 - (estado.huso_min ?? 0) * 60);
+    // Hora de pared del PLC (hora_plc leída como epoch UTC) contra la hora local de planta
+    com.lecturaOk(Date.parse(estado.hora_plc.replace(' ', 'T') + 'Z') / 1000);
 
     // Primer ciclo: prev null -> diff devuelve todo el estado (hace falta el estado inicial tras reiniciar)
     const cambios = diff(prev, estado);

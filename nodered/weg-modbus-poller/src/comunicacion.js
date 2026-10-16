@@ -8,13 +8,13 @@ function createComunicacion(now = Date.now) {
   let fallas = 0, primeraFalla = null;
 
   return {
-    // plcUtcS: reloj UTC del PLC, segundos desde 1970 (regs 6-7 del mapa). Se compara con el epoch
-    // de la PC: no depende de la zona horaria de la PC ni del contenedor.
-    lecturaOk(plcUtcS) {
+    // plcLocalS: hora de pared del PLC (hora_plc leída como epoch UTC). El PLC corre en hora local de planta
+    // (huso 0), así que se compara con la hora local de planta (TZ_OFFSET_MIN fijo, no la zona del contenedor).
+    lecturaOk(plcLocalS) {
       const t = now();
       if (!conectado) { conectado = true; desde = t; }
       fallas = 0; primeraFalla = null;
-      if (Number.isFinite(plcUtcS)) desvioRelojS = plcUtcS - t / 1000;
+      if (Number.isFinite(plcLocalS)) desvioRelojS = plcLocalS - (t / 1000 + Number(process.env.TZ_OFFSET_MIN ?? -180) * 60);
     },
     lecturaFallida(tipo) {
       const t = now();
