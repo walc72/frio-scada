@@ -1,9 +1,10 @@
-import { lazy, Suspense, useState, useEffect, Component, type ReactNode, type ErrorInfo } from 'react'
-import { Routes, Route, NavLink } from 'react-router-dom'
-import { LayoutDashboard, Snowflake, Thermometer, Gauge, Bell, FileText, Activity, Settings, Sun, Moon, Menu, LogOut, ShieldCheck, Eye, Lock, Wifi, WifiOff } from 'lucide-react'
+import { lazy, Suspense, useEffect, Component, type ReactNode, type ErrorInfo } from 'react'
+import { Routes, Route, Navigate } from 'react-router-dom'
+import { Sun, Moon, LogOut, ShieldCheck, Eye, Lock, Wifi, WifiOff } from 'lucide-react'
 import { useTheme } from './lib/theme'
 import { Button } from './components/ui/button'
-import { cn } from './lib/utils'
+import { RUTAS_VIEJAS } from './lib/rutas'
+import Navegacion from './components/Navegacion'
 import { useLiveStore } from './store/live'
 import { useConfigStore } from './store/config'
 import { useAuthStore, isAdminRole, ROLE_LABEL } from './store/auth'
@@ -12,9 +13,9 @@ import { useServerStore } from './store/server'
 import ReplicaBadge from './components/ReplicaBadge'
 import General from './views/General'
 import Camara from './views/Camara'
-import Descongelados from './views/Descongelados'
-import Compresores from './views/Compresores'
-import Eventos from './views/Eventos'
+import Historial from './views/Historial'
+import Mas from './views/Mas'
+import Avisos from './views/Avisos'
 import Reportes from './views/Reportes'
 import Sistema from './views/Sistema'
 import Login from './views/Login'
@@ -39,18 +40,7 @@ class RouteErrorBoundary extends Component<{ children: ReactNode }, { error: Err
 }
 
 const Config        = lazy(() => import('./views/Config'))
-
-const navItems = [
-  { to: '/', label: 'General', icon: LayoutDashboard, adminOnly: false },
-  { to: '/camara/C4', label: 'Cámara 4', icon: Snowflake, adminOnly: false },
-  { to: '/camara/C5', label: 'Cámara 5', icon: Snowflake, adminOnly: false },
-  { to: '/descongelados', label: 'Descongelados', icon: Thermometer, adminOnly: false },
-  { to: '/compresores', label: 'Compresores', icon: Gauge, adminOnly: false },
-  { to: '/eventos', label: 'Alarmas y eventos', icon: Bell, adminOnly: false },
-  { to: '/reportes', label: 'Reportes', icon: FileText, adminOnly: false },
-  { to: '/sistema', label: 'Sistema', icon: Activity, adminOnly: false },
-  { to: '/config', label: 'Configuración', icon: Settings, adminOnly: true }
-]
+const Usuarios      = lazy(() => import('./views/Usuarios'))
 
 // Vista para operador que intenta entrar a una ruta solo-admin
 function NoAutorizado() {
@@ -58,15 +48,13 @@ function NoAutorizado() {
     <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground py-16">
       <Lock className="h-10 w-10 opacity-40" />
       <div className="text-lg font-semibold">Acceso restringido</div>
-      <p className="text-sm">La Configuración solo está disponible para el rol administrador.</p>
+      <p className="text-sm">Esta sección solo está disponible para el rol administrador.</p>
     </div>
   )
 }
 
 export default function App() {
   const { theme, toggle } = useTheme()
-  // En mobile el menú arranca cerrado (drawer); en desktop abierto.
-  const [sidebarOpen, setSidebarOpen] = useState(() => typeof window !== 'undefined' ? window.innerWidth >= 768 : true)
   const connect = useLiveStore(s => s.connect)
   const disconnect = useLiveStore(s => s.disconnect)
   const connected = useLiveStore(s => s.connected)
@@ -77,7 +65,6 @@ export default function App() {
   const role = useAuthStore(s => s.role)
   const user = useAuthStore(s => s.user)
   const isAdmin = isAdminRole(role)
-  const visibleNav = navItems.filter(i => !i.adminOnly || isAdmin)
   const logoUrl = useBrandingStore(s => s.logoUrl)
   const brandName = useBrandingStore(s => s.name)
 
@@ -103,12 +90,9 @@ export default function App() {
     <div className="h-screen flex flex-col overflow-hidden">
       {/* Fixed header */}
       <header className="h-16 border-b px-4 flex items-center gap-3 bg-card shrink-0 z-20">
-        <Button variant="ghost" size="icon" onClick={() => setSidebarOpen((v) => !v)} title="Mostrar/Ocultar menú">
-          <Menu className="h-5 w-5" />
-        </Button>
         <img src={logoUrl} alt={brandName} className="h-8 w-auto max-w-[160px] object-contain" />
-        <div className="hidden md:block text-sm text-muted-foreground border-l border-border pl-3 leading-none">
-          Frío SCADA · Monitoreo de Cámaras
+        <div className="text-sm text-muted-foreground border-l border-border pl-3 leading-none">
+          Cámaras de frío
         </div>
         <div className="ml-auto flex items-center gap-2">
           {replica && <ReplicaBadge />}
@@ -138,59 +122,29 @@ export default function App() {
       </header>
 
       <div className="flex-1 flex min-h-0 relative">
-        {/* Backdrop (solo mobile, cuando el drawer está abierto) */}
-        {sidebarOpen && (
-          <div className="fixed inset-0 top-16 z-20 bg-black/40 md:hidden" onClick={() => setSidebarOpen(false)} />
-        )}
-        {/* Sidebar: drawer overlay en mobile, en-flujo en desktop */}
-        <aside
-          className={cn(
-            'border-r bg-card flex flex-col transition-all duration-200 overflow-hidden z-30',
-            'fixed top-16 bottom-0 left-0 md:static md:top-0 md:bottom-auto',
-            sidebarOpen ? 'w-60' : 'w-0'
-          )}
-        >
-          <nav className="flex-1 p-3 space-y-1 min-w-[15rem]">
-            {visibleNav.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                onClick={() => { if (typeof window !== 'undefined' && window.innerWidth < 768) setSidebarOpen(false) }}
-                className={({ isActive }) =>
-                  cn(
-                    'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
-                    isActive
-                      ? 'bg-primary text-primary-foreground'
-                      : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-                  )
-                }
-              >
-                <item.icon className="h-4 w-4" />
-                {item.label}
-              </NavLink>
-            ))}
-          </nav>
-        </aside>
+        <Navegacion />
 
         {/* Main content */}
         <div className="flex-1 flex flex-col min-w-0">
-          <main className="flex-1 p-3 sm:p-6 overflow-auto">
+          <main className="flex-1 p-3 sm:p-6 pb-20 md:pb-6 overflow-auto">
             <RouteErrorBoundary>
             <Suspense fallback={<div className="flex items-center justify-center h-full text-muted-foreground text-sm">Cargando...</div>}>
               <Routes>
                 <Route path="/" element={<General />} />
                 <Route path="/camara/:c" element={<Camara />} />
-                <Route path="/descongelados" element={<Descongelados />} />
-                <Route path="/compresores" element={<Compresores />} />
-                <Route path="/eventos" element={<Eventos />} />
+                {Object.entries(RUTAS_VIEJAS).map(([de, a]) => <Route key={de} path={de} element={<Navigate to={a} replace />} />)}
+                <Route path="/historial/:pestana?" element={<Historial />} />
+                <Route path="/mas" element={<Mas />} />
+                <Route path="/avisos" element={<Avisos />} />
                 <Route path="/reportes" element={<Reportes />} />
                 <Route path="/sistema" element={<Sistema />} />
+                <Route path="/usuarios" element={isAdmin ? <Usuarios /> : <NoAutorizado />} />
                 <Route path="/config" element={isAdmin ? <Config /> : <NoAutorizado />} />
               </Routes>
             </Suspense>
             </RouteErrorBoundary>
           </main>
-          <footer className="h-8 border-t px-6 flex items-center justify-center text-xs text-muted-foreground bg-card shrink-0">
+          <footer className="hidden md:flex h-8 border-t px-6 flex items-center justify-center text-xs text-muted-foreground bg-card shrink-0">
             Powered By <strong className="ml-1">Tecno Electric S.A.</strong>
           </footer>
         </div>

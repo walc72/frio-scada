@@ -1,6 +1,7 @@
 import { describe, test, expect } from 'vitest'
 import type { Estado } from '../store/camaras'
 import type { FilaDescongelado } from './camaras'
+import { RUTAS_VIEJAS } from './rutas'
 import { estadoEquipo, faltanMin, fraseCamara, proximoTexto, semaforo, textoAlarma, badgeDescongelado } from './frases'
 
 // 2026-10-16 12:00 hora de planta (UTC-3) y 23:30 del mismo día
@@ -95,5 +96,15 @@ describe('frases', () => {
       expect(proximoTexto(f, c, T)).not.toMatch(/undefined|NaN/)
       expect(JSON.stringify(semaforo(f, true, T))).not.toMatch(/undefined|NaN/)
     }
+  })
+})
+
+describe('RUTAS_VIEJAS', () => {
+  test('redirige las 3 rutas viejas', () => {
+    expect(RUTAS_VIEJAS).toEqual({
+      '/descongelados': '/historial/descongelados',
+      '/compresores': '/historial/compresores',
+      '/eventos': '/historial/avisos',
+    })
   })
 })

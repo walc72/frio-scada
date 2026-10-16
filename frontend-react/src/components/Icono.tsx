@@ -24,3 +24,18 @@ export function Icono({ nombre, size = 24 }: { nombre: NombreIcono; size?: numbe
   )
 }
 export default Icono
+
+// Íconos de navegación (mismo estilo)
+const NAV = {
+  inicio: 'M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10',
+  camaras: 'M12 2.5v19M3.8 7.25l16.4 9.5M20.2 7.25L3.8 16.75',
+  historial: 'M12 3a9 9 0 100 18 9 9 0 000-18zM12 7v5l3 2',
+  mas: 'M4 6h16M4 12h16M4 18h16',
+}
+export function IconoNav({ nombre, size = 22 }: { nombre: keyof typeof NAV; size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d={NAV[nombre]} />
+    </svg>
+  )
+}

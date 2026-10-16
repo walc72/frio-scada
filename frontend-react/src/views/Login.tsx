@@ -4,11 +4,11 @@ import { useBrandingStore } from '../store/branding'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { Label } from '../components/ui/label'
-import { Lock, User, Eye, EyeOff, Loader2, ShieldCheck } from 'lucide-react'
+import { Lock, User, Eye, EyeOff, Loader2 } from 'lucide-react'
 
 export default function Login() {
   const login = useAuthStore(s => s.login)
-  const { name, subtitle, logoUrl } = useBrandingStore()
+  const logoUrl = useBrandingStore(s => s.logoUrl)
   const [user, setUser] = useState('')
   const [pass, setPass] = useState('')
   const [showPass, setShowPass] = useState(false)
@@ -35,46 +35,13 @@ export default function Login() {
   }
 
   return (
-    <div className="h-screen w-screen flex bg-background">
-      {/* ── Panel de marca (izquierda, siempre oscuro "control room") ── */}
-      <div className="hidden lg:flex flex-col justify-between w-[44%] max-w-[600px] p-14 relative overflow-hidden"
-        style={{ background: '#0E1116', color: '#E7ECF3', borderRight: '1px solid #222833' }}>
-        <div className="absolute inset-0 opacity-[0.06]"
-          style={{ backgroundImage: 'radial-gradient(circle at 20% 20%, white 1.5px, transparent 1.5px)', backgroundSize: '30px 30px' }} />
-        <div className="relative self-start bg-white rounded-2xl px-6 py-4">
-          <img src={logoUrl} alt={name} className="h-14 w-auto max-w-[360px] object-contain block" />
+    <div className="min-h-screen w-full flex flex-col items-center justify-center p-6 gap-6 bg-background">
+      <div className={`w-full max-w-[420px] ${shake ? 'animate-shake' : ''}`}>
+        <div className="flex flex-col items-center gap-2 mb-8 text-center">
+          <img src={logoUrl} alt="Tecno Electric" className="h-16 w-auto max-w-[280px] object-contain" />
+          <h1 className="text-3xl font-semibold tracking-tight">Cámaras de frío</h1>
+          <p className="text-base text-muted-foreground">Unifrisa</p>
         </div>
-        <div className="relative space-y-5">
-          <div className="text-sm tracking-[0.18em]" style={{ color: '#F0812F' }}>SISTEMA DE MONITOREO</div>
-          <h1 className="text-6xl font-semibold leading-[1.08] break-words">{name}</h1>
-          {subtitle && (
-            <p className="text-xl leading-relaxed max-w-[480px]" style={{ color: '#8B97A9' }}>
-              {subtitle}
-            </p>
-          )}
-        </div>
-        <div className="relative flex items-center gap-2 text-sm" style={{ color: '#5D6675' }}>
-          <ShieldCheck className="h-4 w-4" />
-          Acceso seguro por roles · Powered by <strong style={{ color: '#8B97A9' }}>Tecno Electric S.A.</strong>
-        </div>
-      </div>
-
-      {/* ── Formulario (derecha) ───────────────────────────────────── */}
-      <div className="flex-1 flex flex-col items-center justify-center p-6 gap-6">
-        {/* Marca en mobile */}
-        <div className="lg:hidden flex flex-col items-center gap-2">
-          <img src={logoUrl} alt={name} className="h-16 w-auto max-w-[280px] object-contain" />
-          <h1 className="text-2xl font-semibold tracking-tight text-center">{name}</h1>
-        </div>
-
-        <div className={`w-full max-w-[420px] ${shake ? 'animate-shake' : ''}`}>
-          <div className="flex flex-col items-center gap-2.5 mb-8">
-            <div className="bg-primary/10 rounded-2xl p-4">
-              <Lock className="h-7 w-7 text-primary" />
-            </div>
-            <h2 className="text-2xl font-semibold">Iniciar sesión</h2>
-            <p className="text-sm text-muted-foreground">Ingresá tus credenciales para continuar</p>
-          </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="space-y-1.5">
@@ -118,17 +85,15 @@ export default function Login() {
               <p className="text-destructive text-sm text-center">{error}</p>
             )}
 
-            <Button type="submit" className="w-full h-12 text-base" disabled={!user || !pass || loading}>
-              {loading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Ingresando…</> : 'Ingresar'}
+            <Button type="submit" className="w-full h-14 text-lg" disabled={!user || !pass || loading}>
+              {loading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Entrando…</> : 'Entrar'}
             </Button>
           </form>
         </div>
 
-        <p className="text-xs text-muted-foreground lg:hidden">
+        <p className="text-xs text-muted-foreground">
           Powered by <strong>Tecno Electric S.A.</strong>
         </p>
-      </div>
-
       <style>{`
         @keyframes shake {
           0%, 100% { transform: translateX(0); }
