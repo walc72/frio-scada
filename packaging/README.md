@@ -84,3 +84,5 @@ config/                 config.json, settings.json (usuarios, SMTP, hora del rep
 reports/  backups/      PDFs del reporte diario y backups de InfluxDB
 nginx/ mosquitto/ grafana/
 ```
+
+Nota: las filas de `desvio_reloj_s` anteriores al 2026-10-16 tienen el significado viejo (UTC).

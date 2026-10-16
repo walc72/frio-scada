@@ -5,10 +5,11 @@ const { requireAdmin } = require('../middleware/auth');
 const { hhmm } = require('../services/alertasCamaras');
 
 // POST /api/avisos/prueba {canal:'telegram'|'mail'} — solo admin, 1 por minuto por canal.
-function createAvisosRouter({ notifyCanal, ahora = Date.now }) {
+function createAvisosRouter({ notifyCanal, isReplica = false, ahora = Date.now }) {
   const router = express.Router();
   const ultimo = new Map(); // canal -> ms del último intento
   router.post('/prueba', requireAdmin, async (req, res) => {
+    if (isReplica) return res.status(409).json({ ok: false, error: 'Los avisos se envían desde la planta' });
     const canal = req.body && req.body.canal;
     if (canal !== 'telegram' && canal !== 'mail') return res.status(400).json({ ok: false, error: 'Canal inválido' });
     const t = ahora();

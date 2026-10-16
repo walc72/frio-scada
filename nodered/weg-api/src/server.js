@@ -117,11 +117,11 @@ app.use('/api/replica-link', createReplicaLinkRouter({
 app.use('/api/camaras', createCamarasRouter({
   queryCsv: influxRaw.queryAnnotatedCsv, getEstado: configService.getEstadoCamaras,
 }));
-app.use('/api/avisos', createAvisosRouter({ notifyCanal: alerts.notifyCanal }));
+app.use('/api/avisos', createAvisosRouter({ notifyCanal: alerts.notifyCanal, isReplica: REPLICA_MODE }));
 app.use('/api/sistema', createSistemaResumenRouter({
   queryCsv: influxRaw.queryAnnotatedCsv, getEstado: configService.getEstadoCamaras,
   telegramConfigurado: alerts.telegramConfigurado, mailConfigurado: alerts.mailConfigurado,
-  desvioRelojS: alertasCamaras.desvioRelojS,
+  desvioRelojS: alertasCamaras.desvioRelojS, isReplica: REPLICA_MODE,
 }));
 app.use('/api/system', createSystemRouter({
   agent: createAgentClient({ baseUrl: process.env.AGENT_URL || 'http://frio-agent:3400', token: process.env.AGENT_TOKEN || '' }),

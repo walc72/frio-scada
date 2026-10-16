@@ -28,15 +28,18 @@ function ultimaCopia(dir) {
 }
 
 // GET /api/sistema/resumen. Todo dato desconocido va null.
-function createSistemaResumenRouter({ queryCsv, getEstado, telegramConfigurado, mailConfigurado, desvioRelojS, backupDir = process.env.BACKUP_DIR || '/app/backups', ahora = Date.now }) {
+function createSistemaResumenRouter({ queryCsv, getEstado, telegramConfigurado, mailConfigurado, desvioRelojS, isReplica = false, backupDir = process.env.BACKUP_DIR || '/app/backups', ahora = Date.now }) {
   const router = express.Router();
   const seguro = async (f) => { try { return await f(); } catch (e) { console.error(`[API] sistema/resumen: ${e.message}`); return null; } };
   router.get('/resumen', async (req, res) => {
     const t = ahora();
     const est = getEstado() || null;
     const ultimaEscritura = await seguro(async () => {
-      const csv = await queryCsv(`from(bucket: ${JSON.stringify(influxRaw.bucket())})\n  |> range(start: -30d)\n  |> filter(fn: (r) => r._measurement == "foto")\n  |> keep(columns: ["_time"])\n  |> group()\n  |> sort(columns: ["_time"], desc: true)\n  |> limit(n: 1)`);
-      let ts = null; eachRow(csv, (r) => { ts = r._time; });
+      const csv = await queryCsv(`from(bucket: ${JSON.stringify(influxRaw.bucket())})\n  |> range(start: -2d)
+  |> filter(fn: (r) => r._measurement == "foto" and r._field == "hora_plc")
+  |> last()
+  |> keep(columns: ["_time"])`);
+      let ts = null; eachRow(csv, (r) => { if (!ts || r._time > ts) ts = r._time; });
       return ts;
     });
     const com = await seguro(async () => cortes(s.parseComunicacion(await queryCsv(
@@ -49,6 +52,7 @@ function createSistemaResumenRouter({ queryCsv, getEstado, telegramConfigurado, 
         programa: est?.version_programa ?? null,
         desvioRelojS: dv === null || dv === undefined || !isFinite(dv) ? null : Math.round(dv),
       },
+      replica: !!isReplica,
       historial: { ultimaEscritura },
       telegram: { configurado: !!telegramConfigurado() },
       mail: { configurado: !!mailConfigurado() },

@@ -198,6 +198,7 @@ services:
       - TZ=${TZ:-America/Asuncion}
       - CONFIG_PATH=/app/config/config.json
       - MQTT_BROKER=mqtt://mosquitto:1883
+      - TZ_OFFSET_MIN=${TZ_OFFSET_MIN:--180}
       - INFLUXDB_TOKEN=${INFLUXDB_TOKEN}
     depends_on:
       mosquitto:

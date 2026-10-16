@@ -62,7 +62,7 @@ test('sistema/resumen: lo desconocido va null', async () => {
   });
   const r = await servir('operador', router, '/api/sistema', (f) => f('/resumen'));
   assert.deepEqual(r.body, {
-    plc: { conectado: null, mapaVersion: null, programa: null, desvioRelojS: null },
+    replica: false, plc: { conectado: null, mapaVersion: null, programa: null, desvioRelojS: null },
     historial: { ultimaEscritura: null }, telegram: { configurado: false }, mail: { configurado: true },
     copia: { ultima: null }, cortes7d: { cantidad: null, minutos: null },
   });
@@ -90,12 +90,23 @@ test('sistema/resumen: estado viejo (más de 2 min) no cuenta como conectado', a
   assert.equal((await servir('operador', router, '/api/sistema', (f) => f('/resumen'))).body.plc.conectado, false);
 });
 
-test('sistema/resumen: la consulta de foto no agrupa tipos distintos', async () => {
+test('sistema/resumen: la consulta de foto mira un solo campo siempre escrito', async () => {
   let q = '';
   const router = createSistemaResumenRouter({
     queryCsv: async (x) => { if (x.includes('"foto"')) q = x; return ''; }, getEstado: () => null,
     telegramConfigurado: () => false, mailConfigurado: () => false, desvioRelojS: () => null, backupDir: '/no/existe',
   });
   await servir('operador', router, '/api/sistema', (f) => f('/resumen'));
-  assert.ok(q.indexOf('keep(columns: ["_time"])') > 0 && q.indexOf('keep(') < q.indexOf('group()'));
+  assert.match(q, /range\(start: -2d\)/);
+  assert.match(q, /r\._field == "hora_plc"/);
+  assert.match(q, /\|> last\(\)/);
+});
+
+test('replica: avisos/prueba 409 y resumen replica:true', async () => {
+  const router = createAvisosRouter({ isReplica: true, notifyCanal: async () => { throw new Error('no debe llamarse'); } });
+  const r = await servir('admin', router, '/api/avisos', (f) => f('/prueba', { canal: 'telegram' }));
+  assert.equal(r.status, 409);
+  assert.deepEqual(r.body, { ok: false, error: 'Los avisos se envían desde la planta' });
+  const rs = createSistemaResumenRouter({ queryCsv: async () => '', getEstado: () => null, telegramConfigurado: () => false, mailConfigurado: () => false, desvioRelojS: () => null, isReplica: true, backupDir: '/no/existe' });
+  assert.equal((await servir('operador', rs, '/api/sistema', (f) => f('/resumen'))).body.replica, true);
 });

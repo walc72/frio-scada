@@ -15,6 +15,7 @@ const hhmm = (ms) => new Date(ms + Number(process.env.TZ_OFFSET_MIN ?? -180) * 6
 
 // Flags de alarma del mapa v2 (mapa.js decodificar) con su texto. Se omiten los
 // agregados (alarma_activa global y por cámara): los cubren los flags específicos.
+// Mantener en sincronía con alarmasActivas/EVENTOS de frontend-react/src/lib/frases.ts (mismos flags de alarma).
 function definiciones() {
   const d = [
     ['alarma_reloj', 'Alarma de reloj del PLC'],
