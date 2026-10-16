@@ -73,7 +73,12 @@ function createMando({ cliente, unidad, ahora = Date.now, dormir = (ms) => new P
       latidoPendiente = true;
       return encolar(async () => {
         latidoPendiente = false;
-        try { await escribir(BASE + 12, [siguiente((await leer(BASE + 12, 1))[0])]); return true; } catch (e) { return false; }
+        try {
+          // Un PLC con mapa v2 (sin canal) no define el 712: mismo chequeo fresco que un pedido, si falla no se escribe
+          if ((await leer(1, 1))[0] < VERSION_MAPA_CON_CANAL || (await leer(BASE + 7, 1))[0] !== VERSION_CANAL) return false;
+          await escribir(BASE + 12, [siguiente((await leer(BASE + 12, 1))[0])]);
+          return true;
+        } catch (e) { return false; }
       });
     },
   };

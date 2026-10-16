@@ -175,3 +175,20 @@ test('/mando: sin MANDO_TOKEN configurado el canal queda cerrado (401 aun sin he
   const m = crearManejador({ mando: { pedir: async () => assert.fail() }, token: '' });
   assert.equal((await pedirHttp(m, { cuerpo: JSON.stringify(PEDIDO) })).code, 401);
 });
+
+test('latir con mapa v2 (sin canal): ninguna escritura', async () => {
+  const { srv, mando, cerrar } = await armar({}, { mapaV3: false });
+  try {
+    assert.equal(await mando.latir(), false);
+    assert.equal(escrituras(srv).length, 0);
+  } finally { await cerrar(); }
+});
+
+test('dos getOrCreate simultaneos abren una sola conexion', async () => {
+  const connections = require('../src/connections');
+  const srv = await crearServidor(fixtures);
+  try {
+    const [a, b] = await Promise.all([connections.getOrCreate('127.0.0.1', srv.port), connections.getOrCreate('127.0.0.1', srv.port)]);
+    assert.ok(a && a === b);
+  } finally { connections.closeAll(); await srv.close(); }
+});

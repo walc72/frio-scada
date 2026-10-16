@@ -20,7 +20,18 @@ function key(ip, port) {
   return `${ip}:${port}`;
 }
 
-async function getOrCreate(ip, port) {
+// Conexiones en curso por clave: poll y mando pueden llamar a la vez y no deben abrir dos sockets
+const conectando = new Map();
+
+function getOrCreate(ip, port) {
+  const k = key(ip, port);
+  const entry = pool.get(k);
+  if (entry && entry.client.isOpen) return Promise.resolve(entry.client);
+  if (!conectando.has(k)) conectando.set(k, abrir(ip, port).finally(() => conectando.delete(k)));
+  return conectando.get(k);
+}
+
+async function abrir(ip, port) {
   const k = key(ip, port);
   let entry = pool.get(k);
 
@@ -132,4 +143,4 @@ function cliente(plc) {
   };
 }
 
-module.exports = { config, poll, cliente, closeOne, closeAll, getStats, isTransportError };
+module.exports = { config, poll, cliente, getOrCreate, closeOne, closeAll, getStats, isTransportError };
