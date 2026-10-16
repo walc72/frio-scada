@@ -97,7 +97,7 @@ test('sistema/resumen: la consulta de foto mira un solo campo siempre escrito', 
     telegramConfigurado: () => false, mailConfigurado: () => false, desvioRelojS: () => null, backupDir: '/no/existe',
   });
   await servir('operador', router, '/api/sistema', (f) => f('/resumen'));
-  assert.match(q, /range\(start: -2d\)/);
+  assert.match(q, /range\(start: -30d\)/);
   assert.match(q, /r\._field == "hora_plc"/);
   assert.match(q, /\|> last\(\)/);
 });

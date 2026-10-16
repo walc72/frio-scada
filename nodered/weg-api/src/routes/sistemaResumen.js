@@ -35,7 +35,7 @@ function createSistemaResumenRouter({ queryCsv, getEstado, telegramConfigurado, 
     const t = ahora();
     const est = getEstado() || null;
     const ultimaEscritura = await seguro(async () => {
-      const csv = await queryCsv(`from(bucket: ${JSON.stringify(influxRaw.bucket())})\n  |> range(start: -2d)
+      const csv = await queryCsv(`from(bucket: ${JSON.stringify(influxRaw.bucket())})\n  |> range(start: -30d)
   |> filter(fn: (r) => r._measurement == "foto" and r._field == "hora_plc")
   |> last()
   |> keep(columns: ["_time"])`);
