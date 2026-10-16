@@ -228,7 +228,7 @@ const EVENTOS: RowEvento[] = [
   { re: /^horario (\d) tiempo invalido$/, tipo: 'alarma', flag: (m, c) => `${c}.H${m[1]}.tiempo_invalido`,
     aparece: m => `El horario ${m[1]} tiene un tiempo no válido`, resuelve: m => `Horario ${m[1]}: se corrigió el tiempo` },
   { re: /^descongelado etapa (\d)$/, tipo: 'info',
-    aparece: m => `Empezó la etapa ${m[1]} del descongelado`, resuelve: m => `Terminó la etapa ${m[1]} del descongelado` },
+    aparece: m => `Empezó la etapa ${Number(m[1]) + 1} del descongelado`, resuelve: m => `Terminó la etapa ${Number(m[1]) + 1} del descongelado` },
   { re: /^etapa 1 sin confirmacion$/, tipo: 'alarma', flag: (_m, c) => `${c}.alarma_espera`,
     aparece: () => 'Esperó demasiado para empezar la etapa 2 del descongelado', resuelve: () => 'Se recuperó la espera de la etapa del descongelado' },
   { re: /^recuperacion invalida$/, tipo: 'alarma', flag: (_m, c) => `${c}.alarma_recuperacion`,

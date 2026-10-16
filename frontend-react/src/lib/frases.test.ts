@@ -133,8 +133,8 @@ describe('fraseEvento / tipoAviso / sigueActivo con textos reales', () => {
     ['C4 HORARIO 2 SOLAPADO', 0, 'Horario 2: se corrigió la superposición', 'resuelto'],
     ['C4 HORARIO 3 HORA INVALIDA', 1, 'El horario 3 tiene una hora no válida', 'alarma'],
     ['C4 HORARIO 3 TIEMPO INVALIDO', 0, 'Horario 3: se corrigió el tiempo', 'resuelto'],
-    ['C4 DESCONGELADO ETAPA 1', 1, 'Empezó la etapa 1 del descongelado', 'info'],
-    ['C4 DESCONGELADO ETAPA 1', 0, 'Terminó la etapa 1 del descongelado', 'info'],
+    ['C4 DESCONGELADO ETAPA 0', 1, 'Empezó la etapa 1 del descongelado', 'info'], // el PLC numera las etapas desde 0
+    ['C4 DESCONGELADO ETAPA 1', 0, 'Terminó la etapa 2 del descongelado', 'info'],
     ['C5 ETAPA 1 SIN CONFIRMACION', 1, 'Esperó demasiado para empezar la etapa 2 del descongelado', 'alarma'],
     ['C5 RECUPERACION INVALIDA', 1, 'Tardó demasiado en volver a frío', 'alarma'],
     ['C5 MANUAL PROLONGADO', 0, 'Ya no hay equipos en manual de más', 'resuelto'],
