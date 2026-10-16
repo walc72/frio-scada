@@ -234,6 +234,8 @@ services:
       - ./config:/app/config
       # Reportes diarios generados automáticamente (PDF por día)
       - ${REPORTS_DIR:-./reports}:/app/reports
+      # Copias de weg-backup (solo lectura): el resumen del sistema muestra la última
+      - ${BACKUP_LOCAL_DIR:-./backups}:/app/backups:ro
     environment:
       - TZ=${TZ:-America/Asuncion}
       - PORT=3200

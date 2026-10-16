@@ -137,4 +137,4 @@ function start() {
   return timer;
 }
 
-module.exports = { evaluar, start };
+module.exports = { evaluar, start, desvioRelojS };

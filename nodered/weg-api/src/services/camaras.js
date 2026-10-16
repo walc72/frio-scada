@@ -64,6 +64,13 @@ ${n}a = ${una(m, campo, rango(desde, hasta))}
   |> group()`;
 }
 
+// Cambios de estado de cada grupo (texto) en el rango + el último previo a desde.
+function fluxTramos({ desde, hasta, camara, bucket }) {
+  const base = (r) => `${fuente(bucket, r)}\n  |> filter(fn: (r) => r._measurement == "estado" and r._field == "texto" and r.campo == "estado" and exists r.grupo)${filtroCamara(camara)}`;
+  const previo = new Date(new Date(desde).getTime() - MAX_DIAS * DIA_MS).toISOString();
+  return `previo = ${base(rango(previo, desde))}\n  |> last()\nactual = ${base(rango(desde, hasta))}\nunion(tables: [previo, actual])\n  |> group()`;
+}
+
 function fluxComunicacion({ desde, hasta, bucket }) {
   return `${fuente(bucket, rango(desde, hasta))}\n  |> filter(fn: (r) => r._measurement == "comunicacion")${pivot}`;
 }
@@ -197,4 +204,40 @@ function parseCompresores(csv, { desde, hasta, ahora = Date.now(), latidos = '' 
   return salida.sort((a, b) => a.dia.localeCompare(b.dia) || a.camara.localeCompare(b.camara) || a.grupo.localeCompare(b.grupo, 'en', { numeric: true }));
 }
 
-module.exports = { CAMARAS, offsetMs, validarParams, fluxDescongelados, fluxEventos, fluxCompresores, fluxLatidos, fluxComunicacion, parseDescongelados, parseEventos, parseCompresores, parseComunicacion };
+// CSV de fluxTramos (+ latidos) -> [{camara, grupo, inicio, fin, estado}] con estado frio|descongelando|sin-datos.
+// Todo estado que no sea DESCONGELANDO cuenta como frio. Los huecos (mismo criterio que parseCompresores) y el tiempo antes del primer dato son sin-datos.
+function parseTramos(csv, { desde, hasta, ahora = Date.now(), latidos = '' }) {
+  const t0 = Date.parse(desde); const t1 = Math.min(Date.parse(hasta), ahora);
+  const series = new Map(); const muestras = new Set();
+  eachRow(csv, (r) => {
+    if (!r.grupo || !r.camara) return;
+    const k = `${r.camara}|${r.grupo}`;
+    if (!series.has(k)) series.set(k, { camara: r.camara, grupo: r.grupo, cambios: [] });
+    series.get(k).cambios.push([ms(r._time), r._value === 'DESCONGELANDO' ? 'descongelando' : 'frio']);
+    muestras.add(ms(r._time));
+  });
+  if (t1 <= t0) return [];
+  const gaps = huecos(latidos, muestras, t0, t1);
+  const iso = (t) => new Date(t).toISOString();
+  const salida = [];
+  for (const s of series.values()) {
+    s.cambios.sort((a, b) => a[0] - b[0]);
+    const cortes = new Set([t0, t1]);
+    for (const [t] of s.cambios) if (t > t0 && t < t1) cortes.add(t);
+    for (const g of gaps) for (const t of g) if (t > t0 && t < t1) cortes.add(t);
+    const pts = [...cortes].sort((a, b) => a - b);
+    const tramos = [];
+    for (let i = 0; i + 1 < pts.length; i++) {
+      const [a, b] = [pts[i], pts[i + 1]];
+      let estado = null;
+      for (const [t, e] of s.cambios) if (t <= a) estado = e;
+      if (estado === null || gaps.some(([x, y]) => a >= x && a < y)) estado = 'sin-datos';
+      const u = tramos[tramos.length - 1];
+      if (u && u.estado === estado) u.fin = iso(b); else tramos.push({ camara: s.camara, grupo: s.grupo, inicio: iso(a), fin: iso(b), estado });
+    }
+    salida.push(...tramos);
+  }
+  return salida.sort((a, b) => a.camara.localeCompare(b.camara) || a.grupo.localeCompare(b.grupo, 'en', { numeric: true }) || a.inicio.localeCompare(b.inicio));
+}
+
+module.exports = { fluxTramos, parseTramos, CAMARAS, offsetMs, validarParams, fluxDescongelados, fluxEventos, fluxCompresores, fluxLatidos, fluxComunicacion, parseDescongelados, parseEventos, parseCompresores, parseComunicacion };

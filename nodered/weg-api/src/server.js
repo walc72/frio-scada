@@ -15,6 +15,9 @@ const { createRegistry } = require('./services/replicas');
 const createReplicaLinkRouter = require('./routes/replicaLink');
 const { createLinkStore } = require('./services/replicaLink');
 const createCamarasRouter = require('./routes/camaras');
+const createAvisosRouter = require('./routes/avisos');
+const createSistemaResumenRouter = require('./routes/sistemaResumen');
+const alerts = require('./services/alerts');
 const createSystemRouter = require('./routes/system');
 const { createAgentClient } = require('./services/agentClient');
 const { createMqttProxy } = require('./services/mqttProxy');
@@ -113,6 +116,12 @@ app.use('/api/replica-link', createReplicaLinkRouter({
 }));
 app.use('/api/camaras', createCamarasRouter({
   queryCsv: influxRaw.queryAnnotatedCsv, getEstado: configService.getEstadoCamaras,
+}));
+app.use('/api/avisos', createAvisosRouter({ notifyCanal: alerts.notifyCanal }));
+app.use('/api/sistema', createSistemaResumenRouter({
+  queryCsv: influxRaw.queryAnnotatedCsv, getEstado: configService.getEstadoCamaras,
+  telegramConfigurado: alerts.telegramConfigurado, mailConfigurado: alerts.mailConfigurado,
+  desvioRelojS: alertasCamaras.desvioRelojS,
 }));
 app.use('/api/system', createSystemRouter({
   agent: createAgentClient({ baseUrl: process.env.AGENT_URL || 'http://frio-agent:3400', token: process.env.AGENT_TOKEN || '' }),

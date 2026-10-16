@@ -41,27 +41,46 @@ function sendTelegram(text) {
   });
 }
 
+// Mail al destinatario configurado; null si no hay transporte o destinatario.
+function sendMail(texto) {
+  const smtp = settings.getSmtpFull();
+  const transport = smtp.to ? getTransport() : null;
+  if (!transport) return null;
+  return transport.sendMail({
+    from: `"Frío SCADA" <${smtp.from || smtp.user}>`,
+    to: smtp.to,
+    subject: `[Frío SCADA] ${texto.split('\n')[0].slice(0, 120)}`,
+    text: texto,
+  });
+}
+
 // Envía texto por Telegram y email. Devuelve true si al menos un canal configurado
 // lo entregó (o si no hay ninguno configurado); false si todos los configurados
 // fallaron. Un fallo parcial (p. ej. SMTP caído) cuenta como enviado: así no se
 // repite el mensaje en Telegram cada 5 s.
 async function notify(texto) {
   console.log(`[ALERT] ${texto}`);
-  const smtp = settings.getSmtpFull();
-  const transport = smtp.to ? getTransport() : null;
   const canales = [];
   if (telegramConfigurado()) canales.push(['TG', sendTelegram(texto)]);
-  if (transport) {
-    canales.push(['EMAIL', transport.sendMail({
-      from: `"Frío SCADA" <${smtp.from || smtp.user}>`,
-      to: smtp.to,
-      subject: `[Frío SCADA] ${texto.split('\n')[0].slice(0, 120)}`,
-      text: texto,
-    })]);
-  }
+  const mail = sendMail(texto);
+  if (mail) canales.push(['EMAIL', mail]);
   const res = await Promise.allSettled(canales.map((c) => c[1]));
   res.forEach((r, i) => { if (r.status === 'rejected') console.error(`[${canales[i][0]}] Error:`, r.reason && r.reason.message); });
   return canales.length === 0 || res.some((r) => r.status === 'fulfilled');
 }
 
-module.exports = { notify, getHistory, addHistory };
+const mailConfigurado = () => { const c = settings.getSmtpFull(); return !!(c.user && c.pass && c.to); };
+
+// Envía por un solo canal ('telegram'|'mail'); rechaza con un mensaje legible en español.
+async function notifyCanal(canal, texto) {
+  if (canal === 'telegram') {
+    if (!telegramConfigurado()) throw new Error('Telegram no está configurado');
+    try { await sendTelegram(texto); } catch (e) { throw new Error('Telegram rechazó el envío o no respondió'); }
+  } else if (canal === 'mail') {
+    const p = mailConfigurado() ? sendMail(texto) : null;
+    if (!p) throw new Error('El mail no está configurado');
+    try { await p; } catch (e) { throw new Error('El servidor de mail rechazó el envío'); }
+  } else throw new Error('Canal desconocido');
+}
+
+module.exports = { notify, notifyCanal, telegramConfigurado, mailConfigurado, getHistory, addHistory };

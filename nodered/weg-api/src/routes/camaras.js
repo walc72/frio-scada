@@ -19,6 +19,7 @@ function createCamarasRouter({ queryCsv, getEstado }) {
   ruta('/descongelados', true, async (p) => s.parseDescongelados(await queryCsv(s.fluxDescongelados(p))));
   ruta('/eventos', true, async (p, q) => s.parseEventos(await queryCsv(s.fluxEventos(p)), { camara: p.camara, texto: q.texto }));
   ruta('/compresores', true, async (p) => s.parseCompresores(await queryCsv(s.fluxCompresores(p)), { ...p, latidos: await queryCsv(s.fluxLatidos(p)) }));
+  ruta('/tramos', true, async (p) => s.parseTramos(await queryCsv(s.fluxTramos(p)), { ...p, latidos: await queryCsv(s.fluxLatidos(p)) }));
   ruta('/comunicacion', false, async (p) => s.parseComunicacion(await queryCsv(s.fluxComunicacion(p))));
   return router;
 }
