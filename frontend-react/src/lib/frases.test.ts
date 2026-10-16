@@ -1,0 +1,76 @@
+import { describe, test, expect } from 'vitest'
+import type { Estado } from '../store/camaras'
+import type { FilaDescongelado } from './camaras'
+import { estadoEquipo, faltanMin, fraseCamara, proximoTexto, semaforo, textoAlarma, badgeDescongelado } from './frases'
+
+// 2026-10-16 12:00 hora de planta (UTC-3) y 23:30 del mismo día
+const T = Date.UTC(2026, 9, 16, 15, 0)
+const T2330 = Date.UTC(2026, 9, 17, 2, 30)
+
+// 8 equipos por cámara, todos en FRIO salvo lo que se pise
+function E(extra: Estado = {}, c: 'C4' | 'C5' = 'C4'): Estado {
+  const e: Estado = {}
+  for (const cam of ['C4', 'C5']) {
+    e[`${cam}.modo`] = 'AUTOMATICO'
+    for (let g = 1; g <= 8; g++) e[`${cam}.G${g}.estado`] = 'FRIO'
+    for (let h = 1; h <= 4; h++) { e[`${cam}.H${h}.estado`] = 'DESHABILITADO'; e[`${cam}.H${h}.hora`] = '00:00' }
+  }
+  void c
+  return { ...e, ...extra }
+}
+const fx8frio = E({ 'C5.H1.estado': 'PROGRAMADO', 'C5.H1.hora': '12:30' })
+const fx4desc = E({
+  'C4.G2.estado': 'DESCONGELANDO', 'C4.G4.estado': 'DESCONGELANDO', 'C4.G6.estado': 'DESCONGELANDO', 'C4.G8.estado': 'DESCONGELANDO',
+  'C4.H1.estado': 'EN VENTANA', 'C4.H1.en_ventana': 1, 'C4.H1.hora': '11:56', 'C4.H1.etapas': '12121212',
+  'C4.H1.etapa0_min': 8, 'C4.H1.etapa1_min': 10, 'C4.min_descongelado': 4,
+  'C4.H2.estado': 'PROGRAMADO', 'C4.H2.hora': '16:00',
+})
+const fxSinEtapa = E({ 'C4.G2.estado': 'DESCONGELANDO', 'C4.H1.estado': 'EN VENTANA', 'C4.H1.en_ventana': 1, 'C4.H1.hora': '11:50' })
+const fxAlarmaYDesc = E({ 'C5.G3.estado': 'ALARMA RES', 'C5.G3.alarma_res': 1, 'C5.G1.estado': 'DESCONGELANDO' })
+const fxUltimoHorario2200 = E({ 'C4.H1.estado': 'PROGRAMADO', 'C4.H1.hora': '04:00', 'C4.H2.estado': 'PROGRAMADO', 'C4.H2.hora': '22:00' })
+const fxSinHorarios = E()
+const fxTodosApagados = E(Object.fromEntries([1, 2, 3, 4, 5, 6, 7, 8].map(g => [`C4.G${g}.estado`, 'DESHABILITADO'])))
+const fxVacio: Estado = {}
+const todasLasFixtures = [fx8frio, fx4desc, fxSinEtapa, fxAlarmaYDesc, fxUltimoHorario2200, fxSinHorarios, fxTodosApagados, fxVacio]
+
+const fila: FilaDescongelado = { camara: 'C4', horario: 'H1', etapa: 1, grupos: 'G1,G3', inicio: 1, fin: 2, duracionS: 600, cortados: '', saltado: false, noEjecutada: false }
+
+describe('frases', () => {
+  test('estadoEquipo FRIO', () => expect(estadoEquipo(E({ 'C4.G1.estado': 'FRIO' }), 'C4', 1)).toMatchObject({ texto: 'Enfriando', color: '#1E6FD9', icono: 'frio' }))
+  test('estadoEquipo sin dato cae a apagado', () => expect(estadoEquipo(fxVacio, 'C4', 1)).toMatchObject({ icono: 'apagado', color: '#9A9A9A' }))
+  test('fraseCamara 4 descongelando con etapa de 10 min y 4 transcurridos', () =>
+    expect(fraseCamara(fx4desc, 'C4', T).titulo).toBe('4 equipos descongelando, terminan en 6 min'))
+  test('faltanMin sin datos de etapa -> null', () => expect(faltanMin(E({ 'C4.G2.estado': 'DESCONGELANDO' }), 'C4')).toBeNull())
+  test('fraseCamara sin faltanMin -> desde HH:MM', () => expect(fraseCamara(fxSinEtapa, 'C4', T).titulo).toMatch(/descongelando desde \d\d:\d\d/))
+  test('todos enfriando', () => expect(fraseCamara(fx8frio, 'C5', T).titulo).toBe('Los 8 equipos enfriando'))
+  test('todos enfriando: detalle con próximo', () => expect(fraseCamara(fx8frio, 'C5', T).detalle).toBe('Próximo descongelado: hoy 12:30'))
+  test('semaforo ok', () => expect(semaforo(fx8frio, true, T).nivel).toBe('ok'))
+  test('semaforo vencido', () => expect(semaforo(fx8frio, false, T)).toMatchObject({ nivel: 'sin-datos' }))
+  test('semaforo mapa incompatible', () => expect(semaforo({ ...fx8frio, _mapa: 'incompatible' }, true, T).titulo).toBe('El PLC tiene un programa viejo'))
+  test('semaforo alarma gana a descongelado', () => expect(semaforo(fxAlarmaYDesc, true, T)).toMatchObject({ nivel: 'alarma', titulo: 'Cámara 5: el equipo 3 necesita atención' }))
+  test('fraseCamara alarma gana a descongelado', () => expect(fraseCamara(fxAlarmaYDesc, 'C5', T).nivel).toBe('alarma'))
+  test('semaforo null', () => expect(semaforo(null, false, null).nivel).toBe('sin-datos'))
+  test('proximoTexto cruza medianoche', () => expect(proximoTexto(fxUltimoHorario2200, 'C4', T2330)).toBe('mañana 04:00'))
+  test('proximoTexto hoy', () => expect(proximoTexto(fxUltimoHorario2200, 'C4', T)).toBe('hoy 22:00'))
+  test('proximoTexto sin horarios', () => expect(proximoTexto(fxSinHorarios, 'C4', T)).toBe('Sin descongelados programados'))
+  test('textoAlarma', () => {
+    expect(textoAlarma('C4.G2.alarma_manual').texto).not.toMatch(/C4|G2|undefined/)
+    expect(textoAlarma('C4.G2.alarma_res').accion).toBeTruthy()
+    expect(textoAlarma('xxx').texto).toBeTruthy()
+  })
+  test('badges', () => {
+    expect(badgeDescongelado({ ...fila, cortados: 'G5' }).etiqueta).toBe('cortado a mano')
+    expect(badgeDescongelado({ ...fila, saltado: true }).etiqueta).toBe('saltado')
+    expect(badgeDescongelado({ ...fila, noEjecutada: true }).etiqueta).toBe('no se hizo')
+    expect(badgeDescongelado({ ...fila, interrumpida: true }).etiqueta).toBe('sin datos')
+    expect(badgeDescongelado(fila).etiqueta).toBe('completo')
+    expect(badgeDescongelado({ ...fila, cortados: 'G5' }).motivo).toMatch(/equipo 5/)
+  })
+  test('ninguna frase trae undefined/NaN', () => {
+    for (const f of todasLasFixtures) for (const c of ['C4', 'C5']) {
+      expect(JSON.stringify(fraseCamara(f, c, T))).not.toMatch(/undefined|NaN/)
+      expect(proximoTexto(f, c, T)).not.toMatch(/undefined|NaN/)
+      expect(JSON.stringify(semaforo(f, true, T))).not.toMatch(/undefined|NaN/)
+    }
+  })
+})

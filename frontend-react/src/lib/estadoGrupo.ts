@@ -1,7 +1,7 @@
 // Colores del HMI por estado de grupo
 const COLORES: Record<string, { fondo: string; texto: string }> = {
   'DESHABILITADO': { fondo: '#9A9A9A', texto: '#FFFFFF' },
-  'DETENIDO':      { fondo: '#3C3C3C', texto: '#FFFFFF' },
+  'DETENIDO':      { fondo: '#9A9A9A', texto: '#FFFFFF' },
   'FRIO':          { fondo: '#1E6FD9', texto: '#FFFFFF' },
   'DESCONGELANDO': { fondo: '#F28C28', texto: '#000000' },
   'ESCURRIENDO':   { fondo: '#4FC3F7', texto: '#000000' },

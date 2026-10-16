@@ -3,9 +3,9 @@ import { Card } from '../components/ui/card'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/table'
 import { Filtros, SinDatos, type Rango } from '../components/Filtros'
 import { useDatos, hoy } from '../lib/useDatos'
-import { nombreCamara, fechaHora, fechaDia } from '../lib/camaras'
+import { nombreCamara, fechaHora, fechaDia, type FilaDescongelado } from '../lib/camaras'
 
-interface Fila { camara: string; horario: string; etapa: number; grupos: string; inicio: number; fin: number | null; duracionS: number | null; cortados: string; saltado: boolean; noEjecutada: boolean; interrumpida?: boolean }
+type Fila = FilaDescongelado
 
 const fecha = (ms: number | null) => (ms ? fechaHora(ms) : '')
 // interrumpido = corte de comunicación largo a mitad de la etapa: sin fin ni duración (no se inventan)

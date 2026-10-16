@@ -38,3 +38,6 @@ export function horaPlc(s: unknown): string {
 
 const OCTETO = '(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])'
 export const esIPv4 = (v: string) => new RegExp(`^${OCTETO}([.]${OCTETO}){3}$`).test(v)
+
+// Fila de /api/camaras/descongelados (grupos y cortados: "G1,G3")
+export interface FilaDescongelado { camara: string; horario: string; etapa: number; grupos: string; inicio: number; fin: number | null; duracionS: number | null; cortados: string; saltado: boolean; noEjecutada: boolean; interrumpida?: boolean }
