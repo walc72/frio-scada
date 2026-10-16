@@ -108,3 +108,12 @@ describe('RUTAS_VIEJAS', () => {
     })
   })
 })
+
+import { ventanaPlanta } from './camaras'
+describe('ventanaPlanta', () => {
+  test('día de planta UTC-3', () => {
+    const v = ventanaPlanta('2026-10-16', '2026-10-16')
+    expect(v.desde).toBe('2026-10-16T03:00:00.000Z')
+    expect(v.hasta).toBe('2026-10-17T02:59:59.999Z')
+  })
+})

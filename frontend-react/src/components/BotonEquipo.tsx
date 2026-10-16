@@ -8,8 +8,9 @@ import { Icono } from './Icono'
 export function BotonEquipo({ c, g }: { c: string; g: number }) {
   const estado = useCamarasStore(s => s.estado)
   const recibidoEn = useCamarasStore(s => s.recibidoEn)
+  const incompatible = useCamarasStore(s => s.mapa === 'incompatible')
   const ahora = useNow()
-  const sinDatos = !estado || estaVencido(recibidoEn, ahora)
+  const sinDatos = !estado || incompatible || estaVencido(recibidoEn, ahora)
   const eq = estado && !sinDatos ? estadoEquipo(estado, c, g) : { texto: 'Sin datos', color: '#9A9A9A', icono: 'apagado' as const }
   return (
     <div className="flex flex-col items-center gap-1">

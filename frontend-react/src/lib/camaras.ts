@@ -24,6 +24,13 @@ export function proximoDescongelado(e: Estado | null, cam: string): string | nul
 
 // Hora de planta (Paraguay), sea cual sea la zona del navegador. La API usa TZ_OFFSET_MIN (compose) para lo mismo.
 export const ZONA = 'America/Asuncion'
+// Paraguay, UTC-3 permanente desde 2024; ponytail: fijo, cambiar acá si vuelve el horario de verano
+export const PLANTA_OFFSET = '-03:00'
+// Ventana de días de planta [desde 00:00:00, hasta 23:59:59.999] como ISO UTC
+export const ventanaPlanta = (desde: string, hasta: string) => ({
+  desde: new Date(`${desde}T00:00:00${PLANTA_OFFSET}`).toISOString(),
+  hasta: new Date(`${hasta}T23:59:59.999${PLANTA_OFFSET}`).toISOString(),
+})
 export const hhmm = (ms: number) => new Date(ms).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: ZONA })
 export const fechaHora = (ms: number) => new Date(ms).toLocaleString('es-AR', { hourCycle: 'h23', timeZone: ZONA })
 export const fechaDia = (ms: number) => new Date(ms).toLocaleDateString('es-AR', { timeZone: ZONA })

@@ -13,30 +13,36 @@ export default function TarjetaCamara({ cam }: { cam: string }) {
   const ts = useCamarasStore(s => s.ts)
   const recibidoEn = useCamarasStore(s => s.recibidoEn)
   const ahora = useNow(1000)
+  const incompatible = useCamarasStore(s => s.mapa === 'incompatible')
   const vencido = !estado || estaVencido(recibidoEn, ahora)
-  const f = estado && !vencido ? fraseCamara(estado, cam, ahora) : null
+  const f = estado && !vencido && !incompatible ? fraseCamara(estado, cam, ahora) : null
+  const hayDatos = !!f && f.nivel !== 'sin-datos'
   const alarma = f?.nivel === 'alarma'
-  const descongelando = !!estado && GRUPOS.some(g => estadoEquipo(estado, cam, g).clave === 'DESCONGELANDO')
-  const badge = alarma || f?.nivel === 'atencion' ? { t: 'Atención', v: 'destructive' as const }
-    : descongelando ? { t: 'Descongelando', v: 'warning' as const } : { t: 'Enfriando', v: 'info' as const }
+  const cuantos = (k: string) => estado ? GRUPOS.filter(g => estadoEquipo(estado, cam, g).clave === k).length : 0
+  const badge = !hayDatos ? null
+    : alarma ? { t: 'Atención', c: '#D32F2F' }
+    : f!.nivel === 'atencion' ? { t: 'Atención', c: '#F59E0B' }
+    : cuantos('DESCONGELANDO') ? { t: 'Descongelando', c: '#F28C28' }
+    : cuantos('ESCURRIENDO') ? { t: 'Escurriendo', c: '#4FC3F7' }
+    : cuantos('FRIO') ? { t: 'Enfriando', c: '#1E6FD9' } : null
   return (
     <Link to={`/camara/${cam}`} className="block">
-      <Card className={`p-4 space-y-3 rounded-2xl shadow-sm hover:border-primary transition-colors ${alarma ? 'border-2 border-red-600' : ''} ${vencido ? 'opacity-70' : ''}`}>
+      <Card className={`p-4 space-y-3 rounded-2xl shadow-sm hover:border-primary transition-colors ${alarma ? 'border-2 border-red-600' : ''} ${vencido || incompatible ? 'grayscale bg-muted opacity-70' : ''}`}>
         <div className="flex items-center gap-2">
           <div className="font-semibold text-lg">{nombreCamara(cam)}</div>
-          {!vencido && <Badge variant={badge.v} className="ml-auto">{badge.t}</Badge>}
+          {badge && <Badge className="ml-auto border-transparent text-white" style={{ backgroundColor: badge.c }}>{badge.t}</Badge>}
         </div>
         <div className="grid grid-cols-4 sm:grid-cols-8 gap-2 justify-items-center">
           {GRUPOS.map(g => <BotonEquipo key={g} c={cam} g={g} />)}
         </div>
-        {f ? (
+        {hayDatos ? (
           <div>
-            <div className="font-bold">{f.titulo}</div>
-            {f.detalle && <div className="text-sm text-muted-foreground">{f.detalle}</div>}
+            <div className="font-bold">{f!.titulo}</div>
+            {f!.detalle && <div className="text-sm text-muted-foreground">{f!.detalle}</div>}
             <div className="text-sm text-muted-foreground">Próximo: {proximoTexto(estado!, cam, ahora)}</div>
           </div>
         ) : (
-          <div className="font-bold text-muted-foreground">{ts ? `Sin datos desde ${hhmm(ts)}` : 'Sin datos todavía'}</div>
+          <div className="font-bold text-muted-foreground">{incompatible ? 'El PLC tiene un programa viejo' : ts ? `Sin datos desde ${hhmm(ts)}` : 'Sin datos todavía'}</div>
         )}
       </Card>
     </Link>
