@@ -8,7 +8,8 @@ const RES_MAN_MAX_DEFECTO = 120;   // tope de la resistencia en manual si el est
 const ESTADO_MAX_MS = 120000;      // estado más viejo que esto (o desconectado) = "sin dato"
 
 const C_NUM = { C5: 1, C4: 2 };    // cámara del destino: 1 = C5, 2 = C4
-const MODOS = ['automático', 'manual', 'fuera de servicio'];
+const MODOS = ['automático', 'manual', 'fuera de servicio'];   // para mostrar
+const MODOS_PLC = ['AUTO', 'MANUAL', 'FUERA DE SERVICIO'];      // como los publica el poller (mapa.js MODO_GRUPO)
 const entero = (v, a, b) => Number.isInteger(v) && v >= a && v <= b;
 const onoff = (v) => (v ? 'prender' : 'apagar');
 const sn = (v) => (v ? 'sí' : 'no');
@@ -37,6 +38,9 @@ const CATALOGO = {
   31: { rol: 'admin', destino: 'cg', valida: (v) => v === 0, texto: () => 'reset de mantenimiento' },
 };
 
+// Entrada del catálogo; solo para un entero que sea propiedad propia (nada de "__proto__", "toString" ni "1" como texto).
+const comando = (c) => (Number.isInteger(c) && Object.hasOwn(CATALOGO, c) ? CATALOGO[c] : null);
+
 // Qué se pide, con cámara y equipo: "C5 equipo 3: pasar a manual"
 function textoAccion(comando, camara, grupo, horario, valor) {
   const donde = [camara, grupo && `equipo ${grupo}`, horario && `horario ${horario}`].filter(Boolean).join(' ');
@@ -51,7 +55,7 @@ function armarDestino(comando, camara, grupo, horario) {
 
 // Valida el pedido {comando, camara, grupo, horario, valor}; devuelve un mensaje de error o null.
 function errorPedido(b, resMax) {
-  const e = CATALOGO[b.comando];
+  const e = comando(b.comando);
   if (!e) return 'Comando desconocido';
   if (e.destino.includes('c') && !Object.hasOwn(C_NUM, b.camara)) return 'Cámara inválida (C4 | C5)';
   if (e.destino.includes('g') && !entero(b.grupo, 1, 8)) return 'Grupo inválido (1..8)';
@@ -78,7 +82,7 @@ function valorAnterior(comando, camara, grupo, horario, e) {
   const g = `${camara}.G${grupo}.`, h = `${camara}.H${horario}.`;
   const num = (v) => (typeof v === 'number' && isFinite(v) ? v : null);
   switch (comando) {
-    case 1: { const i = MODOS.map((x) => x.toUpperCase()).indexOf(e[g + 'modo']); return i < 0 ? null : i; }
+    case 1: { const i = MODOS_PLC.indexOf(e[g + 'modo']); return i < 0 ? null : i; }
     case 2: return num(e[g + 'comp']);
     case 3: return num(e[g + 'eva']);
     case 4: return e[g + 'res'] === 0 ? 0 : num(e[g + 'res_manual_resta_min']);
@@ -114,12 +118,13 @@ function textoResultado(resultado, motivo, tope = 0) {
 }
 
 // Línea de la medición mando (line protocol; números como float, como el poller). anterior null → sin ese campo.
-const escTag = (s) => String(s).replace(/[,= ]/g, '\\$&');
-const escStr = (s) => '"' + String(s).replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"';
+const sinSaltos = (s) => String(s).replace(/[\r\n]+/g, ' ');   // un salto de línea cortaría la línea del protocolo
+const escTag = (s) => sinSaltos(s).replace(/[\\,= ]/g, '\\$&');
+const escStr = (s) => '"' + sinSaltos(s).replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"';
 function lineaMando({ usuario, camara, comando, destino, anterior, valor, resultado, motivo, texto, respuesta, ts }) {
   const campos = [`destino=${destino}`, anterior === null ? null : `valor_anterior=${anterior}`, `valor_nuevo=${valor}`, `resultado=${resultado}`,
     `motivo=${typeof motivo === 'number' ? motivo : 0}`, `texto=${escStr(texto)}`, `respuesta=${escStr(respuesta)}`].filter(Boolean);
   return `mando,usuario=${escTag(usuario)},camara=${escTag(camara || 'general')},comando=${comando} ${campos.join(',')} ${BigInt(Math.round(ts)) * 1000000n}`;
 }
 
-module.exports = { CATALOGO, C_NUM, textoAccion, armarDestino, errorPedido, topeResistencia, estadoVivo, valorAnterior, textoMotivo, textoResultado, lineaMando, RES_MAN_MAX_DEFECTO };
+module.exports = { CATALOGO, comando, C_NUM, textoAccion, armarDestino, errorPedido, topeResistencia, estadoVivo, valorAnterior, textoMotivo, textoResultado, lineaMando, RES_MAN_MAX_DEFECTO };

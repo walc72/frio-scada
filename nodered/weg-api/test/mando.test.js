@@ -229,3 +229,40 @@ test('rol operar: se crea desde la UI, no aparece solo desde el .env', () => {
   assert.deepEqual(settings.getUsersFull().filter((u) => u.role === 'operar').map((u) => u.user), ['turno1']);
   assert.ok(settings.ROLES.includes('operar'));
 });
+
+test('comando que no es un entero del catálogo → 400 sin llegar al poller ni tirar la API', async () => {
+  const p = await poller();
+  await servir({ rol: 'superadmin', url: p.url }, async (f) => {
+    for (const comando of ['__proto__', 'constructor', 'toString', '1', 1.5, null, [1]]) {
+      assert.equal((await f({ comando, camara: 'C5', grupo: 1, valor: 0 })).status, 400, String(comando));
+    }
+  });
+  assert.equal(p.pedidos.length, 0); p.close();
+});
+
+test('modo previo: AUTO → MANUAL audita valor_anterior=0 (nombres del poller)', async () => {
+  const p = await poller(); const esc = [];
+  await servir({ url: p.url, escritos: esc, estado: { ...ESTADO(), 'C5.G3.modo': 'AUTO' } }, (f) => f({ comando: 1, camara: 'C5', grupo: 3, valor: 1 }));
+  assert.match(esc[0], /valor_anterior=0,valor_nuevo=1,/);
+  assert.match(esc[0], /\(antes: automático\)/);
+  for (const [n, v] of [['MANUAL', 1], ['FUERA DE SERVICIO', 2]]) assert.equal(m.valorAnterior(1, 'C5', 3, null, { 'C5.G3.modo': n }), v);
+  p.close();
+});
+
+test('si el id de usuario falla no se manda ni se audita nada: 500', async () => {
+  const p = await poller(); const esc = [];
+  const app = express(); app.use(express.json());
+  app.use((req, res, next) => { req.auth = { role: 'admin', user: 'x' }; next(); });
+  app.use(createMandoRouter({ pollerUrl: p.url, token: 't', getEstado: () => null, userId: () => { throw new Error('disco'); }, escribir: async (l) => esc.push(l) }));
+  const srv = app.listen(0);
+  const r = await fetch(`http://127.0.0.1:${srv.address().port}/`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ comando: 5, camara: 'C5', valor: 0 }) });
+  srv.closeAllConnections(); srv.close();
+  assert.equal(r.status, 500); assert.equal(p.pedidos.length, 0); assert.equal(esc.length, 0); p.close();
+});
+
+test('línea de auditoría: usuario con espacio, coma, =, barra y salto de línea no rompe el protocolo', () => {
+  const l = m.lineaMando({ usuario: 'a b,c=d\\e\nf', camara: 'C5', comando: 5, destino: 1000, anterior: null, valor: 0, resultado: 1, motivo: 0, texto: 'x\r\ny\\"z', respuesta: 'Listo', ts: 1e6 });
+  assert.equal(l.split('\n').length, 1);
+  assert.ok(l.startsWith('mando,usuario=a\\ b\\,c\\=d\\\\e\\ f,camara=C5,comando=5 destino=1000,'));
+  assert.ok(l.includes('texto="x y\\\\\\"z"'));
+});

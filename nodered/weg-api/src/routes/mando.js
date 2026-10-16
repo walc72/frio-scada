@@ -14,13 +14,14 @@ function createMandoRouter({ pollerUrl, token, getEstado, userId, escribir, isRe
   const ultimo = new Map(); // usuario -> ms de su último pedido que llegó al poller
 
   router.post('/', async (req, res) => {
+   try {
     const { role, user } = req.auth || {};
     const b = req.body || {};
     const esAdmin = role === 'admin' || role === 'superadmin';
     if (!esAdmin && role !== 'operar') return res.status(403).json({ error: 'Tu usuario solo puede mirar' });
     if (isReplica) return res.status(409).json({ error: 'Los comandos se mandan desde la planta' });
     if (!token || !pollerUrl) return res.status(503).json({ error: 'mando no configurado' });
-    const cmd = m.CATALOGO[b.comando];
+    const cmd = m.comando(b.comando);
     if (cmd && !esAdmin && cmd.rol !== 'operar') return res.status(403).json({ error: 'Requiere rol administrador' });
     const tope = m.topeResistencia(getEstado());
     const err = m.errorPedido(b, tope);
@@ -28,6 +29,7 @@ function createMandoRouter({ pollerUrl, token, getEstado, userId, escribir, isRe
 
     const t = ahora();
     if (t - (ultimo.get(user) ?? -Infinity) < MIN_ENTRE_PEDIDOS_MS) return res.status(429).json({ error: 'Esperá un momento antes de mandar otro pedido' });
+    const usuarioId = userId(user);   // antes de mandar: si falla no se manda nada
     ultimo.set(user, t);
 
     const destino = m.armarDestino(b.comando, b.camara, b.grupo, b.horario);
@@ -40,9 +42,10 @@ function createMandoRouter({ pollerUrl, token, getEstado, userId, escribir, isRe
     try {
       const resp = await fetch(`${pollerUrl}/mando`, {
         method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Mando-Token': token },
-        body: JSON.stringify({ comando: b.comando, destino, argumento: b.valor, usuario: userId(user) }),
+        body: JSON.stringify({ comando: b.comando, destino, argumento: b.valor, usuario: usuarioId }),
         signal: AbortSignal.timeout(timeoutMs),
       });
+      if (!resp.ok) console.error(`[API] mando: el poller contestó ${resp.status}`);
       const j = resp.ok ? await resp.json() : null;
       // 401/400 del poller o cuerpo raro: no se sabe qué pasó → desconocido
       r = j && Number.isInteger(j.resultado) ? { resultado: j.resultado, motivo: j.motivo } : { resultado: 0, motivo: 'error-poller' };
@@ -52,11 +55,15 @@ function createMandoRouter({ pollerUrl, token, getEstado, userId, escribir, isRe
     }
     const respuesta = m.textoResultado(r.resultado, r.motivo, tope);
     const antes = anterior === null ? 'sin dato' : (cmd.fmt ? cmd.fmt(anterior) : anterior);
+    res.json({ resultado: r.resultado, motivo: r.motivo, texto: respuesta });
     try {
       await escribir(m.lineaMando({ usuario: user, camara, comando: b.comando, destino, anterior, valor: b.valor, resultado: r.resultado, motivo: r.motivo,
         texto: `${m.textoAccion(b.comando, camara, grupo, horario, b.valor)} (antes: ${antes})`, respuesta, ts: t }));
     } catch (e) { console.error(`[API] mando: auditoría no escrita: ${e.message}`); }
-    res.json({ resultado: r.resultado, motivo: r.motivo, texto: respuesta });
+   } catch (e) {
+    console.error(`[API] mando: ${e.message}`);
+    if (!res.headersSent) res.status(500).json({ error: 'Error interno' });
+   }
   });
   return router;
 }
