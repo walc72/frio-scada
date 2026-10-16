@@ -39,5 +39,5 @@ describe('filas de exportación', () => {
 })
 
 test('un evento sin texto no rompe la lista de avisos', () => {
-  expect(() => prepararAvisos([{ ts: 1, hora_plc: '', texto: undefined as unknown as string, estado: 1 }], null, false)).not.toThrow()
+  expect(() => prepararAvisos([{ ts: 1, texto: undefined as unknown as string, estado: 1 }], null, false)).not.toThrow()
 })
