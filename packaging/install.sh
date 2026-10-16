@@ -234,6 +234,7 @@ umask 077
   echo "GF_ADMIN_USER=admin"
   echo "GF_ADMIN_PASSWORD=$(gen 12)"
   echo "AGENT_TOKEN=$(gen 32)"
+  echo "MANDO_TOKEN=$(gen 32)"
   echo "DAILY_REPORT_ENABLED=true"
   echo "DAILY_REPORT_HOUR=7"
   echo "# Usuarios: se crean en config/settings.json (no van acá)"

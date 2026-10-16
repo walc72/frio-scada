@@ -1,7 +1,7 @@
 'use strict';
 // Lectura de SOLO LECTURA (FC03) del mapa v2 por tramos, descartando lecturas partidas.
 const connections = require('./connections');
-const { ULTIMO, VERSION, LARGO_CAMARA, TRAMOS, tramoValido } = require('./mapa');
+const { ULTIMO, VERSIONES, LARGO_CAMARA, TRAMOS, tramoValido } = require('./mapa');
 
 const REINTENTOS = 3;
 
@@ -16,7 +16,7 @@ async function leerTramos({ ip, port, unitId }, tramos, comprobarMapa) {
     if (!tramoValido(r)) return { error: 'partida' };
     for (let i = 0; i < r.length; i++) regs[ini + i] = r[i];
     if (comprobarMapa && ini === 0) {
-      if (r[1] !== VERSION) return { error: 'version', version: r[1] };
+      if (!VERSIONES.includes(r[1])) return { error: 'version', version: r[1] };
       if (r[2] !== LARGO_CAMARA) return { error: 'largo', largo: r[2], version: r[1] };
     }
   }

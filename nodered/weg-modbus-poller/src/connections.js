@@ -115,4 +115,21 @@ function getStats() {
   return stats;
 }
 
-module.exports = { config, poll, closeOne, closeAll, getStats, isTransportError };
+// Cliente para mando.js (el escritor único): la conexión del pool al momento de cada operación,
+// así sobrevive a reconexiones y cambios de PLC. Sin conexión lanza (mando lo informa como sin-conexion).
+function cliente(plc) {
+  let id = plc.unitId;
+  const usar = async () => {
+    const c = await getOrCreate(plc.ip, plc.port);
+    if (!c || !c.isOpen) throw new Error('sin-conexion');
+    c.setID(id);
+    return c;
+  };
+  return {
+    setID: (u) => { id = u; },
+    readHoldingRegisters: async (a, n) => (await usar()).readHoldingRegisters(a, n),
+    writeRegisters: async (a, v) => (await usar()).writeRegisters(a, v),
+  };
+}
+
+module.exports = { config, poll, cliente, closeOne, closeAll, getStats, isTransportError };
