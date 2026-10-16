@@ -126,7 +126,7 @@ export default function App() {
 
         {/* Main content */}
         <div className="flex-1 flex flex-col min-w-0">
-          <main className="flex-1 p-3 sm:p-6 pb-20 md:pb-6 overflow-auto">
+          <main className="flex-1 p-3 sm:p-6 pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-6 overflow-auto">
             <RouteErrorBoundary>
             <Suspense fallback={<div className="flex items-center justify-center h-full text-muted-foreground text-sm">Cargando...</div>}>
               <Routes>

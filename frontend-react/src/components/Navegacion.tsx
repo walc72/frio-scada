@@ -14,7 +14,7 @@ export default function Navegacion() {
   const { pathname } = useLocation()
   return (
     <nav aria-label="Principal"
-      className="fixed bottom-0 inset-x-0 z-30 h-16 flex border-t bg-card md:static md:inset-auto md:h-auto md:w-44 md:shrink-0 md:flex-col md:border-t-0 md:border-r md:p-3 md:gap-1">
+      className="fixed bottom-0 inset-x-0 z-30 h-[calc(4rem+env(safe-area-inset-bottom))] pb-[env(safe-area-inset-bottom)] flex border-t bg-card md:static md:pb-3 md:inset-auto md:h-auto md:w-44 md:shrink-0 md:flex-col md:border-t-0 md:border-r md:p-3 md:gap-1">
       {ITEMS.map(i => {
         const on = i.activo(pathname)
         return (
