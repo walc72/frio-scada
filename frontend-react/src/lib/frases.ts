@@ -217,7 +217,7 @@ const EVENTOS: [RegExp, (m: RegExpMatchArray) => string][] = [
 export function fraseEvento(texto: string): string {
   const t = String(texto ?? '').replace(/^C\d\s+/i, '').trim().toLowerCase()
   for (const [re, f] of EVENTOS) { const m = t.match(re); if (m) return f(m) }
-  const s = t.replace(/g(\d)/g, 'equipo $1')
+  const s = t.replace(/\bg(\d)\b/g, 'equipo $1')
   return s.charAt(0).toUpperCase() + s.slice(1)
 }
 
