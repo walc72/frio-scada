@@ -94,7 +94,7 @@ export function textoAlarma(clave: string): { texto: string; accion?: string } {
 }
 
 interface AlarmaActiva { clave: string; c?: string; g?: number }
-function alarmasActivas(e: Estado, c?: string): AlarmaActiva[] {
+export function alarmasActivas(e: Estado, c?: string): AlarmaActiva[] {
   const r: AlarmaActiva[] = []
   if (!c) for (const k of ['alarma_reloj', 'alarma_indice']) if (e[k]) r.push({ clave: k })
   for (const cam of c ? [c] : ['C4', 'C5']) {
