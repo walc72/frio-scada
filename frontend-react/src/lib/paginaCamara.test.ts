@@ -52,7 +52,7 @@ describe('horarios', () => {
   test('estado vacío', () => expect(horariosVista({}, 'C4', AHORA)).toEqual([]))
 })
 
-const fila = (h: string, extra: Partial<FilaDescongelado> = {}): FilaDescongelado => ({ camara: 'C4', horario: h, etapa: 1, grupos: 'G1', inicio: 1, fin: 2, duracionS: 600, cortados: '', saltado: false, noEjecutada: false, ...extra })
+const fila = (h: string, extra: Partial<FilaDescongelado> = {}): FilaDescongelado => ({ camara: 'C4', horario: h, etapa: 1, grupos: 'G1', inicio: Date.parse('2026-10-16T04:01:00-03:00'), fin: Date.parse('2026-10-16T04:11:00-03:00'), duracionS: 600, cortados: '', saltado: false, noEjecutada: false, ...extra })
 
 describe('hecho viene de los datos', () => {
   test('con fila: hecho; sin fila y pasó: sin registro; sin cargar: ya pasó', () => {
@@ -82,4 +82,10 @@ describe('configuración mala', () => {
     expect(v[0]).toMatchObject({ estado: 'solapado', frase: 'Se superpone con otro horario: revisar la programación' })
     expect(v[1]).toMatchObject({ estado: 'mal configurado', frase: 'Horario mal configurado, avisar al técnico' })
   })
+})
+
+test('una corrida anterior a la hora actual del horario no lo marca como hecho', () => {
+  // el horario se cambió en el día: la fila de H1 de las 03:00 no cuenta para H1 de las 04:00
+  const antes = fila('H1', { inicio: Date.parse('2026-10-16T03:00:00-03:00') })
+  expect(horariosVista(E, 'C4', AHORA, [antes])[0].estado).toBe('sin registro')
 })

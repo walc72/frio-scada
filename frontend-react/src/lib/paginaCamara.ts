@@ -61,7 +61,10 @@ export function horariosVista(e: Estado, c: string, ahora: number, filas: FilaDe
     .map(x => ({ ...x, min: aMin(x.hora) })).sort((a, b) => a.min - b.min)
   const prox = hs.find(x => x.est === 'PROGRAMADO' && x.min > m)
   return hs.map(x => {
-    const mias = (filas ?? []).filter(f => f.camara === c && Number(String(f.horario).replace(/\D/g, '')) === x.h)
+    // Solo cuenta si empezó a partir de la hora actual del horario: si la hora se cambió en el día,
+    // una corrida anterior del mismo horario no lo marca como hecho.
+    const mias = (filas ?? []).filter(f => f.camara === c && Number(String(f.horario).replace(/\D/g, '')) === x.h
+      && minutoDelDia(typeof f.inicio === 'number' ? f.inicio : Date.parse(String(f.inicio))) >= x.min - 2)
     const nota = mias.map(f => badgeDescongelado(f).etiqueta).find(t => t !== 'completo') ?? ''
     const estado: EstadoHorario = x.est === 'EN VENTANA' || num(e, `${c}.H${x.h}.en_ventana`) === 1 ? 'en curso'
       : mias.length ? 'hecho'
