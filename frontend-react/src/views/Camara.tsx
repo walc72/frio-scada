@@ -1,15 +1,21 @@
 import { useParams, Link } from 'react-router-dom'
 import { Card } from '../components/ui/card'
 import { Badge } from '../components/ui/badge'
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/table'
-import GrupoChip from '../components/GrupoChip'
+import BotonEquipo from '../components/BotonEquipo'
+import LineaDescongelados from '../components/LineaDescongelados'
+import BarrasEquipos from '../components/BarrasEquipos'
 import { useCamarasStore } from '../store/camaras'
 import { estaVencido } from '../lib/estadoGrupo'
+import { fraseCamara, estadoEquipo, faltanMin } from '../lib/frases'
 import { CAMARAS, GRUPOS, HORARIOS, nombreCamara, txt, num, hhmm } from '../lib/camaras'
 import { useNow } from '../lib/useNow'
-import PanelGrafana from '../components/PanelGrafana'
+import { useDatos } from '../lib/useDatos'
+import { diaPlanta, type Tramo } from '../lib/paginaCamara'
 
-const on = (v: number) => (v ? <span className="text-green-600 dark:text-green-400 font-bold">ON</span> : <span className="text-muted-foreground">off</span>)
+const MODOS: Record<string, string> = { AUTOMATICO: 'Automático', MANUAL: 'Manual', STOP: 'Detenido' }
+const CHIPS = [['comp', 'Compresor'], ['eva', 'Evaporador'], ['res', 'Resistencia']] as const
+
+interface Evento { ts: number; texto: string }
 
 export default function Camara() {
   const { c } = useParams()
@@ -17,75 +23,90 @@ export default function Camara() {
   const estado = useCamarasStore(s => s.estado)
   const ts = useCamarasStore(s => s.ts)
   const recibidoEn = useCamarasStore(s => s.recibidoEn)
-  const eventos = useCamarasStore(s => s.eventos)
-  const vencido = estaVencido(recibidoEn, useNow(1000))
-  if (!(CAMARAS as readonly string[]).includes(cam)) {
-    return <div className="text-center text-muted-foreground py-16">Cámara inexistente. <Link className="underline" to="/">Volver</Link></div>
-  }
-  const e = (k: string) => txt(estado, `${cam}.${k}`)
-  const n = (k: string) => num(estado, `${cam}.${k}`)
+  const incompatible = useCamarasStore(s => s.mapa === 'incompatible')
+  const ahora = useNow(1000)
+  const dia = diaPlanta(ahora)
+  const valida = (CAMARAS as readonly string[]).includes(cam)
+  const tr = useDatos<Tramo>('tramos', dia, dia, valida ? cam : '', 60000)
+  const ev = useDatos<Evento>('eventos', dia, dia, valida ? cam : '', 60000)
+  if (!valida) return <div className="text-center text-muted-foreground py-16">Cámara inexistente. <Link className="underline" to="/">Volver</Link></div>
+
+  const sinDatos = !estado || incompatible || estaVencido(recibidoEn, ahora)
+  const f = estado && !sinDatos ? fraseCamara(estado, cam, ahora) : null
+  const hayDatos = !!f && f.nivel !== 'sin-datos'
+  const cuantos = (k: string) => estado ? GRUPOS.filter(g => estadoEquipo(estado, cam, g).clave === k).length : 0
+  const badge = !hayDatos ? null
+    : f!.nivel === 'alarma' ? { t: 'Atención', c: '#D32F2F' }
+    : f!.nivel === 'atencion' ? { t: 'Atención', c: '#F59E0B' }
+    : cuantos('DESCONGELANDO') ? { t: 'Descongelando', c: '#F28C28' }
+    : cuantos('ESCURRIENDO') ? { t: 'Escurriendo', c: '#4FC3F7' }
+    : cuantos('FRIO') ? { t: 'Enfriando', c: '#1E6FD9' } : null
+  const modo = hayDatos ? MODOS[txt(estado, `${cam}.modo`)] : undefined
+  const falta = hayDatos ? faltanMin(estado!, cam) : null
+  const dia0 = Date.parse(`${dia}T00:00:00-03:00`)
+  const avisos = (ev.data ?? []).slice(-5).reverse()
+  const v = (k: string) => { const x = txt(estado, k); return x === '' ? '—' : x }
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2">
-        <h1 className="text-xl font-semibold">{nombreCamara(cam)}</h1>
-        {!vencido && <Badge variant="secondary">{e('modo') || '—'}</Badge>}
-        {!vencido && n('alarma_activa') === 1 && <Badge variant="destructive">ALARMA</Badge>}
-        {vencido && <span className="text-sm text-amber-600 dark:text-amber-400">sin datos{ts ? ` desde ${hhmm(ts)}` : ''}</span>}
+      <div className="grid grid-cols-2 gap-1 rounded-lg bg-muted p-1 text-center text-sm font-medium">
+        {CAMARAS.map(k => <Link key={k} to={`/camara/${k}`} className={`rounded-md py-1.5 ${k === cam ? 'bg-background shadow-sm' : 'text-muted-foreground'}`}>{nombreCamara(k)}</Link>)}
       </div>
 
-      <Card className="p-4 space-y-3">
-        <div className="font-semibold">Maniobras</div>
-        <div className="grid grid-cols-4 md:grid-cols-8 gap-1.5">
-          {GRUPOS.map(g => <GrupoChip key={g} n={g} estado={e(`G${g}.estado`)} vencido={vencido} />)}
+      <div className="flex flex-wrap items-center gap-2">
+        <h1 className="text-xl font-semibold">{nombreCamara(cam)}</h1>
+        {modo && <span className="text-sm text-muted-foreground">{modo}</span>}
+        {badge && <Badge className="ml-auto border-transparent text-white" style={{ backgroundColor: badge.c }}>{badge.t}</Badge>}
+        {!hayDatos && <span className="ml-auto text-sm text-amber-600 dark:text-amber-400">{incompatible ? 'El PLC tiene un programa viejo' : ts ? `Sin datos desde ${hhmm(ts)}` : 'Sin datos todavía'}</span>}
+      </div>
+      {hayDatos && <div><div className="font-bold">{f!.titulo}</div>{f!.detalle && <div className="text-sm text-muted-foreground">{f!.detalle}</div>}</div>}
+
+      <Card className={`p-4 space-y-3 rounded-2xl ${sinDatos ? 'grayscale opacity-70' : ''}`}>
+        <div className="font-semibold">Equipos</div>
+        {GRUPOS.map(g => {
+          const eq = hayDatos ? estadoEquipo(estado!, cam, g) : null
+          const tiene = (k: string) => hayDatos && num(estado, `${cam}.G${g}.${k}`) === 1
+          return (
+            <div key={g} className="flex flex-wrap items-center gap-x-3 gap-y-1">
+              <BotonEquipo c={cam} g={g} />
+              <div className="min-w-0 flex-1 text-sm">
+                Equipo {g} · {eq ? eq.texto : 'Sin datos'}
+                {eq?.clave === 'DESCONGELANDO' && falta != null && ` · faltan ${falta} min`}
+              </div>
+              <div className="flex gap-1">
+                {CHIPS.map(([k, n]) => <span key={k} className={`rounded-full px-2 py-0.5 text-xs ${tiene(k) ? 'bg-green-600 text-white' : 'bg-muted text-muted-foreground'}`}>{n}</span>)}
+              </div>
+            </div>
+          )
+        })}
+      </Card>
+
+      <LineaDescongelados estado={sinDatos ? null : estado} cam={cam} ahora={ahora} />
+      <BarrasEquipos tramos={tr.data} error={tr.error} dia0={dia0} ahora={ahora} />
+
+      <Card className="p-4 space-y-2 rounded-2xl">
+        <div className="font-semibold">Últimos avisos</div>
+        {ev.error ? <div className="text-sm text-muted-foreground">No se pudieron cargar los avisos</div>
+          : avisos.length === 0 ? <div className="text-sm text-muted-foreground">Sin avisos hoy</div>
+          : <ul className="text-sm space-y-1">{avisos.map((a, i) => <li key={i}><span className="text-muted-foreground">{hhmm(a.ts)}</span> {a.texto}</li>)}</ul>}
+      </Card>
+
+      <details className="rounded-2xl border bg-card p-4 text-sm">
+        <summary className="cursor-pointer font-semibold">Ver detalles técnicos</summary>
+        <div className="mt-3 overflow-x-auto space-y-4">
+          <table className="w-full text-left">
+            <thead><tr className="text-muted-foreground"><th className="pr-3">Equipo</th><th className="pr-3">Arranques</th><th className="pr-3">Horas de marcha</th><th className="pr-3">Horas sin descongelar</th></tr></thead>
+            <tbody>{GRUPOS.map(g => <tr key={g}><td>{g}</td><td>{v(`${cam}.G${g}.arranques`)}</td><td>{v(`${cam}.G${g}.horas_marcha`)}</td><td>{v(`${cam}.G${g}.horas_sin_desc`)}</td></tr>)}</tbody>
+          </table>
+          <table className="w-full text-left">
+            <thead><tr className="text-muted-foreground"><th className="pr-3">Horario</th><th className="pr-3">Hora</th><th className="pr-3">Etapa 1 (min)</th><th className="pr-3">Etapa 2 (min)</th></tr></thead>
+            <tbody>{HORARIOS.map(h => (
+              <tr key={h}><td>{h}</td><td>{v(`${cam}.H${h}.hora`)}</td>
+                {[0, 1].map(i => <td key={i}>{num(estado, `${cam}.H${h}.etapa${i}_habilitada`) ? v(`${cam}.H${h}.etapa${i}_min`) : 'deshabilitada'}</td>)}</tr>
+            ))}</tbody>
+          </table>
         </div>
-        <Table>
-          <TableHeader><TableRow>
-            <TableHead>Grupo</TableHead><TableHead>Modo</TableHead><TableHead>Compresor</TableHead><TableHead>Evaporador</TableHead>
-            <TableHead>Resistencia</TableHead><TableHead>Arranques</TableHead><TableHead>Horas marcha</TableHead>
-          </TableRow></TableHeader>
-          <TableBody>
-            {GRUPOS.map(g => (
-              <TableRow key={g}>
-                <TableCell>G{g}</TableCell><TableCell>{e(`G${g}.modo`) || '—'}</TableCell>
-                <TableCell>{on(n(`G${g}.comp`))}</TableCell><TableCell>{on(n(`G${g}.eva`))}</TableCell><TableCell>{on(n(`G${g}.res`))}</TableCell>
-                <TableCell>{e(`G${g}.arranques`) || '—'}</TableCell><TableCell>{e(`G${g}.horas_marcha`) || '—'}</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-        <PanelGrafana uid="maniobras" panelId={1} vars={{ camara: cam }} title="Línea de tiempo de maniobras" />
-      </Card>
-
-      <Card className="p-4 space-y-2">
-        <div className="font-semibold">Horarios y etapas</div>
-        <Table>
-          <TableHeader><TableRow>
-            <TableHead>Horario</TableHead><TableHead>Hora</TableHead><TableHead>Estado</TableHead>
-            <TableHead>Etapa 1</TableHead><TableHead>Etapa 2</TableHead>
-          </TableRow></TableHeader>
-          <TableBody>
-            {HORARIOS.map(h => {
-              const et = (i: number) => n(`H${h}.etapa${i}_habilitada`)
-                ? `${e(`H${h}.etapa${i}_min`)} min${n(`H${h}.etapa${i}_orden`) ? ' · en curso' : ''}` : 'deshabilitada'
-              return (
-                <TableRow key={h}>
-                  <TableCell>H{h}</TableCell><TableCell>{e(`H${h}.hora`) || '—'}</TableCell><TableCell>{e(`H${h}.estado`) || '—'}</TableCell>
-                  <TableCell>{et(0)}</TableCell><TableCell>{et(1)}</TableCell>
-                </TableRow>
-              )
-            })}
-          </TableBody>
-        </Table>
-      </Card>
-
-      <Card className="p-4 space-y-2">
-        <div className="font-semibold">Últimos eventos</div>
-        {eventos.length === 0
-          ? <div className="text-sm text-muted-foreground">Sin eventos desde que se abrió el portal. Historial en Alarmas y eventos.</div>
-          : <ul className="text-sm space-y-1">{eventos.slice(0, 10).map((ev, i) => <li key={i}><span className="text-muted-foreground">{hhmm(ev.ts)}</span> {ev.texto}</li>)}</ul>}
-      </Card>
-      <div className="text-xs text-muted-foreground">Temperatura y su gráfico llegan con el subproyecto 1 (los Full Gauge todavía no están en el mapa del PLC).</div>
+      </details>
     </div>
   )
 }
