@@ -64,14 +64,16 @@ export default function Camara() {
           const eq = hayDatos ? estadoEquipo(estado!, cam, g) : null
           const tiene = (k: string) => hayDatos && num(estado, `${cam}.G${g}.${k}`) === 1
           return (
-            <div key={g} className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <div key={g} className="flex items-center gap-3">
               <BotonEquipo c={cam} g={g} />
-              <div className="min-w-0 flex-1 text-sm">
-                Equipo {g} · {eq ? eq.texto : 'Sin datos'}
-                {eq?.clave === 'DESCONGELANDO' && falta != null && ` · faltan ${falta} min`}
-              </div>
-              <div className="flex gap-1">
-                {CHIPS.map(([k, n]) => <span key={k} className={`rounded-full px-2 py-0.5 text-xs ${tiene(k) ? 'bg-green-600 text-white' : 'bg-muted text-muted-foreground'}`}>{n}</span>)}
+              <div className="min-w-0 flex-1">
+                <div className="text-sm">
+                  <b>Equipo {g}</b> · {eq ? eq.texto : 'Sin datos'}
+                  {eq?.clave === 'DESCONGELANDO' && falta != null && <b> · faltan {falta} min</b>}
+                </div>
+                <div className="mt-1 flex flex-wrap gap-1">
+                  {CHIPS.map(([k, n]) => <span key={k} className={`rounded-full px-2 py-0.5 text-xs ${tiene(k) ? 'bg-green-600 text-white' : 'bg-muted text-muted-foreground'}`}>{n}</span>)}
+                </div>
               </div>
             </div>
           )

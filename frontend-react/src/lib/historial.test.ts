@@ -37,3 +37,7 @@ describe('filas de exportación', () => {
   test('avisos', () => expect(filasAvisos(prepararAvisos([{ ts: 0, texto: 'C4 G1 MODO MANUAL', estado: 1 }], null, false))[0])
     .toMatchObject({ Tipo: 'Acción de un operario', Aviso: 'Equipo 1 pasó a manual', 'Sigue activo': '' }))
 })
+
+test('un evento sin texto no rompe la lista de avisos', () => {
+  expect(() => prepararAvisos([{ ts: 1, hora_plc: '', texto: undefined as unknown as string, estado: 1 }], null, false)).not.toThrow()
+})

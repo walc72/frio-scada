@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, Component, type ReactNode, type ErrorInfo } from 'react'
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { Sun, Moon, LogOut, ShieldCheck, Eye, Lock, Wifi, WifiOff } from 'lucide-react'
 import { useTheme } from './lib/theme'
 import { Button } from './components/ui/button'
@@ -55,6 +55,7 @@ function NoAutorizado() {
 
 export default function App() {
   const { theme, toggle } = useTheme()
+  const { pathname } = useLocation()  // el error de una vista no queda pegado al navegar a otra
   const connect = useLiveStore(s => s.connect)
   const disconnect = useLiveStore(s => s.disconnect)
   const connected = useLiveStore(s => s.connected)
@@ -127,7 +128,7 @@ export default function App() {
         {/* Main content */}
         <div className="flex-1 flex flex-col min-w-0">
           <main className="flex-1 p-3 sm:p-6 pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-6 overflow-auto">
-            <RouteErrorBoundary>
+            <RouteErrorBoundary key={pathname}>
             <Suspense fallback={<div className="flex items-center justify-center h-full text-muted-foreground text-sm">Cargando...</div>}>
               <Routes>
                 <Route path="/" element={<General />} />

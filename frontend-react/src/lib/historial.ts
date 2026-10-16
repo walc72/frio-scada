@@ -37,7 +37,7 @@ export interface AvisoFila { ts: number; texto: string; estado: string | number;
 export function prepararAvisos(data: { ts: number; texto: string; estado: string | number }[], estado: Estado | null, fresco: boolean): AvisoFila[] {
   const vistos = new Set<string>()
   return [...data].sort((a, b) => b.ts - a.ts).map(f => {
-    const k = f.texto.trim().toUpperCase()
+    const k = String(f.texto ?? "").trim().toUpperCase()
     const nuevo = !vistos.has(k)
     vistos.add(k)
     return { ...f, tipo: tipoAviso(f.texto, f.estado), frase: fraseEvento(f.texto, f.estado), sigue: nuevo && Number(f.estado) === 1 && sigueActivo(f.texto, estado, fresco) }
