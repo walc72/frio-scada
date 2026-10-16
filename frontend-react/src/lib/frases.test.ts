@@ -2,7 +2,7 @@ import { describe, test, expect } from 'vitest'
 import type { Estado } from '../store/camaras'
 import type { FilaDescongelado } from './camaras'
 import { RUTAS_VIEJAS } from './rutas'
-import { estadoEquipo, faltanMin, fraseCamara, proximoTexto, semaforo, textoAlarma, badgeDescongelado } from './frases'
+import { estadoEquipo, faltanMin, fraseCamara, proximoTexto, semaforo, textoAlarma, badgeDescongelado, fraseEvento, badgeCamara } from './frases'
 
 // 2026-10-16 12:00 hora de planta (UTC-3) y 23:30 del mismo día
 const T = Date.UTC(2026, 9, 16, 15, 0)
@@ -115,5 +115,23 @@ describe('ventanaPlanta', () => {
     const v = ventanaPlanta('2026-10-16', '2026-10-16')
     expect(v.desde).toBe('2026-10-16T03:00:00.000Z')
     expect(v.hasta).toBe('2026-10-17T02:59:59.999Z')
+  })
+})
+
+describe('fraseEvento / badgeCamara', () => {
+  test.each([
+    ['C4 G1 MODO MANUAL', 'Equipo 1 pasó a manual'],
+    ['C4 G1 DESHABILITADO', 'Equipo 1 deshabilitado'],
+    ['C4 ETAPAS CAMBIADAS', 'Se cambió el reparto de equipos por etapa'],
+    ['C4 DESCONGELADO ETAPA 1', 'Descongelado, etapa 1'],
+    ['C5 G3 DESCONGELADO CORTADO', 'Se cortó a mano el descongelado del equipo 3'],
+    ['C5 SALTO DE DESCONGELADO', 'Se saltó un descongelado'],
+    ['C4 G5 ALGO NUEVO', 'Equipo 5 algo nuevo'],
+    ['', ''],
+  ])('%s', (i, o) => expect(fraseEvento(i)).toBe(o))
+  test('badge', () => {
+    expect(badgeCamara(fx4desc, 'C4', 'ok')?.t).toBe('Descongelando')
+    expect(badgeCamara(fxAlarmaYDesc, 'C5', 'alarma')?.t).toBe('Atención')
+    expect(badgeCamara(fxVacio, 'C4', 'sin-datos')).toBeNull()
   })
 })

@@ -6,11 +6,12 @@ import LineaDescongelados from '../components/LineaDescongelados'
 import BarrasEquipos from '../components/BarrasEquipos'
 import { useCamarasStore } from '../store/camaras'
 import { estaVencido } from '../lib/estadoGrupo'
-import { fraseCamara, estadoEquipo, faltanMin } from '../lib/frases'
-import { CAMARAS, GRUPOS, HORARIOS, nombreCamara, txt, num, hhmm } from '../lib/camaras'
+import { fraseCamara, estadoEquipo, faltanMin, fraseEvento, badgeCamara } from '../lib/frases'
+import { CAMARAS, GRUPOS, HORARIOS, PLANTA_OFFSET, nombreCamara, txt, num, hhmm, type FilaDescongelado } from '../lib/camaras'
 import { useNow } from '../lib/useNow'
 import { useDatos } from '../lib/useDatos'
-import { diaPlanta, type Tramo } from '../lib/paginaCamara'
+import { useMemo } from 'react'
+import { diaPlanta, aTramos, type TramoApi } from '../lib/paginaCamara'
 
 const MODOS: Record<string, string> = { AUTOMATICO: 'Automático', MANUAL: 'Manual', STOP: 'Detenido' }
 const CHIPS = [['comp', 'Compresor'], ['eva', 'Evaporador'], ['res', 'Resistencia']] as const
@@ -27,23 +28,19 @@ export default function Camara() {
   const ahora = useNow(1000)
   const dia = diaPlanta(ahora)
   const valida = (CAMARAS as readonly string[]).includes(cam)
-  const tr = useDatos<Tramo>('tramos', dia, dia, valida ? cam : '', 60000)
+  const tr = useDatos<TramoApi>('tramos', dia, dia, valida ? cam : '', 60000)
+  const filas = useDatos<FilaDescongelado>('descongelados', dia, dia, valida ? cam : '', 60000)
+  const tramos = useMemo(() => (tr.data ? aTramos(tr.data) : null), [tr.data])
   const ev = useDatos<Evento>('eventos', dia, dia, valida ? cam : '', 60000)
   if (!valida) return <div className="text-center text-muted-foreground py-16">Cámara inexistente. <Link className="underline" to="/">Volver</Link></div>
 
   const sinDatos = !estado || incompatible || estaVencido(recibidoEn, ahora)
   const f = estado && !sinDatos ? fraseCamara(estado, cam, ahora) : null
   const hayDatos = !!f && f.nivel !== 'sin-datos'
-  const cuantos = (k: string) => estado ? GRUPOS.filter(g => estadoEquipo(estado, cam, g).clave === k).length : 0
-  const badge = !hayDatos ? null
-    : f!.nivel === 'alarma' ? { t: 'Atención', c: '#D32F2F' }
-    : f!.nivel === 'atencion' ? { t: 'Atención', c: '#F59E0B' }
-    : cuantos('DESCONGELANDO') ? { t: 'Descongelando', c: '#F28C28' }
-    : cuantos('ESCURRIENDO') ? { t: 'Escurriendo', c: '#4FC3F7' }
-    : cuantos('FRIO') ? { t: 'Enfriando', c: '#1E6FD9' } : null
+  const badge = hayDatos ? badgeCamara(estado!, cam, f!.nivel) : null
   const modo = hayDatos ? MODOS[txt(estado, `${cam}.modo`)] : undefined
   const falta = hayDatos ? faltanMin(estado!, cam) : null
-  const dia0 = Date.parse(`${dia}T00:00:00-03:00`)
+  const dia0 = Date.parse(`${dia}T00:00:00${PLANTA_OFFSET}`)
   const avisos = (ev.data ?? []).slice(-5).reverse()
   const v = (k: string) => { const x = txt(estado, k); return x === '' ? '—' : x }
 
@@ -81,19 +78,20 @@ export default function Camara() {
         })}
       </Card>
 
-      <LineaDescongelados estado={sinDatos ? null : estado} cam={cam} ahora={ahora} />
-      <BarrasEquipos tramos={tr.data} error={tr.error} dia0={dia0} ahora={ahora} />
+      <LineaDescongelados estado={estado} sinDatos={sinDatos} cam={cam} ahora={ahora} filas={filas.error ? null : filas.data} />
+      <BarrasEquipos tramos={tramos} error={tr.error} dia0={dia0} ahora={ahora} />
 
       <Card className="p-4 space-y-2 rounded-2xl">
         <div className="font-semibold">Últimos avisos</div>
         {ev.error ? <div className="text-sm text-muted-foreground">No se pudieron cargar los avisos</div>
+          : !ev.data ? <div className="text-sm text-muted-foreground">Cargando…</div>
           : avisos.length === 0 ? <div className="text-sm text-muted-foreground">Sin avisos hoy</div>
-          : <ul className="text-sm space-y-1">{avisos.map((a, i) => <li key={i}><span className="text-muted-foreground">{hhmm(a.ts)}</span> {a.texto}</li>)}</ul>}
+          : <ul className="text-sm space-y-1">{avisos.map((a, i) => <li key={i}><span className="text-muted-foreground">{hhmm(a.ts)}</span> {fraseEvento(a.texto)}</li>)}</ul>}
       </Card>
 
       <details className="rounded-2xl border bg-card p-4 text-sm">
         <summary className="cursor-pointer font-semibold">Ver detalles técnicos</summary>
-        <div className="mt-3 overflow-x-auto space-y-4">
+        {sinDatos ? <div className="mt-3 text-muted-foreground">{ts ? `Sin datos desde ${hhmm(ts)}` : 'Sin datos todavía'}</div> : <div className="mt-3 overflow-x-auto space-y-4">
           <table className="w-full text-left">
             <thead><tr className="text-muted-foreground"><th className="pr-3">Equipo</th><th className="pr-3">Arranques</th><th className="pr-3">Horas de marcha</th><th className="pr-3">Horas sin descongelar</th></tr></thead>
             <tbody>{GRUPOS.map(g => <tr key={g}><td>{g}</td><td>{v(`${cam}.G${g}.arranques`)}</td><td>{v(`${cam}.G${g}.horas_marcha`)}</td><td>{v(`${cam}.G${g}.horas_sin_desc`)}</td></tr>)}</tbody>
@@ -105,7 +103,7 @@ export default function Camara() {
                 {[0, 1].map(i => <td key={i}>{num(estado, `${cam}.H${h}.etapa${i}_habilitada`) ? v(`${cam}.H${h}.etapa${i}_min`) : 'deshabilitada'}</td>)}</tr>
             ))}</tbody>
           </table>
-        </div>
+        </div>}
       </details>
     </div>
   )

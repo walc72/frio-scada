@@ -201,3 +201,33 @@ export function badgeDescongelado(f: FilaDescongelado): { etiqueta: 'completo' |
   if (f.interrumpida) return { etiqueta: 'sin datos', motivo: 'Se cortó la comunicación con el PLC y no se sabe cómo terminó' }
   return { etiqueta: 'completo', motivo: 'Terminó normalmente' }
 }
+
+// ---- avisos ----
+// Evento del PLC ("C4 G1 MODO MANUAL") a una frase para personas.
+const EVENTOS: [RegExp, (m: RegExpMatchArray) => string][] = [
+  [/^g(\d) modo manual/, m => `Equipo ${m[1]} pasó a manual`],
+  [/^g(\d) modo auto/, m => `Equipo ${m[1]} pasó a automático`],
+  [/^g(\d) deshabilitado/, m => `Equipo ${m[1]} deshabilitado`],
+  [/^g(\d) habilitado/, m => `Equipo ${m[1]} habilitado`],
+  [/^g(\d) descongelado cortado/, m => `Se cortó a mano el descongelado del equipo ${m[1]}`],
+  [/^salto de descongelado/, () => 'Se saltó un descongelado'],
+  [/^etapas cambiadas/, () => 'Se cambió el reparto de equipos por etapa'],
+  [/^descongelado etapa (\d)/, m => `Descongelado, etapa ${m[1]}`],
+]
+export function fraseEvento(texto: string): string {
+  const t = String(texto ?? '').replace(/^C\d\s+/i, '').trim().toLowerCase()
+  for (const [re, f] of EVENTOS) { const m = t.match(re); if (m) return f(m) }
+  const s = t.replace(/g(\d)/g, 'equipo $1')
+  return s.charAt(0).toUpperCase() + s.slice(1)
+}
+
+// Etiqueta de estado de la cámara (mismos colores que el HMI); null si no hay datos o nada que decir
+export function badgeCamara(estado: Estado, c: string, nivel: Nivel): { t: string; c: string } | null {
+  if (nivel === 'sin-datos') return null
+  if (nivel === 'alarma') return { t: 'Atención', c: '#D32F2F' }
+  if (nivel === 'atencion') return { t: 'Atención', c: '#F59E0B' }
+  const n = (k: ClaveEstado) => gruposEn(estado, c, k).length
+  return n('DESCONGELANDO') ? { t: 'Descongelando', c: '#F28C28' }
+    : n('ESCURRIENDO') ? { t: 'Escurriendo', c: '#4FC3F7' }
+    : n('FRIO') ? { t: 'Enfriando', c: '#1E6FD9' } : null
+}

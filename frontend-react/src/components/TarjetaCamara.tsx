@@ -4,7 +4,7 @@ import { Badge } from './ui/badge'
 import BotonEquipo from './BotonEquipo'
 import { useCamarasStore } from '../store/camaras'
 import { estaVencido } from '../lib/estadoGrupo'
-import { fraseCamara, proximoTexto, estadoEquipo } from '../lib/frases'
+import { fraseCamara, proximoTexto, badgeCamara } from '../lib/frases'
 import { GRUPOS, nombreCamara, hhmm } from '../lib/camaras'
 import { useNow } from '../lib/useNow'
 
@@ -18,13 +18,7 @@ export default function TarjetaCamara({ cam }: { cam: string }) {
   const f = estado && !vencido && !incompatible ? fraseCamara(estado, cam, ahora) : null
   const hayDatos = !!f && f.nivel !== 'sin-datos'
   const alarma = f?.nivel === 'alarma'
-  const cuantos = (k: string) => estado ? GRUPOS.filter(g => estadoEquipo(estado, cam, g).clave === k).length : 0
-  const badge = !hayDatos ? null
-    : alarma ? { t: 'Atención', c: '#D32F2F' }
-    : f!.nivel === 'atencion' ? { t: 'Atención', c: '#F59E0B' }
-    : cuantos('DESCONGELANDO') ? { t: 'Descongelando', c: '#F28C28' }
-    : cuantos('ESCURRIENDO') ? { t: 'Escurriendo', c: '#4FC3F7' }
-    : cuantos('FRIO') ? { t: 'Enfriando', c: '#1E6FD9' } : null
+  const badge = hayDatos ? badgeCamara(estado!, cam, f!.nivel) : null
   return (
     <Link to={`/camara/${cam}`} className="block">
       <Card className={`p-4 space-y-3 rounded-2xl shadow-sm hover:border-primary transition-colors ${alarma ? 'border-2 border-red-600' : ''} ${vencido || incompatible ? 'grayscale bg-muted opacity-70' : ''}`}>
