@@ -1,11 +1,11 @@
 import { Card } from './ui/card'
 import { GRUPOS } from '../lib/camaras'
-import { segmentos, minutoDelDia, pct, COLOR_TRAMO, TEXTO_TRAMO, type Tramo } from '../lib/paginaCamara'
+import { segmentos, pct, COLOR_TRAMO, TEXTO_TRAMO, type Tramo } from '../lib/paginaCamara'
 
 const HACHURA = 'repeating-linear-gradient(45deg,#E5E7EB,#E5E7EB 3px,#D1D5DB 3px,#D1D5DB 6px)'
 
-// Una barra por equipo, de 00:00 a ahora (el resto del día queda vacío).
-export default function BarrasEquipos({ tramos, error, dia0, ahora }: { tramos: Tramo[] | null; error: boolean; dia0: number; ahora: number }) {
+// Una barra por equipo, de 00:00 a ahora (el resto del día queda vacío). `minuto` = la marca de ahora (mismo reloj que los horarios).
+export default function BarrasEquipos({ tramos, error, dia0, ahora, minuto }: { tramos: Tramo[] | null; error: boolean; dia0: number; ahora: number; minuto: number }) {
   return (
     <Card className="p-4 space-y-3 rounded-2xl">
       <div className="font-semibold">Qué hizo cada equipo hoy</div>
@@ -19,7 +19,7 @@ export default function BarrasEquipos({ tramos, error, dia0, ahora }: { tramos: 
                   <span key={i} className="absolute inset-y-0" title={TEXTO_TRAMO[s.estado]}
                     style={{ left: `${s.izq}%`, width: `${s.ancho}%`, background: s.estado === 'sin-datos' ? HACHURA : COLOR_TRAMO[s.estado] }} />
                 ))}
-                <span className="absolute inset-y-0 w-0.5 bg-red-600" style={{ left: `${pct(minutoDelDia(ahora))}%` }} />
+                <span className="absolute inset-y-0 w-0.5 bg-red-600" style={{ left: `${pct(minuto)}%` }} />
               </div>
             </div>
           ))}

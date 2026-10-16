@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { apiJson } from './api'
-import { ventanaPlanta } from './camaras'
+import { ventanaPlanta, diaPlanta } from './camaras'
 
 // GET /api/camaras/<ruta>?desde&hasta[&camara]. Si falla: error=true y data=null (la página muestra "sin datos").
 export function useDatos<T = any>(ruta: string, desde: string, hasta: string, camara = '', refrescoMs = 0) {
@@ -23,7 +23,4 @@ export function useDatos<T = any>(ruta: string, desde: string, hasta: string, ca
   return { data, error, cargando }
 }
 
-export const hoy = (offsetDias = 0) => {
-  const d = new Date(Date.now() + offsetDias * 864e5)
-  return new Date(d.getTime() - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 10)
-}
+export const hoy = (offsetDias = 0) => diaPlanta(Date.now(), offsetDias)

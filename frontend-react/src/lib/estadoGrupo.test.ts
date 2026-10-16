@@ -20,14 +20,6 @@ describe('csvDe', () => {
     expect(csvDe([{ a: 'x;y', b: 'di"o', c: 'l\nm', d: 1 }])).toBe('a;b;c;d\r\n"x;y";"di""o";"l\nm";1'))
 })
 
-import { proximoDescongelado } from './camaras'
-describe('proximoDescongelado', () => {
-  const e = { hora_plc: '2026-10-15 10:30:00', 'C4.H1.estado': 'PROGRAMADO', 'C4.H1.hora': '06:00', 'C4.H2.estado': 'PROGRAMADO', 'C4.H2.hora': '14:00', 'C4.H3.estado': 'DESHABILITADO', 'C4.H3.hora': '11:00' }
-  it('toma el siguiente habilitado', () => expect(proximoDescongelado(e, 'C4')).toBe('14:00'))
-  it('da la vuelta al día', () => expect(proximoDescongelado({ ...e, hora_plc: '2026-10-15 15:00:00' }, 'C4')).toBe('06:00'))
-  it('sin estado null', () => expect(proximoDescongelado(null, 'C4')).toBeNull())
-})
-
 import { recepcionFresca } from './estadoGrupo'
 describe('recepcionFresca', () => {
   const ahora = 1_000_000
@@ -41,9 +33,15 @@ describe('csv es-AR y fórmulas', () => {
   it('prefija comilla a fórmulas', () => expect(csvDe([{ a: '=1+1', b: '@x', c: '-2', d: '+3', e: 'ok' }])).toBe("a;b;c;d;e\r\n'=1+1;'@x;'-2;'+3;ok"))
 })
 
-import { horaPlc, hhmm, esIPv4 } from './camaras'
+import { horaPlc, hhmm, esIPv4, diaPlanta, ayerPlanta } from './camaras'
 describe('hora de planta y del PLC', () => {
   it('hhmm en hora de Paraguay (UTC-3) sin importar la zona del navegador', () => expect(hhmm(Date.parse('2026-10-15T15:00:00Z'))).toBe('12:00'))
+  it('diaPlanta: el día cambia a las 03:00 UTC y admite offset', () => {
+    expect(diaPlanta(Date.parse('2026-10-16T02:59:00Z'))).toBe('2026-10-15')
+    expect(diaPlanta(Date.parse('2026-10-16T03:00:00Z'))).toBe('2026-10-16')
+    expect(diaPlanta(Date.parse('2026-10-16T12:00:00Z'), -1)).toBe('2026-10-15')
+    expect(ayerPlanta(Date.parse('2026-10-16T02:00:00Z'))).toBe('2026-10-14')
+  })
   it('horaPlc formatea los segundos locales del PLC como UTC', () => expect(horaPlc('1790850600')).toBe('2026-10-01 10:30:00'))
   it('horaPlc vacío si no es número', () => { expect(horaPlc('')).toBe(''); expect(horaPlc(undefined)).toBe('') })
 })

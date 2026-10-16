@@ -1,7 +1,7 @@
 // Traductor del estado plano del PLC (mapa.js decodificar) a frases para personas no técnicas. Funciones puras.
 // Nunca inventa números: si algo no se puede calcular, la frase lo dice sin cifra.
 import type { Estado } from '../store/camaras'
-import { GRUPOS, HORARIOS, nombreCamara, txt, num, hhmm, type FilaDescongelado } from './camaras'
+import { GRUPOS, HORARIOS, nombreCamara, txt, num, hhmm, aMin, minutoAhora, type FilaDescongelado } from './camaras'
 import { colorEstadoGrupo } from './estadoGrupo'
 
 export type Nivel = 'ok' | 'atencion' | 'alarma' | 'sin-datos'
@@ -24,13 +24,13 @@ const EQUIPO: Record<ClaveEstado, { texto: string; icono: NombreIcono }> = {
 export function estadoEquipo(estado: Estado, c: string, g: number) {
   const k = txt(estado, `${c}.G${g}.estado`)
   const clave = (k !== 'sin-datos' && k in EQUIPO ? k : 'sin-datos') as ClaveEstado
-  return { clave, ...EQUIPO[clave], color: clave === 'sin-datos' ? '#9A9A9A' : colorEstadoGrupo(clave).fondo }
+  return { clave, ...EQUIPO[clave], color: colorEstadoGrupo(clave === 'sin-datos' ? 'DETENIDO' : clave).fondo }
 }
 
 const gruposEn = (e: Estado, c: string, clave: ClaveEstado) => GRUPOS.filter(g => estadoEquipo(e, c, g).clave === clave)
-const aMin = (s: string) => { const [h, m] = s.split(':').map(Number); return h * 60 + m }
 const horaValida = (s: string) => /^\d{1,2}:\d{2}$/.test(s)
-const hhmmDe = (s: string) => { const m = aMin(s); return `${String(Math.floor(m / 60) % 24).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}` }
+const hhmmMin = (m: number) => { const x = ((Math.round(m) % 1440) + 1440) % 1440; return `${String(Math.floor(x / 60)).padStart(2, '0')}:${String(x % 60).padStart(2, '0')}` }
+const hhmmDe = (s: string) => hhmmMin(aMin(s))
 const equipos = (n: number) => (n === 1 ? '1 equipo' : `${n} equipos`)
 const esNum = (v: unknown) => v != null && v !== '' && Number.isFinite(Number(v))
 
@@ -66,12 +66,12 @@ export function faltanMin(estado: Estado, c: string): number | null {
   return Math.max(...falta)
 }
 
-// "hoy 12:00" | "mañana 04:00" | "Sin descongelados programados". `ahora` en ms; hora de planta.
+// "hoy 12:00" | "mañana 04:00" | "Sin descongelados programados". Reloj: minutoAhora (hora del PLC si el estado es fresco).
 export function proximoTexto(estado: Estado, c: string, ahora: number): string {
   const horas = HORARIOS.filter(h => txt(estado, `${c}.H${h}.estado`) === 'PROGRAMADO').map(h => txt(estado, `${c}.H${h}.hora`)).filter(horaValida)
     .sort((a, b) => aMin(a) - aMin(b))
   if (!horas.length) return 'Sin descongelados programados'
-  const ahoraMin = aMin(hhmm(ahora))
+  const ahoraMin = minutoAhora(estado, ahora)
   const hoy = horas.find(h => aMin(h) > ahoraMin)
   return hoy ? `hoy ${hhmmDe(hoy)}` : `mañana ${hhmmDe(horas[0])}`
 }
@@ -93,6 +93,7 @@ export function textoAlarma(clave: string): { texto: string; accion?: string } {
   return ALARMAS[clave.split('.').pop() ?? ''] ?? { texto: 'hay una alarma en el PLC', accion: 'avisar al técnico' }
 }
 
+// Mantener en sincronía con definiciones() de nodered/weg-api/src/services/alertasCamaras.js (mismos flags de alarma).
 interface AlarmaActiva { clave: string; c?: string; g?: number }
 export function alarmasActivas(e: Estado, c?: string): AlarmaActiva[] {
   const r: AlarmaActiva[] = []
@@ -148,7 +149,7 @@ export function fraseCamara(estado: Estado, c: string, ahora: number): { titulo:
     if (falta == null) {
       const trans = minTranscurridos(estado, c)
       const h = horarioEnVentana(estado, c)
-      const hora = trans != null ? hhmm(ahora - trans * 60000) : h != null ? txt(estado, `${c}.H${h}.hora`) : ''
+      const hora = trans != null ? hhmmMin(minutoAhora(estado, ahora) - trans) : h != null ? txt(estado, `${c}.H${h}.hora`) : ''
       desde = horaValida(hora) ? ` desde ${hhmmDe(hora)}` : ''
     }
     const titulo = `${equipos(desc)} descongelando` + (falta != null ? `, ${desc === 1 ? 'termina' : 'terminan'} en ${falta} min` : desde)
@@ -167,12 +168,12 @@ export function fraseCamara(estado: Estado, c: string, ahora: number): { titulo:
 
 // `mapa` = store.mapa (el store saca _mapa del estado)
 export function semaforo(estado: Estado | null, fresco: boolean, ts: number | null, mapa?: string | null): { nivel: Nivel; titulo: string; detalle: string } {
+  if (mapa === 'incompatible') {
+    return { nivel: 'atencion', titulo: 'El PLC tiene un programa viejo', detalle: 'Los datos no se pueden interpretar. Avisar al técnico' }
+  }
   if (!estado || !fresco) {
     return ts ? { nivel: 'sin-datos', titulo: `Sin datos desde ${hhmm(ts)}`, detalle: 'No se está recibiendo información del PLC' }
       : { nivel: 'sin-datos', titulo: 'Sin datos todavía', detalle: 'Esperando información del PLC' }
-  }
-  if (mapa === 'incompatible') {
-    return { nivel: 'atencion', titulo: 'El PLC tiene un programa viejo', detalle: 'Los datos no se pueden interpretar. Avisar al técnico' }
   }
   const al = alarmasActivas(estado)
   if (al.length) return { nivel: 'alarma', titulo: tituloAlarma(al[0]), detalle: detalleAlarma(al[0], al.length) }
@@ -212,6 +213,7 @@ interface RowEvento {
   aparece: (m: RegExpMatchArray) => string
   resuelve?: (m: RegExpMatchArray) => string
 }
+// Los flags de las alarmas deben coincidir con alertasCamaras.js definiciones() y con alarmasActivas: mantener en sincronía.
 const EVENTOS: RowEvento[] = [
   { re: /^g(\d) resistencia t\.max$/, tipo: 'alarma', flag: (m, c) => `${c}.G${m[1]}.alarma_res`,
     aparece: m => `Se cortó la resistencia del equipo ${m[1]} por tiempo máximo`, resuelve: m => `Equipo ${m[1]}: se normalizó la resistencia` },
@@ -292,10 +294,10 @@ export function sigueActivo(texto: string, estado: Estado | null, fresco: boolea
 // Etiqueta de estado de la cámara (mismos colores que el HMI); null si no hay datos o nada que decir
 export function badgeCamara(estado: Estado, c: string, nivel: Nivel): { t: string; c: string } | null {
   if (nivel === 'sin-datos') return null
-  if (nivel === 'alarma') return { t: 'Atención', c: '#D32F2F' }
+  if (nivel === 'alarma') return { t: 'Atención', c: colorEstadoGrupo('ALARMA RES').fondo }
   if (nivel === 'atencion') return { t: 'Atención', c: '#F59E0B' }
   const n = (k: ClaveEstado) => gruposEn(estado, c, k).length
-  return n('DESCONGELANDO') ? { t: 'Descongelando', c: '#F28C28' }
-    : n('ESCURRIENDO') ? { t: 'Escurriendo', c: '#4FC3F7' }
-    : n('FRIO') ? { t: 'Enfriando', c: '#1E6FD9' } : null
+  return n('DESCONGELANDO') ? { t: 'Descongelando', c: colorEstadoGrupo('DESCONGELANDO').fondo }
+    : n('ESCURRIENDO') ? { t: 'Escurriendo', c: colorEstadoGrupo('ESCURRIENDO').fondo }
+    : n('FRIO') ? { t: 'Enfriando', c: colorEstadoGrupo('FRIO').fondo } : null
 }

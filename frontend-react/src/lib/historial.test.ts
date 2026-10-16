@@ -41,3 +41,21 @@ describe('filas de exportación', () => {
 test('un evento sin texto no rompe la lista de avisos', () => {
   expect(() => prepararAvisos([{ ts: 1, texto: undefined as unknown as string, estado: 1 }], null, false)).not.toThrow()
 })
+
+import { contarDescongelados } from './historial'
+describe('contarDescongelados', () => {
+  const H = 36e5
+  const d = (o: object) => ({ camara: 'C4', horario: 'H1', etapa: 0, grupos: 'G1', inicio: 0, fin: 1, duracionS: 1, cortados: '', saltado: false, noEjecutada: false, ...o }) as any
+  test('2 etapas del mismo horario = 1 corrida', () => {
+    expect(contarDescongelados([d({ etapa: 0, inicio: 10 * H }), d({ etapa: 1, inicio: 10.5 * H })])).toEqual({ hechos: 1, saltados: 0, noSeHizo: 0, cortados: 0 })
+  })
+  test('el mismo horario a otro día/hora (> 2 h) es otra corrida; otro horario o cámara también', () => {
+    expect(contarDescongelados([d({ inicio: 0 }), d({ inicio: 5 * H }), d({ horario: 'H2' }), d({ camara: 'C5' })]).hechos).toBe(4)
+  })
+  test('gana la peor etiqueta de la corrida', () => {
+    expect(contarDescongelados([d({}), d({ etapa: 1, inicio: H, saltado: true })])).toEqual({ hechos: 0, saltados: 1, noSeHizo: 0, cortados: 0 })
+    expect(contarDescongelados([d({}), d({ etapa: 1, inicio: H, cortados: 'G1' })])).toEqual({ hechos: 1, saltados: 0, noSeHizo: 0, cortados: 1 })
+    expect(contarDescongelados([d({ noEjecutada: true })]).noSeHizo).toBe(1)
+  })
+  test('vacío', () => expect(contarDescongelados([])).toEqual({ hechos: 0, saltados: 0, noSeHizo: 0, cortados: 0 }))
+})

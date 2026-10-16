@@ -1,23 +1,21 @@
 // Helpers puros de la página de una cámara: tramos -> segmentos de barra y horarios -> frases.
 import type { Estado } from '../store/camaras'
-import { HORARIOS, ZONA, txt, num, hhmm, type FilaDescongelado } from './camaras'
+import { HORARIOS, DESVIO_MAX_S, txt, num, aMin, minutoDelDia, minutoAhora, type FilaDescongelado } from './camaras'
 import { badgeDescongelado } from './frases'
+import { colorEstadoGrupo } from './estadoGrupo'
 
 export type EstadoTramo = 'frio' | 'descongelando' | 'apagado' | 'sin-datos'
 // La API devuelve inicio/fin como ISO; el resto del código usa ms
 export interface TramoApi { camara: string; grupo: string; inicio: string; fin: string; estado: EstadoTramo }
 export interface Tramo { camara: string; grupo: string; inicio: number; fin: number; estado: EstadoTramo }
 export const aTramos = (rows: TramoApi[]): Tramo[] => rows.map(r => ({ ...r, inicio: Date.parse(r.inicio), fin: Date.parse(r.fin) })).filter(t => Number.isFinite(t.inicio) && Number.isFinite(t.fin))
-export const COLOR_TRAMO: Record<EstadoTramo, string> = { frio: '#1E6FD9', descongelando: '#F28C28', apagado: '#9A9A9A', 'sin-datos': '#E5E7EB' }
+export const COLOR_TRAMO: Record<EstadoTramo, string> = { frio: colorEstadoGrupo('FRIO').fondo, descongelando: colorEstadoGrupo('DESCONGELANDO').fondo, apagado: colorEstadoGrupo('DETENIDO').fondo, 'sin-datos': '#E5E7EB' }
 export const TEXTO_TRAMO: Record<EstadoTramo, string> = { frio: 'Enfriando', descongelando: 'Descongelando', apagado: 'Apagado', 'sin-datos': 'Sin datos' }
 
-const aMin = (s: string) => { const [h, m] = s.split(':').map(Number); return h * 60 + m }
 export const pct = (min: number) => Math.min(100, Math.max(0, (min / 1440) * 100))
 
-// Día de planta (YYYY-MM-DD) de un instante
-export const diaPlanta = (ms: number) => new Date(ms).toLocaleDateString('en-CA', { timeZone: ZONA })
-// Minutos desde las 00:00 de planta
-export const minutoDelDia = (ms: number) => aMin(hhmm(ms))
+// Un horario cuenta como de hoy si la corrida empezó hasta esto antes de su hora (deriva del reloj del PLC)
+const TOLERANCIA_MIN = DESVIO_MAX_S / 60
 
 // Tramos de un equipo -> segmentos {izq, ancho} en % del día, recortados a [dia0, ahora]
 export function segmentos(tramos: Tramo[], grupo: number, dia0: number, ahora: number) {
@@ -47,12 +45,6 @@ export function repartoTexto(e: Estado, c: string, h: number): string {
   return ''
 }
 
-// "Ahora" en minutos del día: la hora del PLC (reloj de pared) si viene, si no la de planta
-export function minutoAhora(e: Estado | null, ahora: number): number {
-  const p = txt(e, 'hora_plc').slice(11, 16)
-  return /^\d{2}:\d{2}$/.test(p) ? aMin(p) : minutoDelDia(ahora)
-}
-
 // Horarios habilitados, ordenados por hora. "hecho" sale de las filas de /descongelados de hoy (filas=null: todavía no se sabe).
 export function horariosVista(e: Estado, c: string, ahora: number, filas: FilaDescongelado[] | null = null): HorarioVista[] {
   const m = minutoAhora(e, ahora)
@@ -64,7 +56,7 @@ export function horariosVista(e: Estado, c: string, ahora: number, filas: FilaDe
     // Solo cuenta si empezó a partir de la hora actual del horario: si la hora se cambió en el día,
     // una corrida anterior del mismo horario no lo marca como hecho.
     const mias = (filas ?? []).filter(f => f.camara === c && Number(String(f.horario).replace(/\D/g, '')) === x.h
-      && minutoDelDia(typeof f.inicio === 'number' ? f.inicio : Date.parse(String(f.inicio))) >= x.min - 2)
+      && minutoDelDia(typeof f.inicio === 'number' ? f.inicio : Date.parse(String(f.inicio))) >= x.min - TOLERANCIA_MIN)
     const nota = mias.map(f => badgeDescongelado(f).etiqueta).find(t => t !== 'completo') ?? ''
     const estado: EstadoHorario = x.est === 'EN VENTANA' || num(e, `${c}.H${x.h}.en_ventana`) === 1 ? 'en curso'
       : mias.length ? 'hecho'

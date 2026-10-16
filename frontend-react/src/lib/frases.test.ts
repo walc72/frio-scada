@@ -71,6 +71,15 @@ describe('frases', () => {
   test('semaforo ok', () => expect(semaforo(fx8frio, true, T).nivel).toBe('ok'))
   test('semaforo vencido', () => expect(semaforo(fx8frio, false, T)).toMatchObject({ nivel: 'sin-datos' }))
   test('semaforo mapa incompatible', () => expect(semaforo(fx8frio, true, T, 'incompatible').titulo).toBe('El PLC tiene un programa viejo'))
+  test('semaforo incompatible gana a datos viejos o sin estado', () => {
+    expect(semaforo(fx8frio, false, T, 'incompatible').titulo).toBe('El PLC tiene un programa viejo')
+    expect(semaforo(null, false, null, 'incompatible').titulo).toBe('El PLC tiene un programa viejo')
+  })
+  test('proximoTexto usa la hora del PLC si viene', () => {
+    const e = E({ 'C4.H1.estado': 'PROGRAMADO', 'C4.H1.hora': '10:00', hora_plc: '2026-10-15 09:59:00' })
+    expect(proximoTexto(e, 'C4', T)).toBe('hoy 10:00')
+    expect(proximoTexto({ ...e, hora_plc: '2026-10-15 10:01:00' }, 'C4', T)).toMatch(/^mañana/)
+  })
   test('semaforo alarma gana a descongelado', () => expect(semaforo(fxAlarmaYDesc, true, T)).toMatchObject({ nivel: 'alarma', titulo: 'Cámara 5: el equipo 3 necesita atención' }))
   test('fraseCamara alarma gana a descongelado', () => expect(fraseCamara(fxAlarmaYDesc, 'C5', T).nivel).toBe('alarma'))
   test('semaforo null', () => expect(semaforo(null, false, null).nivel).toBe('sin-datos'))

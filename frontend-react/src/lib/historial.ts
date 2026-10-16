@@ -25,6 +25,38 @@ export function agruparCompresores(filas: FilaCompresor[]): Compresor[] {
 export const equipoDe = (grupo: string) => `Equipo ${grupo.replace(/^G/, '')}`
 export const horasTxt = (h: number) => `${(Math.round(h * 10) / 10).toString().replace('.', ',')} h`
 
+// Las filas de /descongelados son una por ETAPA. Una corrida = (cámara, horario, inicio más temprano de las etapas
+// que empezaron a <= 2 h entre sí). Cada corrida se clasifica con badgeDescongelado: gana la peor etiqueta.
+// hechos = corridas que se ejecutaron (completo + cortado a mano); cortados es el subconjunto cortado a mano.
+const VENTANA_CORRIDA_MS = 2 * 36e5
+const GRAVEDAD = ['completo', 'cortado a mano', 'sin datos', 'saltado', 'no se hizo']
+export function contarDescongelados(filas: FilaDescongelado[]): { hechos: number; saltados: number; noSeHizo: number; cortados: number } {
+  const porHorario = new Map<string, FilaDescongelado[]>()
+  for (const f of filas) {
+    const k = `${f.camara}|${f.horario}`
+    porHorario.set(k, [...(porHorario.get(k) ?? []), f])
+  }
+  const r = { hechos: 0, saltados: 0, noSeHizo: 0, cortados: 0 }
+  for (const fs of porHorario.values()) {
+    const orden = [...fs].sort((a, b) => (a.inicio ?? 0) - (b.inicio ?? 0))
+    let corrida: FilaDescongelado[] = []
+    const cerrar = () => {
+      if (!corrida.length) return
+      const e = corrida.map(f => badgeDescongelado(f).etiqueta).sort((a, b) => GRAVEDAD.indexOf(b) - GRAVEDAD.indexOf(a))[0]
+      if (e === 'saltado') r.saltados++
+      else if (e === 'no se hizo') r.noSeHizo++
+      else if (e !== 'sin datos') { r.hechos++; if (e === 'cortado a mano') r.cortados++ }
+      corrida = []
+    }
+    for (const f of orden) {
+      if (corrida.length && (f.inicio ?? 0) - (corrida[0].inicio ?? 0) > VENTANA_CORRIDA_MS) cerrar()
+      corrida.push(f)
+    }
+    cerrar()
+  }
+  return r
+}
+
 export const filasDescongelados = (data: FilaDescongelado[]) => data.map(f => {
   const b = badgeDescongelado(f)
   return { Cámara: nombreCamara(f.camara), Hora: f.inicio ? fechaHora(f.inicio) : '', Equipos: f.grupos.replace(/G/g, ''), Resultado: b.etiqueta, Motivo: b.motivo }

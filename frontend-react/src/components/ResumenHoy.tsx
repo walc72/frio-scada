@@ -1,8 +1,9 @@
 import { Card } from './ui/card'
 import { useCamarasStore } from '../store/camaras'
 import { estaVencido } from '../lib/estadoGrupo'
-import { alarmasActivas, badgeDescongelado } from '../lib/frases'
-import { CAMARAS, GRUPOS, ZONA, num, type FilaDescongelado } from '../lib/camaras'
+import { alarmasActivas } from '../lib/frases'
+import { contarDescongelados } from '../lib/historial'
+import { CAMARAS, GRUPOS, diaPlanta, num, type FilaDescongelado } from '../lib/camaras'
 import { useDatos } from '../lib/useDatos'
 import { useNow } from '../lib/useNow'
 
@@ -12,10 +13,9 @@ export default function ResumenHoy() {
   const ahora = useNow(1000)
   const fresco = !!estado && !estaVencido(recibidoEn, ahora)
   // día de planta (no del navegador)
-  const dia = new Date(ahora).toLocaleDateString('en-CA', { timeZone: ZONA })
+  const dia = diaPlanta(ahora)
   const { data, error } = useDatos<FilaDescongelado>('descongelados', dia, dia, '', 60000)
-  const hechos = data?.filter(f => ['completo', 'cortado a mano'].includes(badgeDescongelado(f).etiqueta)).length
-  const desc = error || !data ? '—' : String(hechos)
+  const desc = error || !data ? '—' : String(contarDescongelados(data).hechos)
   const alarmas = fresco ? String(alarmasActivas(estado!).length) : '—'
   const comp = fresco ? `${CAMARAS.flatMap(c => GRUPOS.map(g => num(estado, `${c}.G${g}.comp`))).filter(v => v === 1).length}/16` : '—'
   const Num = ({ v, t }: { v: string; t: string }) => (
