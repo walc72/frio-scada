@@ -46,3 +46,4 @@ frio-scada-*-prebuilt-*.zip
 # Logs
 *.log
 npm-debug.log*
+.superpowers/
