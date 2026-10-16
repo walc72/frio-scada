@@ -231,3 +231,23 @@ export function badgeCamara(estado: Estado, c: string, nivel: Nivel): { t: strin
     : n('ESCURRIENDO') ? { t: 'Escurriendo', c: '#4FC3F7' }
     : n('FRIO') ? { t: 'Enfriando', c: '#1E6FD9' } : null
 }
+
+// Tipo de aviso (color del punto): alarma (rojo), corte (naranja), resuelto (verde), operario (azul).
+// `estado` del evento: 0 en una alarma = se apagó.
+export type TipoAviso = 'alarma' | 'corte' | 'resuelto' | 'operario'
+export function tipoAviso(texto: string, estado?: number | string): TipoAviso {
+  const t = String(texto ?? '').toLowerCase()
+  if (/cortado|salto/.test(t)) return 'corte'
+  if (/alarma/.test(t)) return /resuelt|normaliz|fin de|\bok\b/.test(t) || (estado != null && estado !== '' && Number(estado) === 0) ? 'resuelto' : 'alarma'
+  return 'operario'
+}
+
+// ¿El flag de esa alarma sigue prendido en el estado vivo? Solo con estado fresco; sin fresco o sin flag conocido, false.
+export function sigueActivo(texto: string, estado: Estado | null, fresco: boolean): boolean {
+  if (!estado || !fresco) return false
+  const m = String(texto ?? '').trim().match(/^(C\d)\s+(?:(G\d)\s+)?ALARMA\s+([A-Z]+)/i)
+  if (!m) return false
+  const w = m[3].toLowerCase()
+  const flag = m[2] ? (w === 'res' ? 'alarma_res' : w === 'sin' ? 'alarma_sin_desc' : '') : `alarma_${w}`
+  return !!flag && !!estado[[m[1].toUpperCase(), m[2]?.toUpperCase(), flag].filter(Boolean).join('.')]
+}

@@ -24,7 +24,7 @@ export default function Sistema() {
         {dato('Hora del PLC', txt(estado, 'hora_plc') || '—')}
       </Card>
       <div className="text-sm font-semibold">Historial de comunicación (cortes, lecturas descartadas, desvío del reloj)</div>
-      <Filtros r={{ ...r, camara: '' }} set={x => setR({ ...x, camara: '' })} />
+      <Filtros r={r} set={setR} sinCamara />
       <Card className="p-2">
         {cargando && !data ? <div className="text-center text-sm text-muted-foreground py-8">Cargando...</div> : <>
           <SinDatos error={error} vacio={!!data && data.length === 0} />

@@ -1,31 +1,105 @@
+import { useMemo, useState } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
-import Descongelados from './Descongelados'
-import Eventos from './Eventos'
-import Compresores from './Compresores'
+import { Filtros, SinDatos, type Rango } from '../components/Filtros'
+import { useDatos, hoy } from '../lib/useDatos'
+import { useCamarasStore } from '../store/camaras'
+import { useNow } from '../lib/useNow'
+import { estaVencido } from '../lib/estadoGrupo'
+import { nombreCamara, fechaHora, type FilaDescongelado } from '../lib/camaras'
+import { badgeDescongelado, fraseEvento, tipoAviso, sigueActivo, UMBRAL_ARRANQUES_HORA, type TipoAviso } from '../lib/frases'
+import { agruparCompresores, equipoDe, horasTxt, filasAvisos, filasCompresores, filasDescongelados } from '../lib/historial'
+import { downloadXlsx } from '../lib/xlsx'
 import { cn } from '../lib/utils'
 
+interface Aviso { ts: number; hora_plc: string; texto: string; estado: string | number }
+
 const PESTANAS = [
-  { id: 'descongelados', label: 'Descongelados', Vista: Descongelados },
-  { id: 'avisos', label: 'Avisos', Vista: Eventos },
-  { id: 'compresores', label: 'Compresores', Vista: Compresores },
+  { id: 'descongelados', label: 'Descongelados' },
+  { id: 'avisos', label: 'Avisos' },
+  { id: 'compresores', label: 'Compresores' },
 ]
+const COLOR_BADGE: Record<string, string> = { completo: '#16a34a', 'cortado a mano': '#F28C28', saltado: '#F28C28', 'no se hizo': '#D32F2F', 'sin datos': '#9A9A9A' }
+const COLOR_AVISO: Record<TipoAviso, string> = { alarma: '#D32F2F', corte: '#F28C28', resuelto: '#16a34a', operario: '#1E6FD9' }
+
+const Fila = ({ children }: { children: React.ReactNode }) => <li className="flex items-start gap-3 px-3 py-2.5 border-b last:border-0">{children}</li>
+// fechaHora = "dd/mm/aaaa, HH:MM:SS"
+const dia = (ms: number) => fechaHora(ms).split(', ')[0]
+const hm = (ms: number) => (fechaHora(ms).split(', ')[1] ?? '').slice(0, 5)
 
 export default function Historial() {
   const { pestana = 'descongelados' } = useParams()
-  const actual = PESTANAS.find(p => p.id === pestana)
-  if (!actual) return <Navigate to="/historial/descongelados" replace />
+  const [r, setR] = useState<Rango>({ desde: hoy(), hasta: hoy(), camara: '' })
+  const estado = useCamarasStore(s => s.estado)
+  const recibidoEn = useCamarasStore(s => s.recibidoEn)
+  const fresco = !estaVencido(recibidoEn, useNow(5000))
+  const ruta = pestana === 'avisos' ? 'eventos' : pestana
+  const { data, error, cargando } = useDatos<any>(ruta, r.desde, r.hasta, r.camara)
+  const comp = useMemo(() => (pestana === 'compresores' ? agruparCompresores(data ?? []) : []), [pestana, data])
+  if (!PESTANAS.some(p => p.id === pestana)) return <Navigate to="/historial/descongelados" replace />
+
+  const activo = (t: string) => sigueActivo(t, estado, fresco)
+  const lista: any[] = data ?? []
+  const filas = pestana === 'descongelados' ? filasDescongelados(lista as FilaDescongelado[])
+    : pestana === 'avisos' ? filasAvisos(lista as Aviso[], activo) : filasCompresores(comp)
+  const maxH = Math.max(1, ...comp.map(c => c.horas))
+  const yaMarcado = new Set<string>() // "Sigue activo" solo en el aviso más nuevo de cada alarma
+
   return (
     <div className="space-y-4">
+      <h1 className="text-xl font-semibold">Historial</h1>
       <div className="flex gap-2 overflow-x-auto">
         {PESTANAS.map(p => (
           <Link key={p.id} to={`/historial/${p.id}`}
             className={cn('px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap border',
-              p.id === actual.id ? 'bg-primary text-primary-foreground border-primary' : 'text-muted-foreground')}>
+              p.id === pestana ? 'bg-primary text-primary-foreground border-primary' : 'text-muted-foreground')}>
             {p.label}
           </Link>
         ))}
       </div>
-      <actual.Vista />
+      <Filtros r={r} set={setR} />
+      <div className="rounded-lg border bg-card">
+        {cargando && !data ? <div className="text-center text-sm text-muted-foreground py-8">Cargando…</div> : <>
+          <SinDatos error={error} vacio={!!data && lista.length === 0} />
+          <ul>
+            {pestana === 'descongelados' && (lista as FilaDescongelado[]).map((f, i) => {
+              const b = badgeDescongelado(f)
+              return <Fila key={i}>
+                <div className="text-sm font-medium w-12 shrink-0">{f.inicio ? hm(f.inicio) : '—'}</div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm">{nombreCamara(f.camara)} · {f.grupos ? `equipos ${f.grupos.replace(/G/g, '')}` : 'sin equipos'}</div>
+                  <div className="text-xs text-muted-foreground">{f.inicio ? `${dia(f.inicio)} · ` : ''}{b.motivo}</div>
+                </div>
+                <span className="text-xs text-white rounded-full px-2 py-0.5 whitespace-nowrap" style={{ background: COLOR_BADGE[b.etiqueta] }}>{b.etiqueta}</span>
+              </Fila>
+            })}
+            {pestana === 'avisos' && (lista as Aviso[]).map((f, i) => {
+              const clave = f.texto.toUpperCase()
+              const sigue = tipoAviso(f.texto, f.estado) === 'alarma' && activo(f.texto) && !yaMarcado.has(clave) && !!yaMarcado.add(clave)
+              return <Fila key={i}>
+                <div className="text-sm font-medium w-12 shrink-0">{hm(f.ts)}</div>
+                <span className="mt-1.5 h-2.5 w-2.5 rounded-full shrink-0" style={{ background: COLOR_AVISO[tipoAviso(f.texto, f.estado)] }} />
+                <div className="min-w-0 flex-1 text-sm">{fraseEvento(f.texto)}
+                  <div className="text-xs text-muted-foreground">{/^C\d/i.test(f.texto) ? `${nombreCamara(f.texto.slice(0, 2).toUpperCase())} · ` : ''}{dia(f.ts)}</div>
+                </div>
+                {sigue && <span className="text-xs font-semibold text-red-600 whitespace-nowrap">Sigue activo</span>}
+              </Fila>
+            })}
+            {pestana === 'compresores' && comp.map(c => (
+              <Fila key={`${c.camara}${c.grupo}`}>
+                <div className="min-w-0 flex-1 space-y-1">
+                  <div className="text-sm font-medium">{nombreCamara(c.camara)} · {equipoDe(c.grupo)}</div>
+                  <div className="h-2 rounded bg-muted"><div className="h-2 rounded bg-primary" style={{ width: `${(c.horas / maxH) * 100}%` }} /></div>
+                  <div className="text-xs text-muted-foreground">{horasTxt(c.horas)} en marcha · {c.arranques} arranques</div>
+                  {c.maxArranquesHora > UMBRAL_ARRANQUES_HORA && <div className="text-xs text-amber-600">⚠️ Arranca demasiado seguido (hasta {c.maxArranquesHora} veces por hora): conviene revisarlo</div>}
+                  {c.horasSinDatos > 0 && <div className="text-xs text-muted-foreground">{Math.round(c.horasSinDatos * 10) / 10} h sin datos</div>}
+                </div>
+              </Fila>
+            ))}
+          </ul>
+        </>}
+      </div>
+      <button className="h-9 px-4 rounded-md border text-sm disabled:opacity-50" disabled={!filas.length}
+        onClick={() => downloadXlsx(`${pestana}_${r.desde}_${r.hasta}`, filas)}>⬇ Descargar en Excel</button>
     </div>
   )
 }
