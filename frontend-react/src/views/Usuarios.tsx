@@ -15,7 +15,7 @@ const API_BASE = (import.meta.env.VITE_API_BASE as string) || '/api'
 const MODE = (import.meta.env.VITE_DATA_MODE as string) || 'mock'
 
 // Roles en palabras para quien no es técnico
-const ROL_PALABRA: Record<string, string> = { operador: 'Solo mirar', admin: 'Administrador' }
+const ROL_PALABRA: Record<string, string> = { operador: 'Solo mirar', operar: 'Puede operar', admin: 'Administrador' }
 const rolTexto = (r: string) => ROL_PALABRA[r] ?? ROLE_LABEL[r]
 
 // ─── Usuarios ─────────────────────────────────────────────────────────
@@ -25,6 +25,7 @@ type UserForm = { original: string | null; user: string; role: Role; pw: string;
 const ROLE_HELP: Record<string, string> = {
   superadmin: 'Todo, más Marca, Conexión y Réplicas',
   admin: 'Todo, incluida Configuración y usuarios',
+  operar: 'Mira todo y maneja los equipos: modo, compresor, evaporador, resistencia y descongelados',
   operador: 'Solo lectura: dashboards, tendencias y reportes',
 }
 
@@ -110,7 +111,7 @@ export default function Usuarios() {
     <div className="space-y-4 max-w-3xl">
       <div className="flex items-start gap-3">
         <div className="text-sm text-muted-foreground flex-1 space-y-0.5">
-          {(['superadmin', 'admin', 'operador'] as const).map(r => (
+          {(['superadmin', 'admin', 'operar', 'operador'] as const).map(r => (
             <div key={r}><strong className="text-foreground">{rolTexto(r)}</strong>: {ROLE_HELP[r]}.</div>
           ))}
         </div>
@@ -132,7 +133,7 @@ export default function Usuarios() {
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center gap-1.5">
-                    <Badge variant={u.role === 'operador' ? 'secondary' : 'default'}>{rolTexto(u.role)}</Badge>
+                    <Badge variant={u.role === 'operador' || u.role === 'operar' ? 'secondary' : 'default'}>{rolTexto(u.role)}</Badge>
                     {u.role === 'superadmin' && <span title="No se puede eliminar; solo lo modifica el superadmin"><Lock className="h-3.5 w-3.5 text-muted-foreground" /></span>}
                   </div>
                 </TableCell>
@@ -182,6 +183,7 @@ export default function Usuarios() {
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="operador">Solo mirar</SelectItem>
+                      <SelectItem value="operar">Puede operar</SelectItem>
                       <SelectItem value="admin">Administrador — incluye Configuración</SelectItem>
                     </SelectContent>
                   </Select>

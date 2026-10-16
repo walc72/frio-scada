@@ -64,14 +64,18 @@ export const filasDescongelados = (data: FilaDescongelado[]) => data.map(f => {
 
 const TIPO: Record<TipoAviso, string> = { alarma: 'Alarma', atencion: 'Atención', resuelto: 'Resuelto', cortado: 'Se cortó', operario: 'Acción de un operario', info: 'Informativo' }
 
-export interface AvisoFila { ts: number; texto: string; estado: string | number; tipo: TipoAviso; frase: string; sigue: boolean }
+export interface AvisoFila { ts: number; texto: string; estado: string | number; tipo: TipoAviso; frase: string; sigue: boolean; maniobra?: boolean }
+// Maniobra desde el portal ("usuario: acción"); el estado es el resultado del PLC (1 hecho, 0 sin confirmar, otro no se hizo)
+export const textoManiobra = (f: { texto: string; estado: string | number }) =>
+  Number(f.estado) === 1 ? f.texto : `${f.texto} (${Number(f.estado) === 0 ? 'sin confirmar' : 'no se hizo'})`
 // Más nuevo primero. "Sigue activo" solo en el último evento de cada texto, si apareció (estado 1) y el flag vivo sigue prendido.
-export function prepararAvisos(data: { ts: number; texto: string; estado: string | number }[], estado: Estado | null, fresco: boolean): AvisoFila[] {
+export function prepararAvisos(data: { ts: number; texto: string; estado: string | number; maniobra?: boolean }[], estado: Estado | null, fresco: boolean): AvisoFila[] {
   const vistos = new Set<string>()
   return [...data].sort((a, b) => b.ts - a.ts).map(f => {
     const k = String(f.texto ?? "").trim().toUpperCase()
     const nuevo = !vistos.has(k)
     vistos.add(k)
+    if (f.maniobra) return { ...f, tipo: 'info' as TipoAviso, frase: textoManiobra(f), sigue: false }
     return { ...f, tipo: tipoAviso(f.texto, f.estado), frase: fraseEvento(f.texto, f.estado), sigue: nuevo && Number(f.estado) === 1 && sigueActivo(f.texto, estado, fresco) }
   })
 }

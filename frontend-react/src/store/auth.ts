@@ -5,13 +5,13 @@ const USER_KEY = 'frio_auth_user'
 const ROLE_KEY = 'frio_auth_role'
 const API_BASE = (import.meta.env.VITE_API_BASE as string) || '/api'
 
-export type Role = 'superadmin' | 'admin' | 'operador' | ''
+export type Role = 'superadmin' | 'admin' | 'operar' | 'operador' | ''
 
-const ROLES: Role[] = ['superadmin', 'admin', 'operador']
+const ROLES: Role[] = ['superadmin', 'admin', 'operar', 'operador']
 export const parseRole = (r: unknown): Role => (ROLES.includes(r as Role) ? r as Role : 'operador')
 // superadmin puede todo lo de admin (y además Marca, Conexión y Réplicas)
 export const isAdminRole = (r: Role) => r === 'admin' || r === 'superadmin'
-export const ROLE_LABEL: Record<string, string> = { superadmin: 'Superadmin', admin: 'Admin', operador: 'Operador' }
+export const ROLE_LABEL: Record<string, string> = { superadmin: 'Superadmin', admin: 'Admin', operar: 'Puede operar', operador: 'Operador' }
 
 interface AuthState {
   authed: boolean

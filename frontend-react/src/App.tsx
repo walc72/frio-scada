@@ -41,6 +41,7 @@ class RouteErrorBoundary extends Component<{ children: ReactNode }, { error: Err
 
 const Config        = lazy(() => import('./views/Config'))
 const Usuarios      = lazy(() => import('./views/Usuarios'))
+const Programacion  = lazy(() => import('./views/Programacion'))
 
 // Vista para operador que intenta entrar a una ruta solo-admin
 function NoAutorizado() {
@@ -140,6 +141,7 @@ export default function App() {
                 <Route path="/reportes" element={<Reportes />} />
                 <Route path="/sistema" element={<Sistema />} />
                 <Route path="/usuarios" element={isAdmin ? <Usuarios /> : <NoAutorizado />} />
+                <Route path="/programacion" element={isAdmin ? <Programacion /> : <NoAutorizado />} />
                 <Route path="/config" element={isAdmin ? <Config /> : <NoAutorizado />} />
               </Routes>
             </Suspense>
