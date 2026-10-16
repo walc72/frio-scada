@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Card } from '../components/ui/card'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/table'
 import { Filtros, SinDatos, type Rango } from '../components/Filtros'
@@ -46,10 +46,19 @@ const PUNTO: Record<Color, string> = { verde: 'bg-green-500', rojo: 'bg-red-500'
 export default function Sistema() {
   const [res, setRes] = useState<Resumen | null>(null)
   const [ahora, setAhora] = useState(Date.now())
+  const vuelo = useRef(false)
+  const fallos = useRef(0)
   const [det, setDet] = useState(false)
   useEffect(() => {
     let vivo = true
-    const cargar = () => apiJson<Resumen>('/sistema/resumen').then(d => { if (vivo) { setRes(d); setAhora(Date.now()) } }).catch(() => { if (vivo) setRes(null) })
+    const cargar = () => {
+      if (vuelo.current) return
+      vuelo.current = true
+      apiJson<Resumen>('/sistema/resumen')
+        .then(d => { if (vivo) { fallos.current = 0; setRes(d); setAhora(Date.now()) } })
+        .catch(() => { if (vivo && ++fallos.current >= 3) setRes(null) })
+        .finally(() => { vuelo.current = false })
+    }
     cargar()
     const id = setInterval(cargar, 30000)
     return () => { vivo = false; clearInterval(id) }

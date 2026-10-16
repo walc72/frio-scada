@@ -48,3 +48,6 @@ export const esIPv4 = (v: string) => new RegExp(`^${OCTETO}([.]${OCTETO}){3}$`).
 
 // Fila de /api/camaras/descongelados (grupos y cortados: "G1,G3")
 export interface FilaDescongelado { camara: string; horario: string; etapa: number; grupos: string; inicio: number; fin: number | null; duracionS: number | null; cortados: string; saltado: boolean; noEjecutada: boolean; interrumpida?: boolean }
+
+// Ayer como dia de planta (YYYY-MM-DD), sea cual sea la zona del navegador
+export const ayerPlanta = (ahora = Date.now()) => new Date(ahora - 3 * 36e5 - 864e5).toISOString().slice(0, 10)

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Button } from '../components/ui/button'
-import { apiJson } from '../lib/api'
+import { authFetch } from '../store/auth'
 import { useAuthStore } from '../store/auth'
 
 function Canal({ canal, titulo, boton, admin }: { canal: 'telegram' | 'mail'; titulo: string; boton: string; admin: boolean }) {
@@ -9,10 +9,13 @@ function Canal({ canal, titulo, boton, admin }: { canal: 'telegram' | 'mail'; ti
   async function probar() {
     setBusy(true); setMsg('')
     try {
-      const r = await apiJson<{ ok: boolean; error?: string }>('/avisos/prueba', { method: 'POST', body: JSON.stringify({ canal }) })
-      setMsg(r.ok ? `✅ Aviso enviado. Fijate en ${titulo}.` : `No se pudo: ${r.error ?? 'error desconocido'}`)
-    } catch (e) {
-      setMsg(`No se pudo: ${e instanceof Error ? e.message : 'error'}`)
+      const resp = await authFetch('/api/avisos/prueba', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ canal }) })
+      const r = await resp.json().catch(() => null) as { ok?: boolean; error?: string } | null
+      if (resp.status === 429) setMsg('Esperá un minuto antes de volver a probar')
+      else if (resp.ok && r?.ok) setMsg(`✅ Aviso enviado. Fijate en ${titulo}.`)
+      else setMsg(`No se pudo: ${r?.error || 'el servidor no respondió bien'}`)
+    } catch {
+      setMsg('No se pudo: no hay conexión con el servidor')
     } finally { setBusy(false) }
   }
   return (

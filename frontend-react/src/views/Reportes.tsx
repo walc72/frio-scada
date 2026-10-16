@@ -1,14 +1,14 @@
 import { useMemo, useState } from 'react'
 import { Button } from '../components/ui/button'
 import { apiBlob } from '../lib/api'
-import { useDatos, hoy } from '../lib/useDatos'
+import { useDatos } from '../lib/useDatos'
 import { resumenAyer } from '../lib/sistema'
-import { fechaDia } from '../lib/camaras'
+import { fechaDia, ayerPlanta } from '../lib/camaras'
 
 const n = (v: number | null, u = '') => (v == null ? 'sin datos' : `${v}${u}`)
 
 export default function Reportes() {
-  const dia = hoy(-1)
+  const dia = ayerPlanta()
   const [fecha, setFecha] = useState(dia)
   const [otro, setOtro] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -37,7 +37,7 @@ export default function Reportes() {
       <div className="rounded-2xl bg-white dark:bg-card shadow-sm p-4 space-y-1 text-sm">
         <div className="font-semibold">Ayer, {fechaDia(Date.parse(`${dia}T12:00:00-03:00`))}</div>
         <div>Descongelados: {n(r.descongelados)}{r.saltados ? ` (${r.saltados} se saltaron)` : ''}</div>
-        <div>Avisos de alarma: {n(r.avisos)}</div>
+        <div>Alarmas: {n(r.avisos)} (sin contar acciones de operarios)</div>
         <div>Horas de compresores: {n(r.horas, ' h')}</div>
       </div>
       <div className="space-y-2">
