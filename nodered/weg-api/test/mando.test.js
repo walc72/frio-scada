@@ -266,3 +266,8 @@ test('línea de auditoría: usuario con espacio, coma, =, barra y salto de líne
   assert.ok(l.startsWith('mando,usuario=a\\ b\\,c\\=d\\\\e\\ f,camara=C5,comando=5 destino=1000,'));
   assert.ok(l.includes('texto="x y\\\\\\"z"'));
 });
+
+test('textoResultado: motivo vencido dice que no se mandó', () => {
+  const t = require('../src/services/mando').textoResultado(0, 'vencido');
+  assert.equal(t, 'El pedido tardó demasiado y no se mandó; revisá el estado antes de repetir');
+});

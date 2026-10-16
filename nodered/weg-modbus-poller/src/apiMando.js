@@ -6,6 +6,7 @@ const { validar } = require('./mando');
 const sha = (s) => crypto.createHash('sha256').update(String(s)).digest();
 
 function crearManejador({ mando, token }) {
+  if (token === 'change-me') token = '';   // valor publicado en ejemplos: se trata como sin configurar
   const esperado = sha(token);
   const responder = (res, code, obj) => { res.writeHead(code, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(obj)); };
   return (req, res) => {

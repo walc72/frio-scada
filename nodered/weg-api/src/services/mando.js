@@ -112,6 +112,7 @@ function textoResultado(resultado, motivo, tope = 0) {
     default:
       if (motivo === 'sin-conexion') return `Sin conexión con el PLC: ${REVISAR}`;
       if (motivo === 'canal-incompatible') return `El canal de mando del PLC es incompatible: ${REVISAR}`;
+      if (motivo === 'vencido') return 'El pedido tardó demasiado y no se mandó; revisá el estado antes de repetir';
       if (motivo === 'sin-respuesta') return `El PLC no respondió: ${REVISAR}`;
       return `No se pudo confirmar el resultado: ${REVISAR}`;
   }

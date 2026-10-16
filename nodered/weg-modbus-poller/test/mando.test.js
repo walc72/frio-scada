@@ -192,3 +192,19 @@ test('dos getOrCreate simultaneos abren una sola conexion', async () => {
     assert.ok(a && a === b);
   } finally { connections.closeAll(); await srv.close(); }
 });
+
+test('pedido que esperó mas de 10 s en la cola: vencido y ninguna escritura', async () => {
+  let t = 1000;
+  const { srv, mando, cerrar } = await armar({ ahora: () => t });
+  try {
+    const p = mando.pedir(PEDIDO);
+    t += 10001; // la lectura previa corre despues de la llegada
+    assert.deepEqual(await p, { resultado: 0, motivo: 'vencido' });
+    assert.equal(escrituras(srv).length, 0);
+  } finally { await cerrar(); }
+});
+
+test('/mando: MANDO_TOKEN change-me se trata como sin configurar (401 aun con ese header)', async () => {
+  const m = crearManejador({ mando: { pedir: async () => assert.fail() }, token: 'change-me' });
+  assert.equal((await pedirHttp(m, { token: 'change-me', cuerpo: JSON.stringify(PEDIDO) })).code, 401);
+});

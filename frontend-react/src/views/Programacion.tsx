@@ -46,6 +46,10 @@ export default function Programacion() {
         const r = await enviarMando(pedido!)
         setHechos(h => [...h, { id: campo.id, texto: frase(pedido!), res: textoResultado(r), ok: r.resultado === 1 }])
         if (r.resultado === 1) setEd(x => { const { [campo.id]: _, ...resto } = x; return resto })
+        if (r.resultado === 0) {   // desconocido: no se sigue mandando; el resto queda sin enviar
+          setHechos(h => [...h, ...listos.slice(i + 1).map(({ campo: c, pedido: p }) => ({ id: c.id, texto: frase(p!), res: 'no enviado', ok: false }))])
+          break
+        }
       }
     } finally {
       vuelo.current = false

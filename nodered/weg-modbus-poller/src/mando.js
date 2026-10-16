@@ -8,6 +8,7 @@ const VERSION_CANAL = 1;
 const VERSION_MAPA_CON_CANAL = 3;
 const ESPERA_ECO_MS = 5000;
 const SONDEO_MS = 50;
+const VENCE_PEDIDO_MS = 10000; // si el pedido esperó más en la cola, la API ya se rindió (15 s): no se manda
 
 // CRC-16/MODBUS por bytes, byte alto de cada palabra primero. "123456789" -> 0x4B37.
 function crc16Modbus(palabras) {
@@ -36,7 +37,7 @@ function createMando({ cliente, unidad, ahora = Date.now, dormir = (ms) => new P
   let cola = Promise.resolve();
   const encolar = (f) => { const p = cola.then(f, f); cola = p.catch(() => {}); return p; };
 
-  async function atender({ comando, destino, argumento, usuario }) {
+  async function atender({ comando, destino, argumento, usuario }, llegada) {
     // Llave, versión del mapa y del canal: lectura fresca justo antes de escribir, nunca de la última foto
     // (una foto de hasta 1 s podría ser anterior a que el panel apague la llave).
     let disp, version, eco;
@@ -46,6 +47,8 @@ function createMando({ cliente, unidad, ahora = Date.now, dormir = (ms) => new P
       if (version !== VERSION_CANAL) return { resultado: 0, motivo: 'canal-incompatible' };
       if (!((await leer(309, 1))[0] & 1)) return { resultado: 4, motivo: 0 };
     } catch (e) { return { resultado: 0, motivo: 'sin-conexion' }; }
+
+    if (ahora() - llegada > VENCE_PEDIDO_MS) return { resultado: 0, motivo: 'vencido' }; // nada escrito
 
     const token = siguiente(eco); // distinto del eco actual: no se confunde con una respuesta vieja
     const campos = [token, comando, destino, argumento, usuario];
@@ -66,7 +69,7 @@ function createMando({ cliente, unidad, ahora = Date.now, dormir = (ms) => new P
 
   let latidoPendiente = false;
   return {
-    pedir: (p) => encolar(() => atender(p)),
+    pedir: (p) => { const llegada = ahora(); return encolar(() => atender(p, llegada)); },
     // Avanza el latido (712) en la misma cola; si ya hay uno esperando no se apila otro
     latir() {
       if (latidoPendiente) return Promise.resolve(false);

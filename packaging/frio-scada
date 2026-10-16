@@ -54,6 +54,9 @@ update() {
   cp -r "$tmp/frio-scada/nginx" "$tmp/frio-scada/mosquitto" "$tmp/frio-scada/grafana" "$DIR/"
   sed -i "s/^FRIO_VERSION=.*/FRIO_VERSION=$ver/" .env
 
+  # instalaciones anteriores a PLC v20 no tienen MANDO_TOKEN (misma generación que install.sh: gen 32)
+  grep -q '^MANDO_TOKEN=.' .env || echo "MANDO_TOKEN=$(openssl rand -hex 32)" >> .env
+
   docker compose pull -q --ignore-pull-failures 2>&1 | grep -vi 'warn' || true
   docker compose up -d --remove-orphans
   bash "$DIR/crear-token-grafana.sh" "$DIR/.env" || echo "AVISO: no se pudo crear el token de Grafana; ver README"
