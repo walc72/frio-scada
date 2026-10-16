@@ -39,7 +39,7 @@ export default function TarjetaCamara({ cam }: { cam: string }) {
           <div>
             <div className="font-bold">{f!.titulo}</div>
             {f!.detalle && <div className="text-sm text-muted-foreground">{f!.detalle}</div>}
-            <div className="text-sm text-muted-foreground">Próximo: {proximoTexto(estado!, cam, ahora)}</div>
+            {!/Próximo|Sin descongelados/.test(f!.detalle) && <div className="text-sm text-muted-foreground">Próximo: {proximoTexto(estado!, cam, ahora)}</div>}
           </div>
         ) : (
           <div className="font-bold text-muted-foreground">{incompatible ? 'El PLC tiene un programa viejo' : ts ? `Sin datos desde ${hhmm(ts)}` : 'Sin datos todavía'}</div>

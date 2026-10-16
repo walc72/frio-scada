@@ -158,7 +158,7 @@ export function fraseCamara(estado: Estado, c: string, ahora: number): { titulo:
   const esc = n('ESCURRIENDO')
   if (esc) return { titulo: `${equipos(esc)} escurriendo`, detalle: `Después vuelven a frío · ${detProx}`, nivel: 'ok' }
   const man = n('MANUAL')
-  if (man) return { titulo: `${equipos(man)} en manual`, detalle: 'Pasarlos a automático desde el panel', nivel: 'atencion' }
+  if (man) return { titulo: `${equipos(man)} en manual`, detalle: man === 1 ? 'Pasarlo a automático desde el panel' : 'Pasarlos a automático desde el panel', nivel: 'atencion' }
   const frio = n('FRIO')
   if (frio === GRUPOS.length) return { titulo: `Los ${GRUPOS.length} equipos enfriando`, detalle: detProx, nivel: 'ok' }
   if (frio) return { titulo: `${equipos(frio)} enfriando`, detalle: detProx, nivel: 'ok' }
@@ -183,7 +183,7 @@ export function semaforo(estado: Estado | null, fresco: boolean, ts: number | nu
   }
   for (const c of ['C4', 'C5']) {
     const m = gruposEn(estado, c, 'MANUAL')
-    if (m.length) return { nivel: 'atencion', titulo: `${nombreCamara(c)}: ${m.length === 1 ? `el equipo ${m[0]} está` : `${m.length} equipos están`} en manual`, detalle: 'Pasarlos a automático desde el panel' }
+    if (m.length) return { nivel: 'atencion', titulo: `${nombreCamara(c)}: ${m.length === 1 ? `el equipo ${m[0]} está` : `${m.length} equipos están`} en manual`, detalle: m.length === 1 ? 'Pasarlo a automático desde el panel' : 'Pasarlos a automático desde el panel' }
   }
   const ahora = ts ?? Date.now()
   return { nivel: 'ok', titulo: 'Todo funcionando bien', detalle: ['C4', 'C5'].map(c => `${nombreCamara(c)}: ${fraseCamara(estado, c, ahora).titulo}`).join(' · ') }
