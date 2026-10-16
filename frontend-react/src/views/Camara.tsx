@@ -7,11 +7,11 @@ import BarrasEquipos from '../components/BarrasEquipos'
 import { useCamarasStore } from '../store/camaras'
 import { estaVencido } from '../lib/estadoGrupo'
 import { fraseCamara, estadoEquipo, faltanMin, fraseEvento, badgeCamara } from '../lib/frases'
-import { CAMARAS, GRUPOS, HORARIOS, PLANTA_OFFSET, nombreCamara, txt, num, hhmm, type FilaDescongelado } from '../lib/camaras'
+import { CAMARAS, GRUPOS, HORARIOS, PLANTA_OFFSET, nombreCamara, txt, num, hhmm, diaPlanta, minutoAhora, minutoDelDia, type FilaDescongelado } from '../lib/camaras'
 import { useNow } from '../lib/useNow'
 import { useDatos } from '../lib/useDatos'
 import { useMemo } from 'react'
-import { diaPlanta, aTramos, type TramoApi } from '../lib/paginaCamara'
+import { aTramos, type TramoApi } from '../lib/paginaCamara'
 
 const MODOS: Record<string, string> = { AUTOMATICO: 'Automático', MANUAL: 'Manual', STOP: 'Detenido' }
 const CHIPS = [['comp', 'Compresor'], ['eva', 'Evaporador'], ['res', 'Resistencia']] as const
@@ -39,6 +39,7 @@ export default function Camara() {
   const hayDatos = !!f && f.nivel !== 'sin-datos'
   const badge = hayDatos ? badgeCamara(estado!, cam, f!.nivel) : null
   const modo = hayDatos ? MODOS[txt(estado, `${cam}.modo`)] : undefined
+  const minuto = sinDatos ? minutoDelDia(ahora) : minutoAhora(estado, ahora)
   const falta = hayDatos ? faltanMin(estado!, cam) : null
   const dia0 = Date.parse(`${dia}T00:00:00${PLANTA_OFFSET}`)
   const avisos = (ev.data ?? []).slice(-5).reverse()
@@ -81,7 +82,7 @@ export default function Camara() {
       </Card>
 
       <LineaDescongelados estado={estado} sinDatos={sinDatos} cam={cam} ahora={ahora} filas={filas.error ? null : filas.data} />
-      <BarrasEquipos tramos={tramos} error={tr.error} dia0={dia0} ahora={ahora} />
+      <BarrasEquipos tramos={tramos} error={tr.error} dia0={dia0} ahora={ahora} minuto={minuto} />
 
       <Card className="p-4 space-y-2 rounded-2xl">
         <div className="font-semibold">Últimos avisos</div>

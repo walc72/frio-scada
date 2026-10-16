@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { apiJson } from '../lib/api'
 import { Button } from '../components/ui/button'
 import { authFetch } from '../store/auth'
 import { useAuthStore } from '../store/auth'
@@ -29,11 +30,15 @@ function Canal({ canal, titulo, boton, admin }: { canal: 'telegram' | 'mail'; ti
 
 export default function Avisos() {
   const admin = useAuthStore(s => s.isAdmin())
+  const [replica, setReplica] = useState(false)
+  useEffect(() => { apiJson<{ replica?: boolean }>('/sistema/resumen').then(r => setReplica(!!r.replica)).catch(() => {}) }, [])
   return (
     <div className="space-y-3 max-w-md">
       <h1 className="text-xl font-semibold">Avisos</h1>
-      <Canal canal="telegram" titulo="Telegram" boton="Mandar un aviso de prueba" admin={admin} />
-      <Canal canal="mail" titulo="Mail" boton="Mandar un mail de prueba" admin={admin} />
+      {replica ? <p className="text-sm text-muted-foreground">En la réplica de oficina no se envían avisos</p> : <>
+        <Canal canal="telegram" titulo="Telegram" boton="Mandar un aviso de prueba" admin={admin} />
+        <Canal canal="mail" titulo="Mail" boton="Mandar un mail de prueba" admin={admin} />
+      </>}
       <div className="rounded-2xl bg-white dark:bg-card shadow-sm p-4 space-y-1">
         <div className="font-semibold">¿Qué avisa?</div>
         <p className="text-sm text-muted-foreground">Alarmas del PLC · PLC sin comunicación más de 2 min · reloj del PLC desviado. Repite cada 1 hora si sigue, y avisa cuando se resuelve.</p>

@@ -6,10 +6,14 @@ import { useDatos, hoy } from '../lib/useDatos'
 import { useCamarasStore } from '../store/camaras'
 import { hhmm, txt, fechaHora } from '../lib/camaras'
 import { apiJson } from '../lib/api'
+import { estaVencido } from '../lib/estadoGrupo'
+import { useNow } from '../lib/useNow'
 import { filasSistema, textoCortes, type Resumen, type Color } from '../lib/sistema'
 
 function Detalle() {
-  const { poller, mapa, conectado, ts, estado } = useCamarasStore()
+  const { poller, mapa, conectado, ts, estado, recibidoEn } = useCamarasStore()
+  const ahoraMs = useNow(1000)
+  const vencido = !estado || estaVencido(recibidoEn, ahoraMs)
   const [r, setR] = useState<Rango>({ desde: hoy(-1), hasta: hoy(), camara: '' })
   const { data, error, cargando } = useDatos<Record<string, any>>('comunicacion', r.desde, r.hasta)
   const cols = data && data.length ? Object.keys(data[0]) : []
@@ -19,10 +23,10 @@ function Detalle() {
     <div className="space-y-4">
       <Card className="p-4 grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
         {dato('Poller', poller ?? 'sin dato')}
-        {dato('PLC', conectado ? 'comunicando' : 'sin comunicación')}
+        {dato('PLC', vencido ? 'sin datos' : conectado ? 'comunicando' : 'sin comunicación')}
         {dato('Última lectura', ts ? hhmm(ts) : '—')}
         {dato('Mapa', mapa === 'incompatible' ? 'incompatible' : mapa === 'ok' ? 'ok' : '—')}
-        {dato('Hora del PLC', txt(estado, 'hora_plc') || '—')}
+        {dato('Hora del PLC', vencido ? '—' : txt(estado, 'hora_plc') || '—')}
       </Card>
       <div className="text-sm font-semibold">Historial de comunicación (cortes, lecturas descartadas, desvío del reloj)</div>
       <Filtros r={r} set={setR} sinCamara />

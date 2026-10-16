@@ -4,7 +4,7 @@ import { Filtros, SinDatos, type Rango } from '../components/Filtros'
 import { useDatos, hoy } from '../lib/useDatos'
 import { useCamarasStore } from '../store/camaras'
 import { useNow } from '../lib/useNow'
-import { estaVencido } from '../lib/estadoGrupo'
+import { estaVencido, colorEstadoGrupo } from '../lib/estadoGrupo'
 import { nombreCamara, fechaHora, type FilaDescongelado } from '../lib/camaras'
 import { badgeDescongelado, UMBRAL_ARRANQUES_HORA, type TipoAviso } from '../lib/frases'
 import { agruparCompresores, equipoDe, horasTxt, prepararAvisos, filasAvisos, filasCompresores, filasDescongelados } from '../lib/historial'
@@ -16,8 +16,9 @@ const PESTANAS = [
   { id: 'avisos', label: 'Avisos' },
   { id: 'compresores', label: 'Compresores' },
 ]
-const COLOR_BADGE: Record<string, string> = { completo: '#16a34a', 'cortado a mano': '#F28C28', saltado: '#F28C28', 'no se hizo': '#D32F2F', 'sin datos': '#9A9A9A' }
-const COLOR_AVISO: Record<TipoAviso, string> = { alarma: '#D32F2F', atencion: '#F59E0B', resuelto: '#16a34a', cortado: '#F28C28', operario: '#1E6FD9', info: '#9A9A9A' }
+const C = (k: string) => colorEstadoGrupo(k).fondo
+const COLOR_BADGE: Record<string, string> = { completo: '#16a34a', 'cortado a mano': C('DESCONGELANDO'), saltado: C('DESCONGELANDO'), 'no se hizo': C('ALARMA RES'), 'sin datos': C('DETENIDO') }
+const COLOR_AVISO: Record<TipoAviso, string> = { alarma: C('ALARMA RES'), atencion: '#F59E0B', resuelto: '#16a34a', cortado: C('DESCONGELANDO'), operario: C('FRIO'), info: C('DETENIDO') }
 
 const Fila = ({ children }: { children: React.ReactNode }) => <li className="flex items-start gap-3 px-3 py-2.5 border-b last:border-0">{children}</li>
 // fechaHora = "dd/mm/aaaa, HH:MM:SS"
@@ -33,9 +34,8 @@ export default function Historial() {
   const ruta = pestana === 'avisos' ? 'eventos' : pestana
   const { data, error, cargando } = useDatos<any>(ruta, r.desde, r.hasta, r.camara)
   const comp = useMemo(() => (pestana === 'compresores' ? agruparCompresores(data ?? []) : []), [pestana, data])
-  if (!PESTANAS.some(p => p.id === pestana)) return <Navigate to="/historial/descongelados" replace />
-
   const avisos = useMemo(() => (pestana === 'avisos' ? prepararAvisos(data ?? [], estado, fresco) : []), [pestana, data, estado, fresco])
+  if (!PESTANAS.some(p => p.id === pestana)) return <Navigate to="/historial/descongelados" replace />
   const lista: any[] = data ?? []
   const filas = pestana === 'descongelados' ? filasDescongelados(lista as FilaDescongelado[])
     : pestana === 'avisos' ? filasAvisos(avisos) : filasCompresores(comp)
