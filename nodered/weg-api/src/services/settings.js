@@ -14,8 +14,9 @@ const CONFIG_PATH = process.env.CONFIG_PATH || '/app/config/config.json';
 const SETTINGS_PATH = path.join(path.dirname(CONFIG_PATH), 'settings.json');
 // superadmin: todo + Marca, Conexión y Réplicas. Es una sola cuenta: no se crea
 // desde la UI, no se elimina y solo la modifica el propio superadmin.
-const ROLES = ['superadmin', 'admin', 'operador'];
-const EDITABLE_ROLES = ['admin', 'operador'];   // los que se asignan desde la UI
+// operador solo mira; operar además manda las maniobras del día a día (comandos 1..7).
+const ROLES = ['superadmin', 'admin', 'operador', 'operar'];
+const EDITABLE_ROLES = ['admin', 'operador', 'operar'];   // los que se asignan desde la UI
 
 function read() {
   try {
@@ -44,6 +45,7 @@ function envUser(role) {
   const e = process.env;
   if (role === 'superadmin') return { user: e.SUPERADMIN_USER || 'superadmin', role, plain: e.SUPERADMIN_PASSWORD || '', hash: e.SUPERADMIN_PASSWORD_HASH || '' };
   if (role === 'admin') return { user: e.AUTH_USER || 'admin', role, plain: e.AUTH_PASSWORD || '', hash: e.AUTH_PASSWORD_HASH || '' };
+  if (role === 'operar') return { user: 'operar', role, plain: '', hash: '' };   // sin .env: solo existe si se crea desde la UI
   return { user: e.OPERADOR_USER || 'operador', role, plain: e.OPERADOR_PASSWORD || '', hash: e.OPERADOR_PASSWORD_HASH || '' };
 }
 
@@ -126,7 +128,7 @@ function checkName(user, list, except) {
 // - nadie se elimina ni se cambia el rol a sí mismo (evita quedarse afuera).
 function createUser(actor, { user, role, password } = {}) {
   const list = usersFrom(read());
-  if (!EDITABLE_ROLES.includes(role)) throw httpError(400, 'Rol inválido (admin | operador)');
+  if (!EDITABLE_ROLES.includes(role)) throw httpError(400, 'Rol inválido (admin | operar | operador)');
   checkName(user, list);
   checkPassword(password);
   if (list.length >= MAX_USERS) throw httpError(400, `Máximo ${MAX_USERS} usuarios`);
@@ -143,7 +145,7 @@ function updateUser(actor, target, { user, role, password } = {}) {
   if (u.role === 'superadmin' && actor.role !== 'superadmin') throw httpError(403, 'El superadmin solo lo modifica el propio superadmin');
   if (role !== undefined && role !== u.role) {
     if (u.role === 'superadmin') throw httpError(400, 'El superadmin no cambia de rol');
-    if (!EDITABLE_ROLES.includes(role)) throw httpError(400, 'Rol inválido (admin | operador)');
+    if (!EDITABLE_ROLES.includes(role)) throw httpError(400, 'Rol inválido (admin | operar | operador)');
     if (self) throw httpError(400, 'No podés cambiar tu propio rol');
   }
   if (user !== undefined && !sameName(user, u.user)) checkName(user, list, u);
@@ -256,8 +258,23 @@ function setDailyReport(patch) {
   return getDailyReport();
 }
 
+// ─── Id numérico estable por usuario (el PLC lo copia al evento como u{id}) ───
+// Se asigna la primera vez que el usuario manda un comando y no cambia más (ni al renombrar el
+// registro: la clave es el nombre en minúsculas). Cabe en un registro: 1..65535.
+function mandoUserId(user) {
+  const s = read();
+  const ids = (s.mandoIds && typeof s.mandoIds === 'object') ? s.mandoIds : {};
+  const key = String(user).toLowerCase();
+  if (ids[key]) return ids[key];
+  const id = Math.max(0, ...Object.values(ids).filter(Number.isInteger)) + 1;
+  if (id > 65535) throw httpError(500, 'Sin ids de usuario libres');
+  s.mandoIds = { ...ids, [key]: id };
+  write(s);
+  return id;
+}
+
 module.exports = {
-  ROLES, listUsers, getUsersFull, findUser, createUser, updateUser, deleteUser, setSuperadmin,
+  ROLES, mandoUserId, listUsers, getUsersFull, findUser, createUser, updateUser, deleteUser, setSuperadmin,
   getSmtpPublic, getSmtpFull, smtpTransportOptions, setSmtp, getDailyReport, setDailyReport,
   hashPassword, SETTINGS_PATH,
 };

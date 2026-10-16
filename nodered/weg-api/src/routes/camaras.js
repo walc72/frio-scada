@@ -17,7 +17,12 @@ function createCamarasRouter({ queryCsv, getEstado }) {
 
   router.get('/estado', (req, res) => res.json(getEstado() || {}));
   ruta('/descongelados', true, async (p) => s.parseDescongelados(await queryCsv(s.fluxDescongelados(p))));
-  ruta('/eventos', true, async (p, q) => s.parseEventos(await queryCsv(s.fluxEventos(p)), { camara: p.camara, texto: q.texto }));
+  // Eventos del PLC + maniobras remotas (maniobra:true), mezclados por hora.
+  ruta('/eventos', true, async (p, q) => {
+    const f = { camara: p.camara, texto: q.texto };
+    const [ev, mando] = await Promise.all([queryCsv(s.fluxEventos(p)), queryCsv(s.fluxMando(p))]);
+    return [...s.parseEventos(ev, f), ...s.parseMando(mando, f)].sort((a, b) => a.ts - b.ts);
+  });
   ruta('/compresores', true, async (p) => s.parseCompresores(await queryCsv(s.fluxCompresores(p)), { ...p, latidos: await queryCsv(s.fluxLatidos(p)) }));
   ruta('/tramos', true, async (p) => s.parseTramos(await queryCsv(s.fluxTramos(p)), { ...p, latidos: await queryCsv(s.fluxLatidos(p)) }));
   ruta('/comunicacion', false, async (p) => s.parseComunicacion(await queryCsv(s.fluxComunicacion(p))));

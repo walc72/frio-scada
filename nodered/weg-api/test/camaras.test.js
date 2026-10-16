@@ -125,3 +125,19 @@ test('rutas: validación 400 y camino feliz', async () => {
   assert.equal(r.status, 200);
   assert.match(flux, /r\.camara == "C5"/);
 });
+
+test('mando: parseMando con forma de evento + maniobra:true; /eventos los mezcla por hora y filtra por cámara', async () => {
+  const cab = '#datatype,string,long,dateTime:RFC3339,string,string,string,double,string,string\n,result,table,_time,camara,comando,usuario,resultado,texto,respuesta\n';
+  const mando = cab + ',,0,2026-10-01T10:30:00Z,C5,1,ana,1,C5 equipo 3: pasar a manual (antes: automático),Listo\n'
+    + ',,0,2026-10-01T10:45:00Z,C4,5,ana,2,C4: saltar el descongelado en curso (antes: sin dato),El PLC no lo hizo\n';
+  const ev = '#datatype,string,long,dateTime:RFC3339,string,double,double\n,result,table,_time,texto,estado,hora_plc\n,,0,2026-10-01T10:00:00Z,C5 ALARMA ALTA,1,100\n,,0,2026-10-01T11:00:00Z,C5 ALARMA ALTA,0,200\n';
+  const [m1] = s.parseMando(mando, { camara: 'C5' });
+  assert.deepEqual([m1.maniobra, m1.usuario, m1.estado, m1.texto, m1.accion], [true, 'ana', 1, 'ana: C5 equipo 3: pasar a manual (antes: automático)', 'C5 equipo 3: pasar a manual (antes: automático)']);
+  assert.equal(s.parseMando(mando, { texto: 'SALTAR' }).length, 1);
+  const q = async (flux) => (flux.includes('"mando"') ? mando : ev);
+  const r = await get(`/eventos?desde=${D}&hasta=${H}`.replace(`desde=${D}&hasta=${H}`, 'desde=2026-10-01T00:00:00Z&hasta=2026-10-02T00:00:00Z'), q);
+  assert.deepEqual(r.body.map((e) => [e.maniobra === true, e.estado]), [[false, 1], [true, 1], [true, 2], [false, 0]]);
+  assert.equal(r.body[0].maniobra, undefined);   // las filas de siempre conservan su forma
+  const c5 = await get('/eventos?desde=2026-10-01T00:00:00Z&hasta=2026-10-02T00:00:00Z&camara=C5', q);
+  assert.equal(c5.body.length, 3);
+});

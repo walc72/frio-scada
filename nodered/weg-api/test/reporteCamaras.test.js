@@ -21,7 +21,7 @@ test('Resumen: descongelados con saltado y sección Compresores con 16 filas', (
     compresores: [{ camara: 'C4', dia: '2026-10-01', grupo: 'G3', horas: 5.5, horasSinDatos: 1, arranques: 4, maxArranquesHora: 2 }],
     eventos: [{ ts: 1e12, texto: 'C5 alarma', estado: 1 }],
   }, '2026-10-01');
-  assert.deepEqual(h.map((x) => x.name), ['Resumen', 'Descongelados', 'Compresores', 'Alarmas y eventos', 'Temperaturas']);
+  assert.deepEqual(h.map((x) => x.name), ['Resumen', 'Descongelados', 'Compresores', 'Alarmas y eventos', 'Maniobras', 'Temperaturas']);
   const l = lineas(h);
   assert.ok(l.includes('Descongelados: 2 (1 saltado)'));
   assert.ok(l.includes('Cortados: 1'));
@@ -31,7 +31,7 @@ test('Resumen: descongelados con saltado y sección Compresores con 16 filas', (
   assert.equal(h[2].rows.length, 16);
   assert.deepEqual(h[2].rows.find((x) => x[0] === 'C4' && x[1] === 'G3'), ['C4', 'G3', 5.5, 1, 4, 2]);
   assert.equal(typeof h[2].rows[0][2], 'number');
-  assert.deepEqual(h[4].headers, ['Sin datos de temperatura']);
+  assert.deepEqual(h[5].headers, ['Sin datos de temperatura']);
 });
 
 test('sin horas sin datos no aparece esa línea', () => {
@@ -70,4 +70,12 @@ test('runScheduled envía una sola vez por fecha', async () => {
   const orig = r.generarXlsx; r.generarXlsx = async (f) => { calls.push(f); return orig(f, async () => ''); };
   try { await daily.runScheduled(); await daily.runScheduled(); } finally { r.generarXlsx = orig; console.log = log; }
   assert.deepEqual(calls, [r.ayer()]);
+});
+
+test('hoja Maniobras: hora, usuario, qué y resultado', () => {
+  const h = r.armarHojas({ maniobras: [{ ts: 1e12, usuario: 'ana', accion: 'C5 equipo 3: pasar a manual (antes: automático)', respuesta: 'Listo' }] }, '2026-10-01');
+  const x = h.find((s) => s.name === 'Maniobras');
+  assert.deepEqual(x.headers, ['Hora', 'Usuario', 'Qué', 'Resultado']);
+  assert.deepEqual(x.rows, [['22:46:40', 'ana', 'C5 equipo 3: pasar a manual (antes: automático)', 'Listo']]);
+  assert.deepEqual(r.armarHojas({}, '2026-10-01').find((s) => s.name === 'Maniobras').rows, []);
 });
