@@ -22,7 +22,7 @@ const fx8frio = E({ 'C5.H1.estado': 'PROGRAMADO', 'C5.H1.hora': '12:30' })
 const fx4desc = E({
   'C4.G2.estado': 'DESCONGELANDO', 'C4.G4.estado': 'DESCONGELANDO', 'C4.G6.estado': 'DESCONGELANDO', 'C4.G8.estado': 'DESCONGELANDO',
   'C4.H1.estado': 'EN VENTANA', 'C4.H1.en_ventana': 1, 'C4.H1.hora': '11:56', 'C4.H1.etapas': '12121212',
-  'C4.H1.etapa0_min': 8, 'C4.H1.etapa1_min': 10, 'C4.min_descongelado': 4,
+  'C4.H1.etapa0_min': 8, 'C4.H1.etapa1_min': 10, 'C4.G2.min_descongelado': 4, 'C4.G4.min_descongelado': 4, 'C4.G6.min_descongelado': 4, 'C4.G8.min_descongelado': 4,
   'C4.H2.estado': 'PROGRAMADO', 'C4.H2.hora': '16:00',
 })
 const fxSinEtapa = E({ 'C4.G2.estado': 'DESCONGELANDO', 'C4.H1.estado': 'EN VENTANA', 'C4.H1.en_ventana': 1, 'C4.H1.hora': '11:50' })
@@ -37,7 +37,30 @@ const fila: FilaDescongelado = { camara: 'C4', horario: 'H1', etapa: 1, grupos: 
 
 describe('frases', () => {
   test('estadoEquipo FRIO', () => expect(estadoEquipo(E({ 'C4.G1.estado': 'FRIO' }), 'C4', 1)).toMatchObject({ texto: 'Enfriando', color: '#1E6FD9', icono: 'frio' }))
-  test('estadoEquipo sin dato cae a apagado', () => expect(estadoEquipo(fxVacio, 'C4', 1)).toMatchObject({ icono: 'apagado', color: '#9A9A9A' }))
+  test('estadoEquipo sin dato o desconocido', () => {
+    const sd = { clave: 'sin-datos', texto: 'Sin datos', color: '#9A9A9A', icono: 'apagado' }
+    expect(estadoEquipo(fxVacio, 'C4', 1)).toEqual(sd)
+    expect(estadoEquipo(E({ 'C4.G1.estado': 7 }), 'C4', 1)).toEqual(sd)
+    expect(estadoEquipo(E({ 'C4.G1.estado': 'DESHABILITADO' }), 'C4', 1).texto).toBe('Apagado')
+  })
+  test('faltanMin por equipo: misma etapa', () => {
+    const e = { ...fx4desc, 'C4.G2.min_descongelado': 4, 'C4.G4.min_descongelado': 4, 'C4.G6.min_descongelado': 3, 'C4.G8.min_descongelado': 4 }
+    expect(faltanMin(e, 'C4')).toBe(7)
+  })
+  test('faltanMin etapas distintas o dato faltante -> null', () => {
+    const base = { ...fx4desc, 'C4.G2.min_descongelado': 4, 'C4.G4.min_descongelado': 4, 'C4.G6.min_descongelado': 4, 'C4.G8.min_descongelado': 4 }
+    expect(faltanMin({ ...base, 'C4.G3.estado': 'DESCONGELANDO', 'C4.G3.min_descongelado': 4 }, 'C4')).toBeNull()
+    expect(faltanMin({ ...base, 'C4.G8.min_descongelado': '' }, 'C4')).toBeNull()
+  })
+  test('camara sin equipos funcionando no es verde', () => {
+    expect(semaforo(fxTodosApagados, true, T)).toMatchObject({ nivel: 'atencion', titulo: 'Cámara 4: ningún equipo está funcionando' })
+    expect(fraseCamara(fxTodosApagados, 'C4', T).nivel).toBe('atencion')
+    expect(semaforo(E({ 'C5.modo': 'STOP' }), true, T)).toMatchObject({ nivel: 'atencion', titulo: 'Cámara 5: ningún equipo está funcionando', detalle: 'La cámara está detenida' })
+  })
+  test('alarma de camara y varias alarmas', () => {
+    expect(semaforo(E({ 'C4.alarma_manual': 1 }), true, T).titulo).toBe('Cámara 4 necesita atención')
+    expect(semaforo(E({ 'C4.alarma_manual': 1, 'C4.G2.alarma_res': 1 }), true, T).detalle).toMatch(/\(y 1 más\)$/)
+  })
   test('fraseCamara 4 descongelando con etapa de 10 min y 4 transcurridos', () =>
     expect(fraseCamara(fx4desc, 'C4', T).titulo).toBe('4 equipos descongelando, terminan en 6 min'))
   test('faltanMin sin datos de etapa -> null', () => expect(faltanMin(E({ 'C4.G2.estado': 'DESCONGELANDO' }), 'C4')).toBeNull())
@@ -46,7 +69,7 @@ describe('frases', () => {
   test('todos enfriando: detalle con próximo', () => expect(fraseCamara(fx8frio, 'C5', T).detalle).toBe('Próximo descongelado: hoy 12:30'))
   test('semaforo ok', () => expect(semaforo(fx8frio, true, T).nivel).toBe('ok'))
   test('semaforo vencido', () => expect(semaforo(fx8frio, false, T)).toMatchObject({ nivel: 'sin-datos' }))
-  test('semaforo mapa incompatible', () => expect(semaforo({ ...fx8frio, _mapa: 'incompatible' }, true, T).titulo).toBe('El PLC tiene un programa viejo'))
+  test('semaforo mapa incompatible', () => expect(semaforo(fx8frio, true, T, 'incompatible').titulo).toBe('El PLC tiene un programa viejo'))
   test('semaforo alarma gana a descongelado', () => expect(semaforo(fxAlarmaYDesc, true, T)).toMatchObject({ nivel: 'alarma', titulo: 'Cámara 5: el equipo 3 necesita atención' }))
   test('fraseCamara alarma gana a descongelado', () => expect(fraseCamara(fxAlarmaYDesc, 'C5', T).nivel).toBe('alarma'))
   test('semaforo null', () => expect(semaforo(null, false, null).nivel).toBe('sin-datos'))

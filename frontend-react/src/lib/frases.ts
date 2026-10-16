@@ -6,11 +6,12 @@ import { colorEstadoGrupo } from './estadoGrupo'
 
 export type Nivel = 'ok' | 'atencion' | 'alarma' | 'sin-datos'
 export type NombreIcono = 'frio' | 'descongelando' | 'escurriendo' | 'alarma' | 'manual' | 'apagado'
-export type ClaveEstado = 'DESHABILITADO' | 'DETENIDO' | 'FRIO' | 'DESCONGELANDO' | 'ESCURRIENDO' | 'ALARMA RES' | 'MANUAL'
+export type ClaveEstado = 'sin-datos' | 'DESHABILITADO' | 'DETENIDO' | 'FRIO' | 'DESCONGELANDO' | 'ESCURRIENDO' | 'ALARMA RES' | 'MANUAL'
 
 export const UMBRAL_ARRANQUES_HORA = 6
 
 const EQUIPO: Record<ClaveEstado, { texto: string; icono: NombreIcono }> = {
+  'sin-datos': { texto: 'Sin datos', icono: 'apagado' },
   'DESHABILITADO': { texto: 'Apagado', icono: 'apagado' },
   'DETENIDO': { texto: 'Detenido', icono: 'apagado' },
   'FRIO': { texto: 'Enfriando', icono: 'frio' },
@@ -22,8 +23,8 @@ const EQUIPO: Record<ClaveEstado, { texto: string; icono: NombreIcono }> = {
 
 export function estadoEquipo(estado: Estado, c: string, g: number) {
   const k = txt(estado, `${c}.G${g}.estado`)
-  const clave = (k in EQUIPO ? k : 'DESHABILITADO') as ClaveEstado
-  return { clave, ...EQUIPO[clave], color: colorEstadoGrupo(clave).fondo }
+  const clave = (k !== 'sin-datos' && k in EQUIPO ? k : 'sin-datos') as ClaveEstado
+  return { clave, ...EQUIPO[clave], color: clave === 'sin-datos' ? '#9A9A9A' : colorEstadoGrupo(clave).fondo }
 }
 
 const gruposEn = (e: Estado, c: string, clave: ClaveEstado) => GRUPOS.filter(g => estadoEquipo(e, c, g).clave === clave)
@@ -37,25 +38,32 @@ const esNum = (v: unknown) => v != null && v !== '' && Number.isFinite(Number(v)
 const horarioEnVentana = (e: Estado, c: string) =>
   HORARIOS.find(h => txt(e, `${c}.H${h}.estado`) === 'EN VENTANA' || num(e, `${c}.H${h}.en_ventana`) === 1)
 
-// Minutos que lleva descongelando la cámara: el dato de cámara, o el mayor de sus equipos descongelando
+// Minutos que lleva descongelando la cámara: el mayor de sus equipos descongelando (solo para "desde HH:MM")
 function minTranscurridos(e: Estado, c: string): number | null {
-  if (esNum(e[`${c}.min_descongelado`])) return Number(e[`${c}.min_descongelado`])
   const v = gruposEn(e, c, 'DESCONGELANDO').map(g => e[`${c}.G${g}.min_descongelado`]).filter(esNum).map(Number)
   return v.length ? Math.max(...v) : null
 }
 
-// Minutos que faltan para terminar la etapa en curso: duración de la etapa (Hh.etapaE_min) menos lo transcurrido.
-// La etapa sale de Hh.etapas (un dígito 1|2 por equipo) del primer equipo descongelando.
+// Minutos que faltan para terminar la etapa en curso. Por equipo descongelando: duración de su etapa (Hh.etapaE_min,
+// con E sacado del dígito 1|2 de Hh.etapas) menos su propio Gg.min_descongelado. Si los equipos están en etapas
+// distintas o a alguno le falta un dato, null (no se mezcla la etapa de uno con el tiempo de otro).
 export function faltanMin(estado: Estado, c: string): number | null {
   const h = horarioEnVentana(estado, c)
-  const g = gruposEn(estado, c, 'DESCONGELANDO')[0]
-  const trans = minTranscurridos(estado, c)
-  if (h == null || g == null || trans == null) return null
-  const d = txt(estado, `${c}.H${h}.etapas`)[g - 1]
-  if (d !== '1' && d !== '2') return null
-  const dur = estado[`${c}.H${h}.etapa${Number(d) - 1}_min`]
-  if (!esNum(dur) || !(Number(dur) > 0)) return null
-  return Math.max(0, Math.round(Number(dur) - trans))
+  const gs = gruposEn(estado, c, 'DESCONGELANDO')
+  if (h == null || !gs.length) return null
+  const etapas = txt(estado, `${c}.H${h}.etapas`)
+  const falta: number[] = []
+  let digito = ''
+  for (const g of gs) {
+    const d = etapas[g - 1]
+    const trans = estado[`${c}.G${g}.min_descongelado`]
+    if ((d !== '1' && d !== '2') || (digito && d !== digito) || !esNum(trans)) return null
+    digito = d
+    const dur = estado[`${c}.H${h}.etapa${Number(d) - 1}_min`]
+    if (!esNum(dur) || !(Number(dur) > 0)) return null
+    falta.push(Math.max(0, Math.round(Number(dur) - Number(trans))))
+  }
+  return Math.max(...falta)
 }
 
 // "hoy 12:00" | "mañana 04:00" | "Sin descongelados programados". `ahora` en ms; hora de planta.
@@ -101,16 +109,24 @@ function alarmasActivas(e: Estado, c?: string): AlarmaActiva[] {
 }
 
 const tituloAlarma = (a: AlarmaActiva) =>
-  a.c ? `${nombreCamara(a.c)}: ${a.g ? `el equipo ${a.g}` : 'la cámara'} necesita atención` : 'El PLC necesita atención'
-function detalleAlarma(a: AlarmaActiva) {
+  a.c ? (a.g ? `${nombreCamara(a.c)}: el equipo ${a.g} necesita atención` : `${nombreCamara(a.c)} necesita atención`) : 'El PLC necesita atención'
+function detalleAlarma(a: AlarmaActiva, total = 1) {
   const t = textoAlarma(a.clave)
   const sujeto = a.g ? `Equipo ${a.g}` : a.c ? nombreCamara(a.c) : 'PLC'
-  return `${sujeto}: ${t.texto}${t.accion ? ` · ${t.accion}` : ''}`
+  return `${sujeto}: ${t.texto}${t.accion ? ` · ${t.accion}` : ''}${total > 1 ? ` (y ${total - 1} más)` : ''}`
 }
+
+// Por qué la cámara no tiene ningún equipo funcionando (enfriando, descongelando o escurriendo), o null si lo tiene
+function sinFuncionar(e: Estado, c: string): string | null {
+  if (txt(e, `${c}.modo`) === 'STOP') return 'La cámara está detenida'
+  if (GRUPOS.some(g => ['FRIO', 'DESCONGELANDO', 'ESCURRIENDO'].includes(estadoEquipo(e, c, g).clave))) return null
+  return 'Los equipos están deshabilitados o detenidos'
+}
+const hayDatos = (e: Estado, c: string) => Object.keys(e).some(k => k.startsWith(`${c}.`))
 
 // ---- frases ----
 export function fraseCamara(estado: Estado, c: string, ahora: number): { titulo: string; detalle: string; nivel: Nivel } {
-  if (!estado || !Object.keys(estado).some(k => k.startsWith(`${c}.`))) return { titulo: 'Sin datos todavía', detalle: '', nivel: 'sin-datos' }
+  if (!estado || !hayDatos(estado, c)) return { titulo: 'Sin datos todavía', detalle: '', nivel: 'sin-datos' }
   const prox = proximoTexto(estado, c, ahora)
   const detProx = prox.startsWith('Sin') ? prox : `Próximo descongelado: ${prox}`
 
@@ -118,8 +134,11 @@ export function fraseCamara(estado: Estado, c: string, ahora: number): { titulo:
   if (al.length) {
     const gs = [...new Set(al.filter(a => a.g).map(a => a.g!))]
     const titulo = gs.length === 1 ? `El equipo ${gs[0]} necesita atención` : gs.length > 1 ? `${gs.length} equipos necesitan atención` : 'La cámara necesita atención'
-    return { titulo, detalle: detalleAlarma(al[0]), nivel: 'alarma' }
+    return { titulo, detalle: detalleAlarma(al[0], al.length), nivel: 'alarma' }
   }
+
+  const sf = sinFuncionar(estado, c)
+  if (sf) return { titulo: `${nombreCamara(c)}: ningún equipo está funcionando`, detalle: sf, nivel: 'atencion' }
 
   const n = (k: ClaveEstado) => gruposEn(estado, c, k).length
   const desc = n('DESCONGELANDO')
@@ -146,17 +165,22 @@ export function fraseCamara(estado: Estado, c: string, ahora: number): { titulo:
   return { titulo: 'Sin equipos funcionando', detalle: detProx, nivel: 'ok' }
 }
 
-// `mapa` (store.mapa) es opcional: el store saca _mapa del estado, así que los consumidores reales lo pasan acá.
+// `mapa` = store.mapa (el store saca _mapa del estado)
 export function semaforo(estado: Estado | null, fresco: boolean, ts: number | null, mapa?: string | null): { nivel: Nivel; titulo: string; detalle: string } {
   if (!estado || !fresco) {
     return ts ? { nivel: 'sin-datos', titulo: `Sin datos desde ${hhmm(ts)}`, detalle: 'No se está recibiendo información del PLC' }
       : { nivel: 'sin-datos', titulo: 'Sin datos todavía', detalle: 'Esperando información del PLC' }
   }
-  if (mapa === 'incompatible' || estado._mapa === 'incompatible') {
+  if (mapa === 'incompatible') {
     return { nivel: 'atencion', titulo: 'El PLC tiene un programa viejo', detalle: 'Los datos no se pueden interpretar. Avisar al técnico' }
   }
   const al = alarmasActivas(estado)
-  if (al.length) return { nivel: 'alarma', titulo: tituloAlarma(al[0]), detalle: detalleAlarma(al[0]) }
+  if (al.length) return { nivel: 'alarma', titulo: tituloAlarma(al[0]), detalle: detalleAlarma(al[0], al.length) }
+  for (const c of ['C4', 'C5']) {
+    if (!hayDatos(estado, c)) return { nivel: 'sin-datos', titulo: 'Sin datos todavía', detalle: 'Esperando información del PLC' }
+    const sf = sinFuncionar(estado, c)
+    if (sf) return { nivel: 'atencion', titulo: `${nombreCamara(c)}: ningún equipo está funcionando`, detalle: sf }
+  }
   for (const c of ['C4', 'C5']) {
     const m = gruposEn(estado, c, 'MANUAL')
     if (m.length) return { nivel: 'atencion', titulo: `${nombreCamara(c)}: ${m.length === 1 ? `el equipo ${m[0]} está` : `${m.length} equipos están`} en manual`, detalle: 'Pasarlos a automático desde el panel' }

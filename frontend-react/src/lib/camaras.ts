@@ -24,8 +24,8 @@ export function proximoDescongelado(e: Estado | null, cam: string): string | nul
 
 // Hora de planta (Paraguay), sea cual sea la zona del navegador. La API usa TZ_OFFSET_MIN (compose) para lo mismo.
 export const ZONA = 'America/Asuncion'
-export const hhmm = (ms: number) => new Date(ms).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: ZONA })
-export const fechaHora = (ms: number) => new Date(ms).toLocaleString('es-AR', { hour12: false, timeZone: ZONA })
+export const hhmm = (ms: number) => new Date(ms).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: ZONA })
+export const fechaHora = (ms: number) => new Date(ms).toLocaleString('es-AR', { hourCycle: 'h23', timeZone: ZONA })
 export const fechaDia = (ms: number) => new Date(ms).toLocaleDateString('es-AR', { timeZone: ZONA })
 
 // Hora del PLC de un evento: segundos de su hora LOCAL (el PLC no tiene zona) -> se formatea como UTC,
