@@ -51,10 +51,12 @@ export function useMando() {
     if (!p || vuelo.current) return
     vuelo.current = true
     setEnviando(true)
-    const r = await enviarMando(p)
-    setRes(textoResultado(r))
-    vuelo.current = false
-    setEnviando(false)
+    try {
+      setRes(textoResultado(await enviarMando(p)))
+    } finally {
+      vuelo.current = false
+      setEnviando(false)
+    }
     refrescarLuego()
   }
   const dialogo = (

@@ -3,7 +3,6 @@ import type { Estado } from '../store/camaras'
 import { minutoAhora, type FilaDescongelado } from '../lib/camaras'
 import { colorEstadoGrupo } from '../lib/estadoGrupo'
 import { useMando, usePermiso } from './Confirmar'
-import { useAuthStore } from '../store/auth'
 import { Button } from './ui/button'
 import { horariosVista, pct, type EstadoHorario } from '../lib/paginaCamara'
 
@@ -23,8 +22,6 @@ const MARCA: Record<EstadoHorario, { icono: string; color: string; sufijo: strin
 export default function LineaDescongelados({ estado, sinDatos, cam, ahora, filas }: { estado: Estado | null; sinDatos: boolean; cam: string; ahora: number; filas: FilaDescongelado[] | null }) {
   const { pedir, enviando, dialogo } = useMando()
   const permiso = usePermiso(5)
-  const rol = useAuthStore(s => s.role)
-  const mira = rol === 'operador' || rol === ''
   const hs = estado && !sinDatos ? horariosVista(estado, cam, ahora, filas) : []
   return (
     <Card className="p-4 space-y-3 rounded-2xl">

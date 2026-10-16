@@ -39,15 +39,18 @@ export default function Programacion() {
     if (vuelo.current) return
     vuelo.current = true
     setCorriendo(true); setHechos([]); setTotal(listos.length)
-    for (let i = 0; i < listos.length; i++) {
-      if (i) await dormir(ESPERA_MS)
-      const { campo, pedido } = listos[i]
-      const r = await enviarMando(pedido!)
-      setHechos(h => [...h, { id: campo.id, texto: frase(pedido!), res: textoResultado(r), ok: r.resultado === 1 }])
-      if (r.resultado === 1) setEd(x => { const { [campo.id]: _, ...resto } = x; return resto })
+    try {
+      for (let i = 0; i < listos.length; i++) {
+        if (i) await dormir(ESPERA_MS)
+        const { campo, pedido } = listos[i]
+        const r = await enviarMando(pedido!)
+        setHechos(h => [...h, { id: campo.id, texto: frase(pedido!), res: textoResultado(r), ok: r.resultado === 1 }])
+        if (r.resultado === 1) setEd(x => { const { [campo.id]: _, ...resto } = x; return resto })
+      }
+    } finally {
+      vuelo.current = false
+      setCorriendo(false)
     }
-    vuelo.current = false
-    setCorriendo(false)
     refrescarLuego()
   }
   const cerrar = () => { if (!corriendo) { setAbierto(false); setHechos([]) } }
