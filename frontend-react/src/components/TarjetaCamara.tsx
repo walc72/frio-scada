@@ -1,42 +1,43 @@
 import { Link } from 'react-router-dom'
 import { Card } from './ui/card'
 import { Badge } from './ui/badge'
-import GrupoChip from './GrupoChip'
+import BotonEquipo from './BotonEquipo'
 import { useCamarasStore } from '../store/camaras'
 import { estaVencido } from '../lib/estadoGrupo'
-import { GRUPOS, nombreCamara, txt, num, proximoDescongelado, hhmm } from '../lib/camaras'
+import { fraseCamara, proximoTexto, badgeCamara } from '../lib/frases'
+import { GRUPOS, nombreCamara, hhmm } from '../lib/camaras'
 import { useNow } from '../lib/useNow'
 
 export default function TarjetaCamara({ cam }: { cam: string }) {
   const estado = useCamarasStore(s => s.estado)
   const ts = useCamarasStore(s => s.ts)
   const recibidoEn = useCamarasStore(s => s.recibidoEn)
-  const incompatible = useCamarasStore(s => s.mapa === 'incompatible')
   const ahora = useNow(1000)
-  const vencido = estaVencido(recibidoEn, ahora)
-  const alarma = num(estado, `${cam}.alarma_activa`) === 1
-  const prox = proximoDescongelado(estado, cam)
+  const incompatible = useCamarasStore(s => s.mapa === 'incompatible')
+  const vencido = !estado || estaVencido(recibidoEn, ahora)
+  const f = estado && !vencido && !incompatible ? fraseCamara(estado, cam, ahora) : null
+  const hayDatos = !!f && f.nivel !== 'sin-datos'
+  const alarma = f?.nivel === 'alarma'
+  const badge = hayDatos ? badgeCamara(estado!, cam, f!.nivel) : null
   return (
-    <Link to={`/camara/${cam}`}>
-      <Card className="p-4 space-y-3 hover:border-primary transition-colors">
+    <Link to={`/camara/${cam}`} className="block">
+      <Card className={`p-4 space-y-3 rounded-2xl shadow-sm hover:border-primary transition-colors ${alarma ? 'border-2 border-red-600' : ''} ${vencido || incompatible ? 'grayscale bg-muted opacity-70' : ''}`}>
         <div className="flex items-center gap-2">
           <div className="font-semibold text-lg">{nombreCamara(cam)}</div>
-          {!vencido && <Badge variant="secondary">{txt(estado, `${cam}.modo`) || '—'}</Badge>}
-          {!vencido && alarma && <Badge variant="destructive">ALARMA</Badge>}
-          <div className="ml-auto text-sm text-muted-foreground" title="La temperatura llega con el subproyecto 1">Temp: —</div>
+          {badge && <Badge className="ml-auto border-transparent text-white" style={{ backgroundColor: badge.c }}>{badge.t}</Badge>}
         </div>
-        {vencido && (
-          <div className="text-sm text-amber-600 dark:text-amber-400 font-medium">
-            {incompatible ? 'Mapa del PLC incompatible' : `sin datos${ts ? ` desde ${hhmm(ts)}` : ''}`}
+        <div className="grid grid-cols-4 sm:grid-cols-8 gap-2 justify-items-center">
+          {GRUPOS.map(g => <BotonEquipo key={g} c={cam} g={g} />)}
+        </div>
+        {hayDatos ? (
+          <div>
+            <div className="font-bold">{f!.titulo}</div>
+            {f!.detalle && <div className="text-sm text-muted-foreground">{f!.detalle}</div>}
+            {!/Próximo|Sin descongelados/.test(f!.detalle) && <div className="text-sm text-muted-foreground">Próximo: {proximoTexto(estado!, cam, ahora)}</div>}
           </div>
+        ) : (
+          <div className="font-bold text-muted-foreground">{incompatible ? 'El PLC tiene un programa viejo' : ts ? `Sin datos desde ${hhmm(ts)}` : 'Sin datos todavía'}</div>
         )}
-        <div className="grid grid-cols-4 gap-1.5">
-          {GRUPOS.map(g => <GrupoChip key={g} n={g} estado={txt(estado, `${cam}.G${g}.estado`)} vencido={vencido} />)}
-        </div>
-        <div className="flex justify-between text-xs text-muted-foreground">
-          <span>Próximo descongelado: {vencido ? '—' : prox ?? '—'}</span>
-          <span>Última lectura: {ts ? hhmm(ts) : '—'}</span>
-        </div>
       </Card>
     </Link>
   )

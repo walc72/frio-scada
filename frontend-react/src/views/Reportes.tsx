@@ -1,45 +1,58 @@
-import { useState } from 'react'
-import { Card } from '../components/ui/card'
+import { useMemo, useState } from 'react'
 import { Button } from '../components/ui/button'
 import { apiBlob } from '../lib/api'
+import { useDatos } from '../lib/useDatos'
+import { resumenAyer } from '../lib/sistema'
+import { fechaDia, ayerPlanta } from '../lib/camaras'
 
-// Ayer en fecha local del navegador (YYYY-MM-DD)
-function ayer() {
-  const d = new Date()
-  d.setDate(d.getDate() - 1)
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
+const n = (v: number | null, u = '') => (v == null ? 'sin datos' : `${v}${u}`)
 
 export default function Reportes() {
-  const [fecha, setFecha] = useState(ayer())
+  const dia = ayerPlanta()
+  const [fecha, setFecha] = useState(dia)
+  const [otro, setOtro] = useState(false)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
+  const desc = useDatos<any>('descongelados', dia, dia)
+  const ev = useDatos<any>('eventos', dia, dia)
+  const comp = useDatos<any>('compresores', dia, dia)
+  const r = useMemo(() => resumenAyer(desc.data, ev.data, comp.data), [desc.data, ev.data, comp.data])
 
-  async function descargar() {
+  async function descargar(f: string) {
     setBusy(true); setErr('')
     try {
-      const blob = await apiBlob('/reports/camaras/xlsx', { method: 'POST', body: JSON.stringify({ fecha }) })
+      const blob = await apiBlob('/reports/camaras/xlsx', { method: 'POST', body: JSON.stringify({ fecha: f }) })
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
-      a.href = url; a.download = `reporte-camaras_${fecha}.xlsx`; a.click()
+      a.href = url; a.download = `reporte-camaras_${f}.xlsx`; a.click()
       URL.revokeObjectURL(url)
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'Error al descargar')
-    } finally {
-      setBusy(false)
-    }
+    } finally { setBusy(false) }
   }
 
   return (
-    <Card className="p-6 space-y-3 max-w-md">
-      <div className="text-lg font-semibold">Reporte diario de cámaras</div>
-      <p className="text-sm text-muted-foreground">Descongelados, compresores y alarmas del día elegido (00:00 a 24:00). También se envía por correo cada mañana.</p>
-      <div className="flex items-center gap-2">
-        <input type="date" value={fecha} max={ayer()} min="2000-01-01" onChange={(e) => setFecha(e.target.value)}
-          className="h-9 rounded-md border bg-background px-2 text-sm" />
-        <Button onClick={descargar} disabled={busy || !fecha}>{busy ? 'Generando…' : 'Descargar Excel'}</Button>
+    <div className="space-y-3 max-w-md">
+      <h1 className="text-xl font-semibold">Reporte diario</h1>
+      <div className="rounded-2xl bg-white dark:bg-card shadow-sm p-4 space-y-1 text-sm">
+        <div className="font-semibold">Ayer, {fechaDia(Date.parse(`${dia}T12:00:00-03:00`))}</div>
+        <div>Descongelados: {n(r.descongelados)}{r.saltados ? ` (${r.saltados} se saltaron)` : ''}</div>
+        <div>Alarmas: {n(r.avisos)} (sin contar acciones de operarios)</div>
+        <div>Horas de compresores: {n(r.horas, ' h')}</div>
       </div>
-      {err && <p className="text-sm text-destructive">{err}</p>}
-    </Card>
+      <div className="space-y-2">
+        <Button className="w-full" onClick={() => descargar(dia)} disabled={busy}>{busy ? 'Generando…' : '⬇ Descargar Excel de ayer'}</Button>
+        <Button variant="outline" className="w-full" onClick={() => setOtro(o => !o)}>Elegir otro día</Button>
+        {otro && (
+          <div className="flex items-center gap-2">
+            <input type="date" value={fecha} max={dia} min="2000-01-01" onChange={(e) => setFecha(e.target.value)}
+              className="h-9 rounded-md border bg-background px-2 text-sm" />
+            <Button onClick={() => descargar(fecha)} disabled={busy || !fecha}>Descargar</Button>
+          </div>
+        )}
+        {err && <p className="text-sm text-destructive">{err}</p>}
+      </div>
+      <p className="text-sm text-muted-foreground">Se manda solo por mail todos los días a las 07:00</p>
+    </div>
   )
 }

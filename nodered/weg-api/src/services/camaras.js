@@ -54,14 +54,21 @@ function fluxLatidos({ desde, hasta, bucket }) {
   const previo = new Date(new Date(desde).getTime() - MAX_DIAS * DIA_MS).toISOString();
   const una = (m, campo, r) => `${fuente(bucket, r)}
   |> filter(fn: (r) => r._measurement == "${m}" and r._field == "${campo}")
-  |> group()`;
+  |> group()
+  |> map(fn: (r) => ({_time: r._time, _measurement: r._measurement, _value: string(v: r._value)}))`;
   const par = (n, m, campo) => `${n}p = ${una(m, campo, rango(previo, desde))}
   |> last()
 ${n}a = ${una(m, campo, rango(desde, hasta))}
 `;
   return `${par('f', 'foto', 'hora_plc')}${par('c', 'comunicacion', 'conectado')}union(tables: [fp, fa, cp, ca])
-  |> map(fn: (r) => ({_time: r._time, _measurement: r._measurement, _value: string(v: r._value)}))
   |> group()`;
+}
+
+// Cambios de estado de cada grupo (texto) en el rango + el último previo a desde.
+function fluxTramos({ desde, hasta, camara, bucket }) {
+  const base = (r) => `${fuente(bucket, r)}\n  |> filter(fn: (r) => r._measurement == "estado" and r._field == "texto" and r.campo == "estado" and exists r.grupo)${filtroCamara(camara)}`;
+  const previo = new Date(new Date(desde).getTime() - MAX_DIAS * DIA_MS).toISOString();
+  return `previo = ${base(rango(previo, desde))}\n  |> last()\nactual = ${base(rango(desde, hasta))}\nunion(tables: [previo, actual])\n  |> group()`;
 }
 
 function fluxComunicacion({ desde, hasta, bucket }) {
@@ -197,4 +204,40 @@ function parseCompresores(csv, { desde, hasta, ahora = Date.now(), latidos = '' 
   return salida.sort((a, b) => a.dia.localeCompare(b.dia) || a.camara.localeCompare(b.camara) || a.grupo.localeCompare(b.grupo, 'en', { numeric: true }));
 }
 
-module.exports = { CAMARAS, offsetMs, validarParams, fluxDescongelados, fluxEventos, fluxCompresores, fluxLatidos, fluxComunicacion, parseDescongelados, parseEventos, parseCompresores, parseComunicacion };
+// CSV de fluxTramos (+ latidos) -> [{camara, grupo, inicio, fin, estado}] con estado frio|descongelando|apagado|sin-datos.
+// DETENIDO y DESHABILITADO son apagado; el resto (FRIO, ESCURRIENDO, ALARMA RES, MANUAL) cuenta como frio. Los huecos (mismo criterio que parseCompresores) y el tiempo antes del primer dato son sin-datos.
+function parseTramos(csv, { desde, hasta, ahora = Date.now(), latidos = '' }) {
+  const t0 = Date.parse(desde); const t1 = Math.min(Date.parse(hasta), ahora);
+  const series = new Map(); const muestras = new Set();
+  eachRow(csv, (r) => {
+    if (!r.grupo || !r.camara) return;
+    const k = `${r.camara}|${r.grupo}`;
+    if (!series.has(k)) series.set(k, { camara: r.camara, grupo: r.grupo, cambios: [] });
+    series.get(k).cambios.push([ms(r._time), r._value === 'DESCONGELANDO' ? 'descongelando' : r._value === 'DETENIDO' || r._value === 'DESHABILITADO' ? 'apagado' : 'frio']);
+    muestras.add(ms(r._time));
+  });
+  if (t1 <= t0) return [];
+  const gaps = huecos(latidos, muestras, t0, t1);
+  const iso = (t) => new Date(t).toISOString();
+  const salida = [];
+  for (const s of series.values()) {
+    s.cambios.sort((a, b) => a[0] - b[0]);
+    const cortes = new Set([t0, t1]);
+    for (const [t] of s.cambios) if (t > t0 && t < t1) cortes.add(t);
+    for (const g of gaps) for (const t of g) if (t > t0 && t < t1) cortes.add(t);
+    const pts = [...cortes].sort((a, b) => a - b);
+    const tramos = [];
+    for (let i = 0; i + 1 < pts.length; i++) {
+      const [a, b] = [pts[i], pts[i + 1]];
+      let estado = null;
+      for (const [t, e] of s.cambios) if (t <= a) estado = e;
+      if (estado === null || gaps.some(([x, y]) => a >= x && a < y)) estado = 'sin-datos';
+      const u = tramos[tramos.length - 1];
+      if (u && u.estado === estado) u.fin = iso(b); else tramos.push({ camara: s.camara, grupo: s.grupo, inicio: iso(a), fin: iso(b), estado });
+    }
+    salida.push(...tramos);
+  }
+  return salida.sort((a, b) => a.camara.localeCompare(b.camara) || a.grupo.localeCompare(b.grupo, 'en', { numeric: true }) || a.inicio.localeCompare(b.inicio));
+}
+
+module.exports = { fluxTramos, parseTramos, CAMARAS, offsetMs, validarParams, fluxDescongelados, fluxEventos, fluxCompresores, fluxLatidos, fluxComunicacion, parseDescongelados, parseEventos, parseCompresores, parseComunicacion };

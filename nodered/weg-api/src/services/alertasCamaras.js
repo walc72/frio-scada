@@ -15,6 +15,7 @@ const hhmm = (ms) => new Date(ms + Number(process.env.TZ_OFFSET_MIN ?? -180) * 6
 
 // Flags de alarma del mapa v2 (mapa.js decodificar) con su texto. Se omiten los
 // agregados (alarma_activa global y por cámara): los cubren los flags específicos.
+// Mantener en sincronía con alarmasActivas/EVENTOS de frontend-react/src/lib/frases.ts (mismos flags de alarma).
 function definiciones() {
   const d = [
     ['alarma_reloj', 'Alarma de reloj del PLC'],
@@ -38,13 +39,12 @@ function definiciones() {
 }
 const DEFS = definiciones();
 
-// Desvío (s) del reloj UTC del PLC (hora local - huso = regs 6-7) contra el epoch de la PC; mismo cálculo
-// que el poller. Se compara con el _ts del frio/estado que trajo esa hora_plc, no con el del latido.
+// Desvío (s) de la hora de pared del PLC (hora_plc leída como epoch UTC) contra la hora local de planta
+// (TZ_OFFSET_MIN); mismo cálculo que el poller. Se compara con el _ts del frio/estado que trajo esa hora_plc.
 function desvioRelojS(estado) {
   const ts = estado._tsEstado ?? estado._ts;
   if (!estado.hora_plc || !ts) return null;
-  const plcUtc = Date.parse(estado.hora_plc.replace(' ', 'T') + 'Z') / 1000 - (Number(estado.huso_min) || 0) * 60;
-  return plcUtc - ts / 1000;
+  return Date.parse(estado.hora_plc.replace(' ', 'T') + 'Z') / 1000 - (ts / 1000 + Number(process.env.TZ_OFFSET_MIN ?? -180) * 60);
 }
 
 // estado: último frio/estado (con _ts/_conectado/_mapa del último latido) o null.
@@ -137,4 +137,4 @@ function start() {
   return timer;
 }
 
-module.exports = { evaluar, start };
+module.exports = { evaluar, start, desvioRelojS, hhmm };

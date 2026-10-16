@@ -198,6 +198,7 @@ services:
       - TZ=${TZ:-America/Asuncion}
       - CONFIG_PATH=/app/config/config.json
       - MQTT_BROKER=mqtt://mosquitto:1883
+      - TZ_OFFSET_MIN=${TZ_OFFSET_MIN:--180}
       - INFLUXDB_TOKEN=${INFLUXDB_TOKEN}
     depends_on:
       mosquitto:
@@ -234,6 +235,8 @@ services:
       - ./config:/app/config
       # Reportes diarios generados automáticamente (PDF por día)
       - ${REPORTS_DIR:-./reports}:/app/reports
+      # Copias de weg-backup (solo lectura): el resumen del sistema muestra la última
+      - ${BACKUP_LOCAL_DIR:-./backups}:/app/backups:ro
     environment:
       - TZ=${TZ:-America/Asuncion}
       - PORT=3200
