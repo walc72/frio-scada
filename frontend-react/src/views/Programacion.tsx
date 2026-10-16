@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Card } from '../components/ui/card'
 import { Button } from '../components/ui/button'
@@ -22,17 +22,22 @@ export default function Programacion() {
   const [corriendo, setCorriendo] = useState(false)
   const [hechos, setHechos] = useState<{ id: string; texto: string; res: string; ok: boolean }[]>([])
   const [total, setTotal] = useState(0)
+  const vuelo = useRef(false)
 
   const cs = useMemo(() => campos(estado, CAMARAS, HORARIOS), [estado])
   const porId = useMemo(() => Object.fromEntries(cs.map(c => [c.id, c])), [cs])
   const lista = useMemo(() => cambios(cs, ed), [cs, ed])
   const malos = new Set(lista.filter(x => !x.ok).map(x => x.campo.id))
+  const camMalas = CAMARAS.filter(k => lista.some(x => !x.ok && x.campo.camara === k))
+  const ajusteMalo = lista.some(x => !x.ok && !x.campo.camara)
   const val = (id: string): Valor => (id in ed ? ed[id] : porId[id]?.actual ?? '')
   const set = (id: string, v: Valor) => setEd(x => ({ ...x, [id]: v }))
   const off = !permiso.ok || corriendo
   const listos = lista.filter(x => x.ok)
 
   async function guardar() {
+    if (vuelo.current) return
+    vuelo.current = true
     setCorriendo(true); setHechos([]); setTotal(listos.length)
     for (let i = 0; i < listos.length; i++) {
       if (i) await dormir(ESPERA_MS)
@@ -41,6 +46,7 @@ export default function Programacion() {
       setHechos(h => [...h, { id: campo.id, texto: frase(pedido!), res: textoResultado(r), ok: r.resultado === 1 }])
       if (r.resultado === 1) setEd(x => { const { [campo.id]: _, ...resto } = x; return resto })
     }
+    vuelo.current = false
     setCorriendo(false)
     refrescarLuego()
   }
@@ -67,7 +73,7 @@ export default function Programacion() {
       {!estado && <div className="text-sm text-muted-foreground">Sin datos todavía</div>}
 
       <div className="grid grid-cols-2 gap-1 rounded-lg bg-muted p-1 text-center text-sm font-medium">
-        {CAMARAS.map(k => <button key={k} onClick={() => setCam(k)} className={`min-h-11 rounded-md ${k === cam ? 'bg-background shadow-sm' : 'text-muted-foreground'}`}>{nombreCamara(k)}</button>)}
+        {CAMARAS.map(k => <button key={k} onClick={() => setCam(k)} className={`min-h-11 rounded-md ${k === cam ? 'bg-background shadow-sm' : 'text-muted-foreground'}`}>{nombreCamara(k)}{camMalas.includes(k) && ' ⚠'}</button>)}
       </div>
 
       {HORARIOS.filter(h => tiene(`${cam}.H${h}.hora`)).map(h => {
@@ -113,7 +119,7 @@ export default function Programacion() {
 
       <div className="sticky bottom-[calc(4.5rem+env(safe-area-inset-bottom))] md:bottom-2">
         <Button className="h-12 w-full text-base shadow-lg" disabled={off || listos.length === 0 || malos.size > 0} onClick={() => { setHechos([]); setTotal(0); setAbierto(true) }}>
-          {lista.length === 0 ? 'Guardar (sin cambios)' : malos.size ? 'Revisá los valores marcados en rojo' : `Guardar ${listos.length} ${listos.length === 1 ? 'cambio' : 'cambios'}`}
+          {lista.length === 0 ? 'Guardar (sin cambios)' : malos.size ? `Revisá los valores en rojo (${[...camMalas.map(nombreCamara), ...(ajusteMalo ? ['ajustes'] : [])].join(' y ')})` : `Guardar ${listos.length} ${listos.length === 1 ? 'cambio' : 'cambios'}`}
         </Button>
       </div>
 

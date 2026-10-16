@@ -117,7 +117,7 @@ function decodificar(m) {
         d[p + `etapa${e}_min`] = round2(real(m, cb + 8 + 2 * (2 * h + e)));
         d[p + `etapa${e}_habilitada`] = bit(m[cb + 24], 2 * h + e);
       }
-      if (cam === 'C4') d[p + 'habilitado_hmi'] = bit(m[cb + 29], h);
+      d[p + 'habilitado_hmi'] = bit(m[cb + 29], h);   // INB_HORARIO: el HAB real del horario (C4 y C5)
     }
   }
   d['param.horas_max_sin_desc'] = round2(real(m, 258));

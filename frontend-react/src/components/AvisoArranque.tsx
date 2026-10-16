@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Card } from './ui/card'
 import { Button } from './ui/button'
 import { useMando, usePermiso } from './Confirmar'
@@ -9,8 +10,10 @@ export default function AvisoArranque() {
   const pendiente = useCamarasStore(s => Number(s.estado?.arranque_con_manual_pendiente) === 1)
   const rol = useAuthStore(s => s.role)
   const permiso = usePermiso(7)
-  const { pedir, enviando, dialogo } = useMando()
-  if (!pendiente) return null
+  const { pedir, enviando, dialogo, olvidarPregunta } = useMando()
+  // La ventana se cerró: no dejar una pregunta vieja para el próximo arranque (el diálogo sigue montado para mostrar el resultado)
+  useEffect(() => { if (!pendiente) olvidarPregunta() })
+  if (!pendiente) return <>{dialogo}</>
   const mira = rol === 'operador' || rol === ''
   return (
     <Card className="space-y-3 rounded-2xl border-amber-500 bg-amber-500/10 p-4" role="alert">

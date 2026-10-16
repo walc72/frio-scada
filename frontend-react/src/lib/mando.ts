@@ -90,8 +90,8 @@ export async function enviarMando(p: Pedido): Promise<Resultado> {
     const d = await apiJson<Resultado>('/mando', { method: 'POST', body: JSON.stringify(p) })
     return { resultado: Number(d.resultado), texto: d.texto }
   } catch (e) {
-    // TypeError = no hubo respuesta: el pedido pudo haber llegado
-    if (e instanceof TypeError) return { resultado: 0, texto: `No hubo respuesta del servidor: ${REVISAR}` }
+    // TypeError o 502/504 del proxy = no hubo respuesta del API: el pedido pudo haber llegado
+    if (e instanceof TypeError || (e instanceof Error && /^HTTP 50[24]$/.test(e.message))) return { resultado: 0, texto: `No hubo respuesta del servidor: ${REVISAR}` }
     return { resultado: -1, texto: e instanceof Error ? e.message : 'No se pudo mandar el pedido' }
   }
 }
@@ -119,7 +119,7 @@ export function campos(e: Estado | null, camaras: readonly string[], horarios: r
     for (const h of horarios) {
       const p = `${c}.H${h}.`
       if (tiene(p + 'hora')) out.push({ id: p + 'hora', titulo: 'Hora', tipo: 'texto', actual: String(e[p + 'hora']), camara: c, horario: h, comando: 20, valido: horaOk, codificar: v => codHora(String(v)) })
-      if (tiene(p + 'estado')) out.push({ id: p + 'hab', titulo: 'Habilitado', tipo: 'bool', actual: e[p + 'estado'] !== 'DESHABILITADO', camara: c, horario: h, comando: 21, valido: () => true, codificar: v => (v ? 1 : 0) })
+      if (tiene(p + 'habilitado_hmi')) out.push({ id: p + 'hab', titulo: 'Habilitado', tipo: 'bool', actual: Number(e[p + 'habilitado_hmi']) === 1, camara: c, horario: h, comando: 21, valido: () => true, codificar: v => (v ? 1 : 0) })
       for (const et of [1, 2] as const) {
         if (tiene(p + `etapa${et - 1}_min`)) out.push({ id: p + `t${et}`, titulo: `Etapa ${et} (min)`, tipo: 'num', actual: String(e[p + `etapa${et - 1}_min`]), camara: c, horario: h, comando: 22, valido: decimas1, codificar: v => codEtapaMin(et, Number(v)) })
         if (tiene(p + `etapa${et - 1}_habilitada`)) out.push({ id: p + `e${et}`, titulo: `Etapa ${et} habilitada`, tipo: 'bool', actual: Number(e[p + `etapa${et - 1}_habilitada`]) === 1, camara: c, horario: h, comando: 23, valido: () => true, codificar: v => codEtapaHab(et, !!v) })

@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useRef, useState, type ReactNode } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogFooter, DialogTitle } from './ui/dialog'
 import { Button } from './ui/button'
 import { apiJson } from '../lib/api'
@@ -45,12 +45,15 @@ export function useMando() {
   const [p, setP] = useState<Pedido | null>(null)
   const [enviando, setEnviando] = useState(false)
   const [res, setRes] = useState<string | null>(null)
+  const vuelo = useRef(false)
   const cerrar = () => { setP(null); setRes(null) }
   const confirmar = async () => {
-    if (!p || enviando) return
+    if (!p || vuelo.current) return
+    vuelo.current = true
     setEnviando(true)
     const r = await enviarMando(p)
     setRes(textoResultado(r))
+    vuelo.current = false
     setEnviando(false)
     refrescarLuego()
   }
@@ -58,7 +61,9 @@ export function useMando() {
     <Confirmar abierto={!!p} frase={p ? fraseConfirmacion(p.comando, p.camara ?? '', p.grupo, p.horario, p.valor) : ''}
       enviando={enviando} resultado={res} onConfirmar={confirmar} onCerrar={cerrar} />
   )
-  return { pedir: (x: Pedido) => { if (!enviando) { setRes(null); setP(x) } }, enviando, dialogo }
+  // Descarta una pregunta vieja sin tocar un pedido en vuelo ni un resultado que el usuario todavía no leyó
+  const olvidarPregunta = () => { if (!vuelo.current && res === null) setP(null) }
+  return { pedir: (x: Pedido) => { if (!vuelo.current) { setRes(null); setP(x) } }, enviando, dialogo, olvidarPregunta }
 }
 
 // ¿Puede este usuario mandar este comando ahora? (dato fresco, llave del panel, rol)

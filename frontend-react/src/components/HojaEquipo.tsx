@@ -21,8 +21,8 @@ export default function HojaEquipo({ cam, g, onCerrar }: { cam: string; g: numbe
   const modo = txt(estado, k('modo'))
   const eq = estado ? estadoEquipo(estado, cam, g) : null
   const tope = topeRes(estado)
-  const min = Math.floor(Number(minutos))
-  const minOk = Number.isFinite(min) && min >= 1 && (tope === 0 || min <= tope)
+  const min = Number(minutos)
+  const minOk = minutos.trim() !== '' && Number.isInteger(min) && min >= 1 && min <= (tope > 0 ? tope : 65535)
   const off = !permiso.ok || enviando
   const base = { camara: cam, grupo: g }
 
@@ -50,7 +50,7 @@ export default function HojaEquipo({ cam, g, onCerrar }: { cam: string; g: numbe
             {([[2, 'comp', 'Compresor'], [3, 'eva', 'Evaporador']] as const).map(([cmd, key, n]) => (
               <label key={cmd} className="flex min-h-12 items-center justify-between gap-3">
                 <span className="font-medium">{n}</span>
-                <Switch checked={num(estado, k(key)) === 1} disabled={off} aria-label={n}
+                <Switch checked={num(estado, k(estado?.[k(key + '_pedido')] != null ? key + '_pedido' : key)) === 1} disabled={off} aria-label={n}
                   onCheckedChange={v => pedir({ comando: cmd, ...base, valor: v ? 1 : 0 })} />
               </label>
             ))}
@@ -63,7 +63,7 @@ export default function HojaEquipo({ cam, g, onCerrar }: { cam: string; g: numbe
                 <Button className="h-12 flex-1 whitespace-normal" disabled={off || !minOk} onClick={() => pedir({ comando: 4, ...base, valor: min })}>Prender</Button>
                 <Button variant="outline" className="h-12 flex-1 whitespace-normal" disabled={off} onClick={() => pedir({ comando: 4, ...base, valor: 0 })}>Apagar</Button>
               </div>
-              {!minOk && <div className="text-xs text-muted-foreground">{tope ? `Poné de 1 a ${tope} minutos` : 'Poné los minutos (1 o más)'}</div>}
+              {!minOk && <div className="text-xs text-red-600">{tope ? `Poné minutos enteros, de 1 a ${tope}` : 'Poné minutos enteros (1 o más)'}</div>}
             </div>
           </section>
         )}

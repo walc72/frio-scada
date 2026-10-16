@@ -38,7 +38,7 @@ export default function Camara() {
   const tramos = useMemo(() => (tr.data ? aTramos(tr.data) : null), [tr.data])
   const ev = useDatos<Evento>('eventos', dia, dia, valida ? cam : '', 60000)
   const rol = useAuthStore(s => s.role)
-  const puedeVer = rol !== 'operador' && rol !== ''
+  const puedeOperar = rol !== 'operador' && rol !== ''
   const [hoja, setHoja] = useState<number | null>(null)
   if (!valida) return <div className="text-center text-muted-foreground py-16">Cámara inexistente. <Link className="underline" to="/">Volver</Link></div>
 
@@ -84,10 +84,11 @@ export default function Camara() {
                   {CHIPS.map(([k, n]) => <span key={k} className={`rounded-full px-2 py-0.5 text-xs ${tiene(k) ? 'bg-green-600 text-white' : 'bg-muted text-muted-foreground'}`}>{n}</span>)}
                 </div>
               </div>
-              {puedeVer && <Button variant="outline" className="h-11 shrink-0 px-3" onClick={() => setHoja(g)}>Cambiar…</Button>}
+              <Button variant="outline" className="h-11 shrink-0 px-3" disabled={!puedeOperar} onClick={() => setHoja(g)}>Cambiar…</Button>
             </div>
           )
         })}
+        {!puedeOperar && <div className="text-xs text-muted-foreground">Tu usuario solo puede mirar</div>}
         {hoja != null && <HojaEquipo cam={cam} g={hoja} onCerrar={() => setHoja(null)} />}
       </Card>
 

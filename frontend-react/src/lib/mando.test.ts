@@ -79,9 +79,11 @@ describe('textoResultado', () => {
 
 import { campos, cambios } from './mando'
 describe('programación', () => {
-  const e = { 'C5.recuperacion_min': 5, 'C5.H2.hora': '06:30', 'C5.H2.estado': 'PROGRAMADO', 'C5.H2.etapa0_min': 8, 'C5.H2.etapa1_min': 10, 'C5.H2.etapa0_habilitada': 1, 'C5.H2.etapa1_habilitada': 0, 'C5.H2.etapas': '12121212', 'param.res_man_max_min': 120 }
+  const e = { 'C5.recuperacion_min': 5, 'C5.H2.hora': '06:30', 'C5.H2.estado': 'PROGRAMADO', 'C5.H2.habilitado_hmi': 1, 'C5.H2.etapa0_min': 8, 'C5.H2.etapa1_min': 10, 'C5.H2.etapa0_habilitada': 1, 'C5.H2.etapa1_habilitada': 0, 'C5.H2.etapas': '12121212', 'param.res_man_max_min': 120 }
   const cs = campos(e, ['C5'], [2])
   test('solo lo que cambió, con su código', () => {
+    // HAB sale de habilitado_hmi, no del estado: MAL CONFIGURADO puede ser un horario apagado
+    expect(cs.find(c => c.id === 'C5.H2.hab')?.actual).toBe(true)
     const r = cambios(cs, { 'C5.H2.hora': '07:15', 'C5.H2.t2': '12.5', 'C5.H2.e2': true, 'C5.H2.hab': false, 'C5.H2.t1': '8.0', 'C5.H2.etapas': '12121122', ajuste1: '90' })
     expect(r.map(x => [x.campo.id, x.pedido?.comando, x.pedido?.valor])).toEqual([
       ['C5.H2.hora', 20, 715], ['C5.H2.hab', 21, 0], ['C5.H2.t2', 22, 20125], ['C5.H2.e2', 23, 21], ['C5.H2.etapas', 24, 202], ['ajuste1', 30, 1090]])
@@ -91,4 +93,9 @@ describe('programación', () => {
     expect(r.every(x => !x.ok && x.pedido === null)).toBe(true)
     expect(r).toHaveLength(4)
   })
+})
+
+test('sin habilitado_hmi no hay campo HAB', () => {
+  const cs = campos({ 'C5.H2.hora': '06:30', 'C5.H2.estado': 'PROGRAMADO' }, ['C5'], [2])
+  expect(cs.some(c => c.id.endsWith('.hab'))).toBe(false)
 })
