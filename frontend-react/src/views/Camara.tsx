@@ -16,7 +16,7 @@ import { diaPlanta, aTramos, type TramoApi } from '../lib/paginaCamara'
 const MODOS: Record<string, string> = { AUTOMATICO: 'Automático', MANUAL: 'Manual', STOP: 'Detenido' }
 const CHIPS = [['comp', 'Compresor'], ['eva', 'Evaporador'], ['res', 'Resistencia']] as const
 
-interface Evento { ts: number; texto: string }
+interface Evento { ts: number; texto: string; estado: number }
 
 export default function Camara() {
   const { c } = useParams()
@@ -86,7 +86,7 @@ export default function Camara() {
         {ev.error ? <div className="text-sm text-muted-foreground">No se pudieron cargar los avisos</div>
           : !ev.data ? <div className="text-sm text-muted-foreground">Cargando…</div>
           : avisos.length === 0 ? <div className="text-sm text-muted-foreground">Sin avisos hoy</div>
-          : <ul className="text-sm space-y-1">{avisos.map((a, i) => <li key={i}><span className="text-muted-foreground">{hhmm(a.ts)}</span> {fraseEvento(a.texto)}</li>)}</ul>}
+          : <ul className="text-sm space-y-1">{avisos.map((a, i) => <li key={i}><span className="text-muted-foreground">{hhmm(a.ts)}</span> {fraseEvento(a.texto, a.estado)}</li>)}</ul>}
       </Card>
 
       <details className="rounded-2xl border bg-card p-4 text-sm">

@@ -6,12 +6,10 @@ import { useCamarasStore } from '../store/camaras'
 import { useNow } from '../lib/useNow'
 import { estaVencido } from '../lib/estadoGrupo'
 import { nombreCamara, fechaHora, type FilaDescongelado } from '../lib/camaras'
-import { badgeDescongelado, fraseEvento, tipoAviso, sigueActivo, UMBRAL_ARRANQUES_HORA, type TipoAviso } from '../lib/frases'
-import { agruparCompresores, equipoDe, horasTxt, filasAvisos, filasCompresores, filasDescongelados } from '../lib/historial'
+import { badgeDescongelado, UMBRAL_ARRANQUES_HORA, type TipoAviso } from '../lib/frases'
+import { agruparCompresores, equipoDe, horasTxt, prepararAvisos, filasAvisos, filasCompresores, filasDescongelados } from '../lib/historial'
 import { downloadXlsx } from '../lib/xlsx'
 import { cn } from '../lib/utils'
-
-interface Aviso { ts: number; hora_plc: string; texto: string; estado: string | number }
 
 const PESTANAS = [
   { id: 'descongelados', label: 'Descongelados' },
@@ -19,7 +17,7 @@ const PESTANAS = [
   { id: 'compresores', label: 'Compresores' },
 ]
 const COLOR_BADGE: Record<string, string> = { completo: '#16a34a', 'cortado a mano': '#F28C28', saltado: '#F28C28', 'no se hizo': '#D32F2F', 'sin datos': '#9A9A9A' }
-const COLOR_AVISO: Record<TipoAviso, string> = { alarma: '#D32F2F', corte: '#F28C28', resuelto: '#16a34a', operario: '#1E6FD9' }
+const COLOR_AVISO: Record<TipoAviso, string> = { alarma: '#D32F2F', atencion: '#F59E0B', resuelto: '#16a34a', cortado: '#F28C28', operario: '#1E6FD9', info: '#9A9A9A' }
 
 const Fila = ({ children }: { children: React.ReactNode }) => <li className="flex items-start gap-3 px-3 py-2.5 border-b last:border-0">{children}</li>
 // fechaHora = "dd/mm/aaaa, HH:MM:SS"
@@ -37,12 +35,11 @@ export default function Historial() {
   const comp = useMemo(() => (pestana === 'compresores' ? agruparCompresores(data ?? []) : []), [pestana, data])
   if (!PESTANAS.some(p => p.id === pestana)) return <Navigate to="/historial/descongelados" replace />
 
-  const activo = (t: string) => sigueActivo(t, estado, fresco)
+  const avisos = useMemo(() => (pestana === 'avisos' ? prepararAvisos(data ?? [], estado, fresco) : []), [pestana, data, estado, fresco])
   const lista: any[] = data ?? []
   const filas = pestana === 'descongelados' ? filasDescongelados(lista as FilaDescongelado[])
-    : pestana === 'avisos' ? filasAvisos(lista as Aviso[], activo) : filasCompresores(comp)
+    : pestana === 'avisos' ? filasAvisos(avisos) : filasCompresores(comp)
   const maxH = Math.max(1, ...comp.map(c => c.horas))
-  const yaMarcado = new Set<string>() // "Sigue activo" solo en el aviso más nuevo de cada alarma
 
   return (
     <div className="space-y-4">
@@ -72,18 +69,16 @@ export default function Historial() {
                 <span className="text-xs text-white rounded-full px-2 py-0.5 whitespace-nowrap" style={{ background: COLOR_BADGE[b.etiqueta] }}>{b.etiqueta}</span>
               </Fila>
             })}
-            {pestana === 'avisos' && (lista as Aviso[]).map((f, i) => {
-              const clave = f.texto.toUpperCase()
-              const sigue = tipoAviso(f.texto, f.estado) === 'alarma' && activo(f.texto) && !yaMarcado.has(clave) && !!yaMarcado.add(clave)
-              return <Fila key={i}>
+            {pestana === 'avisos' && avisos.map((f, i) => (
+              <Fila key={i}>
                 <div className="text-sm font-medium w-12 shrink-0">{hm(f.ts)}</div>
-                <span className="mt-1.5 h-2.5 w-2.5 rounded-full shrink-0" style={{ background: COLOR_AVISO[tipoAviso(f.texto, f.estado)] }} />
-                <div className="min-w-0 flex-1 text-sm">{fraseEvento(f.texto)}
+                <span className="mt-1.5 h-2.5 w-2.5 rounded-full shrink-0" style={{ background: COLOR_AVISO[f.tipo] }} />
+                <div className="min-w-0 flex-1 text-sm">{f.frase}
                   <div className="text-xs text-muted-foreground">{/^C\d/i.test(f.texto) ? `${nombreCamara(f.texto.slice(0, 2).toUpperCase())} · ` : ''}{dia(f.ts)}</div>
                 </div>
-                {sigue && <span className="text-xs font-semibold text-red-600 whitespace-nowrap">Sigue activo</span>}
+                {f.sigue && <span className="text-xs font-semibold text-red-600 whitespace-nowrap">Sigue activo</span>}
               </Fila>
-            })}
+            ))}
             {pestana === 'compresores' && comp.map(c => (
               <Fila key={`${c.camara}${c.grupo}`}>
                 <div className="min-w-0 flex-1 space-y-1">

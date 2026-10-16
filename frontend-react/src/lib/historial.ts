@@ -1,6 +1,7 @@
 // Funciones puras del Historial: agregación de compresores y filas de exportación (columnas visibles, en palabras).
 import { nombreCamara, fechaHora, type FilaDescongelado } from './camaras'
-import { badgeDescongelado, fraseEvento, tipoAviso, type TipoAviso } from './frases'
+import type { Estado } from '../store/camaras'
+import { badgeDescongelado, fraseEvento, tipoAviso, sigueActivo, type TipoAviso } from './frases'
 
 export interface FilaCompresor { camara: string; dia: string; grupo: string; horas: number; horasSinDatos?: number; arranques: number; maxArranquesHora: number }
 export interface Compresor { camara: string; grupo: string; horas: number; horasSinDatos: number; arranques: number; maxArranquesHora: number }
@@ -29,9 +30,21 @@ export const filasDescongelados = (data: FilaDescongelado[]) => data.map(f => {
   return { Cámara: nombreCamara(f.camara), Hora: f.inicio ? fechaHora(f.inicio) : '', Equipos: f.grupos.replace(/G/g, ''), Resultado: b.etiqueta, Motivo: b.motivo }
 })
 
-const TIPO: Record<TipoAviso, string> = { alarma: 'Alarma', corte: 'Se cortó', resuelto: 'Resuelto', operario: 'Acción de un operario' }
-export const filasAvisos = (data: { ts: number; texto: string; estado: string | number }[], activo: (texto: string) => boolean) =>
-  data.map(f => ({ Hora: fechaHora(f.ts), Tipo: TIPO[tipoAviso(f.texto, f.estado)], Aviso: fraseEvento(f.texto), 'Sigue activo': activo(f.texto) ? 'sí' : '' }))
+const TIPO: Record<TipoAviso, string> = { alarma: 'Alarma', atencion: 'Atención', resuelto: 'Resuelto', cortado: 'Se cortó', operario: 'Acción de un operario', info: 'Informativo' }
+
+export interface AvisoFila { ts: number; texto: string; estado: string | number; tipo: TipoAviso; frase: string; sigue: boolean }
+// Más nuevo primero. "Sigue activo" solo en el último evento de cada texto, si apareció (estado 1) y el flag vivo sigue prendido.
+export function prepararAvisos(data: { ts: number; texto: string; estado: string | number }[], estado: Estado | null, fresco: boolean): AvisoFila[] {
+  const vistos = new Set<string>()
+  return [...data].sort((a, b) => b.ts - a.ts).map(f => {
+    const k = f.texto.trim().toUpperCase()
+    const nuevo = !vistos.has(k)
+    vistos.add(k)
+    return { ...f, tipo: tipoAviso(f.texto, f.estado), frase: fraseEvento(f.texto, f.estado), sigue: nuevo && Number(f.estado) === 1 && sigueActivo(f.texto, estado, fresco) }
+  })
+}
+export const filasAvisos = (a: AvisoFila[]) =>
+  a.map(f => ({ Hora: fechaHora(f.ts), Tipo: TIPO[f.tipo], Aviso: f.frase, 'Sigue activo': f.sigue ? 'sí' : '' }))
 
 export const filasCompresores = (c: Compresor[]) => c.map(x => ({
   Cámara: nombreCamara(x.camara), Equipo: equipoDe(x.grupo), 'Horas en marcha': Math.round(x.horas * 10) / 10, Arranques: x.arranques,

@@ -1,6 +1,5 @@
 import { describe, test, expect } from 'vitest'
-import { agruparCompresores, filasCompresores, filasDescongelados, filasAvisos } from './historial'
-import { tipoAviso, sigueActivo } from './frases'
+import { agruparCompresores, filasCompresores, filasDescongelados, filasAvisos, prepararAvisos } from './historial'
 
 describe('agruparCompresores', () => {
   const r = agruparCompresores([
@@ -13,22 +12,21 @@ describe('agruparCompresores', () => {
   test('vacío', () => expect(agruparCompresores([])).toEqual([]))
 })
 
-describe('tipoAviso', () => {
-  test.each([
-    ['C4 G1 MODO MANUAL', 1, 'operario'],
-    ['C4 G3 DESCONGELADO CORTADO', 1, 'corte'],
-    ['C5 SALTO DE DESCONGELADO', 1, 'corte'],
-    ['C4 ALARMA ESPERA', 1, 'alarma'],
-    ['C4 ALARMA ESPERA', 0, 'resuelto'],
-    ['C4 ALARMA ESPERA RESUELTA', 1, 'resuelto'],
-  ])('%s', (t, e, o) => expect(tipoAviso(t, e)).toBe(o))
-})
-
-describe('sigueActivo', () => {
-  const e = { 'C4.alarma_espera': 1, 'C4.G3.alarma_res': 1, 'C5.alarma_espera': 0 }
-  test('flag prendido', () => { expect(sigueActivo('C4 ALARMA ESPERA', e, true)).toBe(true); expect(sigueActivo('C4 G3 ALARMA RES', e, true)).toBe(true) })
-  test('flag apagado o desconocido', () => { expect(sigueActivo('C5 ALARMA ESPERA', e, true)).toBe(false); expect(sigueActivo('C4 G1 MODO MANUAL', e, true)).toBe(false) })
-  test('estado vencido o ausente', () => { expect(sigueActivo('C4 ALARMA ESPERA', e, false)).toBe(false); expect(sigueActivo('C4 ALARMA ESPERA', null, true)).toBe(false) })
+describe('prepararAvisos', () => {
+  const ev = [
+    { ts: 1, texto: 'C4 G3 RESISTENCIA T.MAX', estado: 1 },
+    { ts: 2, texto: 'C4 G3 RESISTENCIA T.MAX', estado: 0 },
+    { ts: 3, texto: 'C4 G3 RESISTENCIA T.MAX', estado: 1 },
+    { ts: 4, texto: 'C4 G2 SIN DESCONGELAR', estado: 1 },
+    { ts: 5, texto: 'C4 G2 SIN DESCONGELAR', estado: 0 },
+  ]
+  const vivo = { 'C4.G3.alarma_res': 1, 'C4.G2.alarma_sin_desc': 1 }
+  test('más nuevo primero y sigue activo solo en el último con estado 1', () => {
+    const r = prepararAvisos(ev, vivo, true)
+    expect(r.map(x => x.ts)).toEqual([5, 4, 3, 2, 1])
+    expect(r.filter(x => x.sigue).map(x => x.ts)).toEqual([3])
+  })
+  test('estado vencido: ninguno', () => expect(prepararAvisos(ev, vivo, false).some(x => x.sigue)).toBe(false))
 })
 
 describe('filas de exportación', () => {
@@ -36,6 +34,6 @@ describe('filas de exportación', () => {
     .toEqual([{ Cámara: 'Cámara 4', Equipo: 'Equipo 2', 'Horas en marcha': 3, Arranques: 4, 'Máximo de arranques por hora': 2, 'Horas sin datos': 0 }]))
   test('descongelados', () => expect(filasDescongelados([{ camara: 'C4', horario: 'H1', etapa: 1, grupos: 'G1,G3', inicio: 0, fin: 1, duracionS: 1, cortados: '', saltado: false, noEjecutada: false }])[0])
     .toMatchObject({ Cámara: 'Cámara 4', Equipos: '1,3', Resultado: 'completo', Motivo: 'Terminó normalmente' }))
-  test('avisos', () => expect(filasAvisos([{ ts: 0, texto: 'C4 G1 MODO MANUAL', estado: 1 }], () => false)[0])
+  test('avisos', () => expect(filasAvisos(prepararAvisos([{ ts: 0, texto: 'C4 G1 MODO MANUAL', estado: 1 }], null, false))[0])
     .toMatchObject({ Tipo: 'Acción de un operario', Aviso: 'Equipo 1 pasó a manual', 'Sigue activo': '' }))
 })

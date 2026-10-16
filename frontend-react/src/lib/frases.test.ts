@@ -2,7 +2,7 @@ import { describe, test, expect } from 'vitest'
 import type { Estado } from '../store/camaras'
 import type { FilaDescongelado } from './camaras'
 import { RUTAS_VIEJAS } from './rutas'
-import { estadoEquipo, faltanMin, fraseCamara, proximoTexto, semaforo, textoAlarma, badgeDescongelado, fraseEvento, badgeCamara } from './frases'
+import { estadoEquipo, faltanMin, fraseCamara, proximoTexto, semaforo, textoAlarma, badgeDescongelado, fraseEvento, badgeCamara, tipoAviso, sigueActivo } from './frases'
 
 // 2026-10-16 12:00 hora de planta (UTC-3) y 23:30 del mismo día
 const T = Date.UTC(2026, 9, 16, 15, 0)
@@ -118,17 +118,67 @@ describe('ventanaPlanta', () => {
   })
 })
 
-describe('fraseEvento / badgeCamara', () => {
+describe('fraseEvento / tipoAviso / sigueActivo con textos reales', () => {
+  // [texto, estado, frase, tipo]
   test.each([
-    ['C4 G1 MODO MANUAL', 'Equipo 1 pasó a manual'],
-    ['C4 G1 DESHABILITADO', 'Equipo 1 deshabilitado'],
-    ['C4 ETAPAS CAMBIADAS', 'Se cambió el reparto de equipos por etapa'],
-    ['C4 DESCONGELADO ETAPA 1', 'Descongelado, etapa 1'],
-    ['C5 G3 DESCONGELADO CORTADO', 'Se cortó a mano el descongelado del equipo 3'],
-    ['C5 SALTO DE DESCONGELADO', 'Se saltó un descongelado'],
-    ['C4 G5 ALGO NUEVO', 'Equipo 5 algo nuevo'],
-    ['', ''],
-  ])('%s', (i, o) => expect(fraseEvento(i)).toBe(o))
+    ['C4 G3 RESISTENCIA T.MAX', 1, 'Se cortó la resistencia del equipo 3 por tiempo máximo', 'alarma'],
+    ['C4 G3 RESISTENCIA T.MAX', 0, 'Equipo 3: se normalizó la resistencia', 'resuelto'],
+    ['C5 G2 SIN DESCONGELAR', 1, 'Equipo 2 lleva mucho tiempo sin descongelar', 'alarma'],
+    ['C5 G2 SIN DESCONGELAR', 0, 'Equipo 2 ya descongeló', 'resuelto'],
+    ['C4 G1 RESISTENCIA BLOQUEADA', 1, 'La resistencia del equipo 1 está bloqueada', 'atencion'],
+    ['C4 G1 RESISTENCIA BLOQUEADA', 0, 'Equipo 1: se desbloqueó la resistencia', 'resuelto'],
+    ['C4 G6 DESHABILITADO', 1, 'Equipo 6 deshabilitado', 'atencion'],
+    ['C4 G6 DESHABILITADO', 0, 'Equipo 6 habilitado', 'resuelto'],
+    ['C4 HORARIO 2 SOLAPADO', 1, 'El horario 2 se superpone con otro', 'alarma'],
+    ['C4 HORARIO 2 SOLAPADO', 0, 'Horario 2: se corrigió la superposición', 'resuelto'],
+    ['C4 HORARIO 3 HORA INVALIDA', 1, 'El horario 3 tiene una hora no válida', 'alarma'],
+    ['C4 HORARIO 3 TIEMPO INVALIDO', 0, 'Horario 3: se corrigió el tiempo', 'resuelto'],
+    ['C4 DESCONGELADO ETAPA 1', 1, 'Empezó la etapa 1 del descongelado', 'info'],
+    ['C4 DESCONGELADO ETAPA 1', 0, 'Terminó la etapa 1 del descongelado', 'info'],
+    ['C5 ETAPA 1 SIN CONFIRMACION', 1, 'Esperó demasiado para empezar la etapa 2 del descongelado', 'alarma'],
+    ['C5 RECUPERACION INVALIDA', 1, 'Tardó demasiado en volver a frío', 'alarma'],
+    ['C5 MANUAL PROLONGADO', 0, 'Ya no hay equipos en manual de más', 'resuelto'],
+    ['RELOJ DEL PLC INVALIDO', 1, 'El reloj del PLC no es válido', 'alarma'],
+    ['RELOJ DEL PLC INVALIDO', 0, 'El reloj del PLC volvió a estar bien', 'resuelto'],
+    ['INDICE FUERA DE RANGO', 1, 'Falló el índice de alarmas del PLC', 'alarma'],
+    ['C4 G1 RESET CONTADORES', 1, 'Un operario reinició los contadores del equipo 1', 'operario'],
+    ['C4 MODO STOP', 1, 'La cámara se detuvo', 'operario'],
+    ['C4 MODO AUTOMATICO', 1, 'La cámara pasó a automático', 'operario'],
+    ['C4 MODO MANUAL', 1, 'La cámara pasó a manual', 'operario'],
+    ['C4 G5 MODO AUTO', 1, 'Equipo 5 pasó a automático', 'operario'],
+    ['C4 G1 MODO MANUAL', 1, 'Equipo 1 pasó a manual', 'operario'],
+    ['C4 G2 RES MANUAL (FIN)', 1, 'Equipo 2: terminó la resistencia manual', 'info'],
+    ['C5 G3 DESCONGELADO CORTADO', 1, 'Se cortó a mano el descongelado del equipo 3', 'cortado'],
+    ['C5 SALTO DE DESCONGELADO', 1, 'Un operario saltó el descongelado', 'operario'],
+    ['C4 ETAPAS CAMBIADAS', 1, 'Se cambió el reparto de equipos por etapa', 'operario'],
+    ['C4 ETAPAS: REPARTO RECHAZADO', 1, 'El PLC rechazó el reparto de equipos por etapa', 'atencion'],
+    ['ARRANQUE DEL PLC', 1, 'El PLC arrancó', 'info'],
+    ['GRUPOS EN MANUAL AL ARRANCAR', 1, 'Al arrancar el PLC había equipos en manual', 'atencion'],
+    ['ARRANQUE: MANUAL CONFIRMADO', 1, 'Al arrancar, un operario confirmó dejar los equipos en manual', 'operario'],
+    ['ARRANQUE: A AUTO POR OPERADOR', 1, 'Al arrancar, un operario pasó los equipos a automático', 'operario'],
+    ['ARRANQUE: A AUTO POR TIEMPO', 1, 'Al arrancar, los equipos pasaron a automático por tiempo', 'operario'],
+    ['C4 G5 ALGO NUEVO', 1, 'Equipo 5 algo nuevo', 'info'],
+    ['', 1, '', 'info'],
+  ])('%s (estado %i)', (t, e, frase, tipo) => {
+    expect(fraseEvento(t as string, e as number)).toBe(frase)
+    expect(tipoAviso(t as string, e as number)).toBe(tipo)
+  })
+  test('sigueActivo: un flag por alarma', () => {
+    const flags: [string, string][] = [
+      ['C4 G3 RESISTENCIA T.MAX', 'C4.G3.alarma_res'], ['C4 G2 SIN DESCONGELAR', 'C4.G2.alarma_sin_desc'],
+      ['C4 HORARIO 2 SOLAPADO', 'C4.H2.solapado'], ['C5 HORARIO 1 HORA INVALIDA', 'C5.H1.hora_invalida'],
+      ['C5 HORARIO 4 TIEMPO INVALIDO', 'C5.H4.tiempo_invalido'], ['C4 ETAPA 1 SIN CONFIRMACION', 'C4.alarma_espera'],
+      ['C4 RECUPERACION INVALIDA', 'C4.alarma_recuperacion'], ['C5 MANUAL PROLONGADO', 'C5.alarma_manual'],
+      ['RELOJ DEL PLC INVALIDO', 'alarma_reloj'], ['INDICE FUERA DE RANGO', 'alarma_indice'],
+    ]
+    for (const [t, k] of flags) {
+      expect(sigueActivo(t, { [k]: 1 }, true), t).toBe(true)
+      expect(sigueActivo(t, { [k]: 0 }, true), t).toBe(false)
+      expect(sigueActivo(t, { [k]: 1 }, false), t).toBe(false)
+    }
+    expect(sigueActivo('C4 G1 MODO MANUAL', { 'C4.G1.alarma_res': 1 }, true)).toBe(false)
+    expect(sigueActivo('C4 G3 RESISTENCIA T.MAX', null, true)).toBe(false)
+  })
   test('badge', () => {
     expect(badgeCamara(fx4desc, 'C4', 'ok')?.t).toBe('Descongelando')
     expect(badgeCamara(fxAlarmaYDesc, 'C5', 'alarma')?.t).toBe('Atención')

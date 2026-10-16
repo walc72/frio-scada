@@ -203,22 +203,90 @@ export function badgeDescongelado(f: FilaDescongelado): { etiqueta: 'completo' |
 }
 
 // ---- avisos ----
-// Evento del PLC ("C4 G1 MODO MANUAL") a una frase para personas.
-const EVENTOS: [RegExp, (m: RegExpMatchArray) => string][] = [
-  [/^g(\d) modo manual/, m => `Equipo ${m[1]} pasó a manual`],
-  [/^g(\d) modo auto/, m => `Equipo ${m[1]} pasó a automático`],
-  [/^g(\d) deshabilitado/, m => `Equipo ${m[1]} deshabilitado`],
-  [/^g(\d) habilitado/, m => `Equipo ${m[1]} habilitado`],
-  [/^g(\d) descongelado cortado/, m => `Se cortó a mano el descongelado del equipo ${m[1]}`],
-  [/^salto de descongelado/, () => 'Se saltó un descongelado'],
-  [/^etapas cambiadas/, () => 'Se cambió el reparto de equipos por etapa'],
-  [/^descongelado etapa (\d)/, m => `Descongelado, etapa ${m[1]}`],
+// Catálogo de textos reales del PLC (ver eventos-plc-catalogo.md). Las alarmas y condiciones con flanco salen con el MISMO
+// texto: estado 1 al aparecer y 0 al resolverse. `flag` = clave del estado vivo (con la cámara `c` del texto) si la hay.
+export type TipoAviso = 'alarma' | 'atencion' | 'resuelto' | 'cortado' | 'operario' | 'info'
+interface RowEvento {
+  re: RegExp; tipo: TipoAviso
+  flag?: (m: RegExpMatchArray, c: string) => string
+  aparece: (m: RegExpMatchArray) => string
+  resuelve?: (m: RegExpMatchArray) => string
+}
+const EVENTOS: RowEvento[] = [
+  { re: /^g(\d) resistencia t\.max$/, tipo: 'alarma', flag: (m, c) => `${c}.G${m[1]}.alarma_res`,
+    aparece: m => `Se cortó la resistencia del equipo ${m[1]} por tiempo máximo`, resuelve: m => `Equipo ${m[1]}: se normalizó la resistencia` },
+  { re: /^g(\d) sin descongelar$/, tipo: 'alarma', flag: (m, c) => `${c}.G${m[1]}.alarma_sin_desc`,
+    aparece: m => `Equipo ${m[1]} lleva mucho tiempo sin descongelar`, resuelve: m => `Equipo ${m[1]} ya descongeló` },
+  { re: /^g(\d) resistencia bloqueada$/, tipo: 'atencion',
+    aparece: m => `La resistencia del equipo ${m[1]} está bloqueada`, resuelve: m => `Equipo ${m[1]}: se desbloqueó la resistencia` },
+  { re: /^g(\d) deshabilitado$/, tipo: 'atencion',
+    aparece: m => `Equipo ${m[1]} deshabilitado`, resuelve: m => `Equipo ${m[1]} habilitado` },
+  { re: /^horario (\d) solapado$/, tipo: 'alarma', flag: (m, c) => `${c}.H${m[1]}.solapado`,
+    aparece: m => `El horario ${m[1]} se superpone con otro`, resuelve: m => `Horario ${m[1]}: se corrigió la superposición` },
+  { re: /^horario (\d) hora invalida$/, tipo: 'alarma', flag: (m, c) => `${c}.H${m[1]}.hora_invalida`,
+    aparece: m => `El horario ${m[1]} tiene una hora no válida`, resuelve: m => `Horario ${m[1]}: se corrigió la hora` },
+  { re: /^horario (\d) tiempo invalido$/, tipo: 'alarma', flag: (m, c) => `${c}.H${m[1]}.tiempo_invalido`,
+    aparece: m => `El horario ${m[1]} tiene un tiempo no válido`, resuelve: m => `Horario ${m[1]}: se corrigió el tiempo` },
+  { re: /^descongelado etapa (\d)$/, tipo: 'info',
+    aparece: m => `Empezó la etapa ${m[1]} del descongelado`, resuelve: m => `Terminó la etapa ${m[1]} del descongelado` },
+  { re: /^etapa 1 sin confirmacion$/, tipo: 'alarma', flag: (_m, c) => `${c}.alarma_espera`,
+    aparece: () => 'Esperó demasiado para empezar la etapa 2 del descongelado', resuelve: () => 'Se recuperó la espera de la etapa del descongelado' },
+  { re: /^recuperacion invalida$/, tipo: 'alarma', flag: (_m, c) => `${c}.alarma_recuperacion`,
+    aparece: () => 'Tardó demasiado en volver a frío', resuelve: () => 'Volvió a frío con normalidad' },
+  { re: /^manual prolongado$/, tipo: 'alarma', flag: (_m, c) => `${c}.alarma_manual`,
+    aparece: () => 'Hay equipos en manual demasiado tiempo', resuelve: () => 'Ya no hay equipos en manual de más' },
+  { re: /^reloj del plc invalido$/, tipo: 'alarma', flag: () => 'alarma_reloj',
+    aparece: () => 'El reloj del PLC no es válido', resuelve: () => 'El reloj del PLC volvió a estar bien' },
+  { re: /^indice fuera de rango$/, tipo: 'alarma', flag: () => 'alarma_indice',
+    aparece: () => 'Falló el índice de alarmas del PLC', resuelve: () => 'El índice de alarmas del PLC volvió a estar bien' },
+  { re: /^g(\d) reset contadores$/, tipo: 'operario', aparece: m => `Un operario reinició los contadores del equipo ${m[1]}` },
+  { re: /^modo stop$/, tipo: 'operario', aparece: () => 'La cámara se detuvo' },
+  { re: /^modo automatico$/, tipo: 'operario', aparece: () => 'La cámara pasó a automático' },
+  { re: /^modo manual$/, tipo: 'operario', aparece: () => 'La cámara pasó a manual' },
+  { re: /^g(\d) modo auto$/, tipo: 'operario', aparece: m => `Equipo ${m[1]} pasó a automático` },
+  { re: /^g(\d) modo manual$/, tipo: 'operario', aparece: m => `Equipo ${m[1]} pasó a manual` },
+  { re: /^g(\d) res manual \(fin\)$/, tipo: 'info', aparece: m => `Equipo ${m[1]}: terminó la resistencia manual` },
+  { re: /^g(\d) descongelado cortado$/, tipo: 'cortado', aparece: m => `Se cortó a mano el descongelado del equipo ${m[1]}` },
+  { re: /^salto de descongelado$/, tipo: 'operario', aparece: () => 'Un operario saltó el descongelado' },
+  { re: /^etapas cambiadas$/, tipo: 'operario', aparece: () => 'Se cambió el reparto de equipos por etapa' },
+  { re: /^etapas: reparto rechazado$/, tipo: 'atencion', aparece: () => 'El PLC rechazó el reparto de equipos por etapa' },
+  { re: /^arranque del plc$/, tipo: 'info', aparece: () => 'El PLC arrancó' },
+  { re: /^grupos en manual al arrancar$/, tipo: 'atencion', aparece: () => 'Al arrancar el PLC había equipos en manual' },
+  { re: /^arranque: manual confirmado$/, tipo: 'operario', aparece: () => 'Al arrancar, un operario confirmó dejar los equipos en manual' },
+  { re: /^arranque: a auto por operador$/, tipo: 'operario', aparece: () => 'Al arrancar, un operario pasó los equipos a automático' },
+  { re: /^arranque: a auto por tiempo$/, tipo: 'operario', aparece: () => 'Al arrancar, los equipos pasaron a automático por tiempo' },
 ]
-export function fraseEvento(texto: string): string {
-  const t = String(texto ?? '').replace(/^C\d\s+/i, '').trim().toLowerCase()
-  for (const [re, f] of EVENTOS) { const m = t.match(re); if (m) return f(m) }
-  const s = t.replace(/\bg(\d)\b/g, 'equipo $1')
-  return s.charAt(0).toUpperCase() + s.slice(1)
+const normEvento = (texto: string) => String(texto ?? '').trim().toLowerCase()
+function buscarEvento(texto: string) {
+  const t = normEvento(texto)
+  const c = t.match(/^(c\d)\s+/)?.[1].toUpperCase() ?? ''
+  const sin = t.replace(/^c\d\s+/, '')
+  for (const row of EVENTOS) { const m = sin.match(row.re); if (m) return { row, m, c } }
+  return null
+}
+const sale = (estado: unknown) => estado != null && estado !== '' && Number(estado) === 0
+
+export function fraseEvento(texto: string, estado?: number | string): string {
+  const r = buscarEvento(texto)
+  if (r) return sale(estado) && r.row.resuelve ? r.row.resuelve(r.m) : r.row.aparece(r.m)
+  const t = normEvento(texto).replace(/^c\d\s+/, '').replace(/\bg(\d)\b/g, 'equipo $1')
+  return t.charAt(0).toUpperCase() + t.slice(1)
+}
+
+// Tipo de aviso (color del punto). Alarma y condición con flanco: estado 0 = resuelto.
+export function tipoAviso(texto: string, estado?: number | string): TipoAviso {
+  const r = buscarEvento(texto)
+  if (!r) return 'info'
+  if (sale(estado) && r.row.resuelve && (r.row.tipo === 'alarma' || r.row.tipo === 'atencion')) return 'resuelto'
+  return r.row.tipo
+}
+
+// ¿El flag de esa alarma sigue prendido en el estado vivo? Solo con estado fresco; sin flag conocido, false.
+export function sigueActivo(texto: string, estado: Estado | null, fresco: boolean): boolean {
+  if (!estado || !fresco) return false
+  const r = buscarEvento(texto)
+  const k = r?.row.flag?.(r.m, r.c)
+  return !!k && !k.startsWith('.') && !!estado[k]
 }
 
 // Etiqueta de estado de la cámara (mismos colores que el HMI); null si no hay datos o nada que decir
@@ -230,24 +298,4 @@ export function badgeCamara(estado: Estado, c: string, nivel: Nivel): { t: strin
   return n('DESCONGELANDO') ? { t: 'Descongelando', c: '#F28C28' }
     : n('ESCURRIENDO') ? { t: 'Escurriendo', c: '#4FC3F7' }
     : n('FRIO') ? { t: 'Enfriando', c: '#1E6FD9' } : null
-}
-
-// Tipo de aviso (color del punto): alarma (rojo), corte (naranja), resuelto (verde), operario (azul).
-// `estado` del evento: 0 en una alarma = se apagó.
-export type TipoAviso = 'alarma' | 'corte' | 'resuelto' | 'operario'
-export function tipoAviso(texto: string, estado?: number | string): TipoAviso {
-  const t = String(texto ?? '').toLowerCase()
-  if (/cortado|salto/.test(t)) return 'corte'
-  if (/alarma/.test(t)) return /resuelt|normaliz|fin de|\bok\b/.test(t) || (estado != null && estado !== '' && Number(estado) === 0) ? 'resuelto' : 'alarma'
-  return 'operario'
-}
-
-// ¿El flag de esa alarma sigue prendido en el estado vivo? Solo con estado fresco; sin fresco o sin flag conocido, false.
-export function sigueActivo(texto: string, estado: Estado | null, fresco: boolean): boolean {
-  if (!estado || !fresco) return false
-  const m = String(texto ?? '').trim().match(/^(C\d)\s+(?:(G\d)\s+)?ALARMA\s+([A-Z]+)/i)
-  if (!m) return false
-  const w = m[3].toLowerCase()
-  const flag = m[2] ? (w === 'res' ? 'alarma_res' : w === 'sin' ? 'alarma_sin_desc' : '') : `alarma_${w}`
-  return !!flag && !!estado[[m[1].toUpperCase(), m[2]?.toUpperCase(), flag].filter(Boolean).join('.')]
 }
