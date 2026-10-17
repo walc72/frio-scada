@@ -61,11 +61,11 @@ export default function Programacion() {
 
   const num = (id: string, props: { step?: string; max?: number } = {}) => (
     <Input type="number" inputMode="decimal" step={props.step ?? '1'} min={0} max={props.max} value={String(val(id))} disabled={off}
-      onChange={e => set(id, e.target.value)} aria-invalid={malos.has(id)} className={`h-11 min-w-0 text-base ${malos.has(id) ? 'border-red-500' : ''}`} />
+      onChange={e => set(id, e.target.value)} aria-invalid={malos.has(id)} className={`min-w-0 text-base ${malos.has(id) ? 'border-red-500' : ''}`} />
   )
   const tiene = (id: string) => id in porId
   const sw = (id: string, n: string) => tiene(id) && (
-    <label className="flex min-h-11 items-center justify-between gap-2 text-sm"><span>{n}</span>
+    <label className="flex toque items-center justify-between gap-2 text-sm"><span>{n}</span>
       <Switch checked={!!val(id)} disabled={off} onCheckedChange={v => set(id, v)} aria-label={n} /></label>
   )
 
@@ -80,7 +80,7 @@ export default function Programacion() {
       {!estado && <div className="text-sm text-muted-foreground">Sin datos todavía</div>}
 
       <div className="grid grid-cols-2 gap-1 rounded-lg bg-muted p-1 text-center text-sm font-medium">
-        {CAMARAS.map(k => <button key={k} onClick={() => setCam(k)} className={`min-h-11 rounded-md ${k === cam ? 'bg-background shadow-sm' : 'text-muted-foreground'}`}>{nombreCamara(k)}{camMalas.includes(k) && ' ⚠'}</button>)}
+        {CAMARAS.map(k => <button key={k} onClick={() => setCam(k)} className={`toque rounded-md ${k === cam ? 'bg-background shadow-sm' : 'text-muted-foreground'}`}>{nombreCamara(k)}{camMalas.includes(k) && ' ⚠'}</button>)}
       </div>
 
       {HORARIOS.filter(h => tiene(`${cam}.H${h}.hora`)).map(h => {
@@ -90,7 +90,7 @@ export default function Programacion() {
             <div className="font-semibold">Horario {h}</div>
             <div className="grid grid-cols-2 gap-3">
               <label className="space-y-1 text-sm"><span>Hora</span>
-                <Input type="time" value={String(val(p + 'hora')).padStart(5, '0')} disabled={off} onChange={e => set(p + 'hora', e.target.value)} className={`h-11 min-w-0 text-base ${malos.has(p + 'hora') ? 'border-red-500' : ''}`} /></label>
+                <Input type="time" value={String(val(p + 'hora')).padStart(5, '0')} disabled={off} onChange={e => set(p + 'hora', e.target.value)} className={`min-w-0 text-base ${malos.has(p + 'hora') ? 'border-red-500' : ''}`} /></label>
               <div className="self-end">{sw(p + 'hab', 'Habilitado')}</div>
               <label className="space-y-1 text-sm"><span>Etapa 1 (min)</span>{tiene(p + 't1') && num(p + 't1', { step: '0.1' })}</label>
               <div className="self-end">{sw(p + 'e1', 'Etapa 1 activa')}</div>
@@ -103,7 +103,7 @@ export default function Programacion() {
                 <div className="grid grid-cols-2 gap-x-3 min-[400px]:grid-cols-4">
                   {GRUPOS.map((g, i) => {
                     const s = String(val(p + 'etapas'))
-                    return <label key={g} className="flex min-h-11 items-center gap-2 text-sm">
+                    return <label key={g} className="flex toque items-center gap-2 text-sm">
                       <input type="checkbox" className="h-5 w-5" checked={s[i] === '2'} disabled={off}
                         onChange={e => set(p + 'etapas', s.slice(0, i) + (e.target.checked ? '2' : '1') + s.slice(i + 1))} />Equipo {g}</label>
                   })}
@@ -125,7 +125,7 @@ export default function Programacion() {
       </Card>
 
       <div className="sticky bottom-[calc(4.5rem+env(safe-area-inset-bottom))] md:bottom-2">
-        <Button className="toque h-auto py-2 w-full text-base shadow-lg" disabled={off || listos.length === 0 || malos.size > 0} onClick={() => { setHechos([]); setTotal(0); setAbierto(true) }}>
+        <Button className="h-auto py-2 w-full text-base shadow-lg" disabled={off || listos.length === 0 || malos.size > 0} onClick={() => { setHechos([]); setTotal(0); setAbierto(true) }}>
           {lista.length === 0 ? 'Guardar (sin cambios)' : malos.size ? `Revisá los valores en rojo (${[...camMalas.map(nombreCamara), ...(ajusteMalo ? ['ajustes'] : [])].join(' y ')})` : `Guardar ${listos.length} ${listos.length === 1 ? 'cambio' : 'cambios'}`}
         </Button>
       </div>
