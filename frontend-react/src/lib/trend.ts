@@ -37,3 +37,9 @@ export function detalleEnInstante(tramos: Tramo[], filas: FilaDescongelado[], ca
   }
   return { ts, hora: hhmm(ts), equipos, descongelado: descongeladoEn(filas, camara, ts, minutosPlan), resumen }
 }
+
+// `left` (px) de la tarjeta: a la derecha del cursor si entra; si no, a la izquierda; siempre dentro del contenedor.
+export function posicionTarjeta(cursorX: number, anchoTarjeta: number, anchoContenedor: number, margen = 12): number {
+  const izq = cursorX + margen + anchoTarjeta <= anchoContenedor ? cursorX + margen : cursorX - margen - anchoTarjeta
+  return Math.max(0, Math.min(izq, anchoContenedor - anchoTarjeta))
+}

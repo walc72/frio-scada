@@ -1,7 +1,7 @@
 import { test, expect } from 'vitest'
 import type { Tramo } from './paginaCamara'
 import type { FilaDescongelado } from './camaras'
-import { detalleEnInstante, estadoEn } from './trend'
+import { detalleEnInstante, estadoEn, posicionTarjeta } from './trend'
 
 const T0 = Date.parse('2026-10-17T10:00:00-03:00')
 const m = (min: number) => T0 + min * 60000
@@ -48,4 +48,10 @@ test('borde exacto: el instante fin de un tramo pertenece al siguiente', () => {
 test('resumen con los 8 enfriando', () => {
   const todos = [1,2,3,4,5,6,7,8].map(g => ({ camara:'C5', grupo:`G${g}`, inicio:m(-10), fin:m(10), estado:'frio' as const }))
   expect(detalleEnInstante(todos, [], 'C5', m(0)).resumen).toBe('Los 8 equipos enfriando')
+})
+test('posicionTarjeta: derecha, izquierda y bordes', () => {
+  expect(posicionTarjeta(100, 240, 800)).toBe(112)
+  expect(posicionTarjeta(700, 240, 800)).toBe(448)
+  expect(posicionTarjeta(150, 240, 300)).toBe(0)
+  expect(posicionTarjeta(290, 240, 300)).toBe(38)
 })

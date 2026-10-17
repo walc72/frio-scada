@@ -11,6 +11,7 @@ export interface Tramo { camara: string; grupo: string; inicio: number; fin: num
 export const aTramos = (rows: TramoApi[]): Tramo[] => rows.map(r => ({ ...r, inicio: Date.parse(r.inicio), fin: Date.parse(r.fin) })).filter(t => Number.isFinite(t.inicio) && Number.isFinite(t.fin))
 export const COLOR_TRAMO: Record<EstadoTramo, string> = { frio: colorEstadoGrupo('FRIO').fondo, descongelando: colorEstadoGrupo('DESCONGELANDO').fondo, apagado: colorEstadoGrupo('DETENIDO').fondo, 'sin-datos': '#E5E7EB' }
 export const TEXTO_TRAMO: Record<EstadoTramo, string> = { frio: 'Enfriando', descongelando: 'Descongelando', apagado: 'Apagado', 'sin-datos': 'Sin datos' }
+export const HACHURA = 'repeating-linear-gradient(45deg,#E5E7EB,#E5E7EB 3px,#D1D5DB 3px,#D1D5DB 6px)'
 
 export const pct = (min: number) => Math.min(100, Math.max(0, (min / 1440) * 100))
 

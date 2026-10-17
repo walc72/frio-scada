@@ -1,8 +1,6 @@
 import { Card } from './ui/card'
 import { GRUPOS } from '../lib/camaras'
-import { segmentos, pct, COLOR_TRAMO, TEXTO_TRAMO, type Tramo } from '../lib/paginaCamara'
-
-const HACHURA = 'repeating-linear-gradient(45deg,#E5E7EB,#E5E7EB 3px,#D1D5DB 3px,#D1D5DB 6px)'
+import { segmentos, pct, COLOR_TRAMO, TEXTO_TRAMO, HACHURA, type Tramo } from '../lib/paginaCamara'
 
 // Una barra por equipo, de 00:00 a ahora (el resto del día queda vacío). `minuto` = la marca de ahora (mismo reloj que los horarios).
 export default function BarrasEquipos({ tramos, error, dia0, ahora, minuto }: { tramos: Tramo[] | null; error: boolean; dia0: number; ahora: number; minuto: number }) {
