@@ -15,7 +15,7 @@ export interface DescongeladoEnCurso { horario: number; inicio: number; etapa: 1
 export function descongeladoEn(filas: FilaDescongelado[], camara: string, ts: number, minutosPlan?: number): DescongeladoEnCurso | null {
   const f = filas.find(f => f.camara === camara && f.inicio <= ts && ts < (f.fin ?? Infinity))
   if (!f) return null
-  // Misma corrida: la etapa 0 más cercana (hacia atrás) del mismo horario; si no hay, la propia fila
+  // Misma corrida: la etapa 1 más cercana (hacia atrás) del mismo horario; si no hay, la propia fila
   const inicio = f.etapa === 1 ? f.inicio : filas.filter(x => x.camara === camara && x.horario === f.horario && x.etapa === 1 && x.inicio <= f.inicio).reduce((a, x) => Math.max(a, x.inicio), -Infinity)
   const llevaMin = Math.round((ts - (Number.isFinite(inicio) ? inicio : f.inicio)) / 60000)
   return { horario: Number(f.horario.replace(/\D/g, '')), inicio: Number.isFinite(inicio) ? inicio : f.inicio, etapa: (f.etapa >= 2 ? 2 : 1) as 1 | 2, llevaMin, faltaMin: minutosPlan == null ? null : minutosPlan - llevaMin, finEtapa: f.fin }

@@ -103,7 +103,7 @@ export default function Programacion() {
                 <div className="grid grid-cols-2 gap-x-3 min-[400px]:grid-cols-4">
                   {GRUPOS.map((g, i) => {
                     const s = String(val(p + 'etapas'))
-                    return <label key={g} className="flex toque items-center gap-2 text-sm">
+                    return <label key={g} className="toque inline-flex items-center gap-2 text-sm">
                       <input type="checkbox" className="h-5 w-5" checked={s[i] === '2'} disabled={off}
                         onChange={e => set(p + 'etapas', s.slice(0, i) + (e.target.checked ? '2' : '1') + s.slice(i + 1))} />Equipo {g}</label>
                   })}

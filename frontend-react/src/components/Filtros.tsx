@@ -11,7 +11,7 @@ const PRESETS = [
   { id: 'ayer', label: 'Ayer', rango: () => ({ desde: hoy(-1), hasta: hoy(-1) }) },
   { id: '7', label: '7 días', rango: () => ({ desde: hoy(-6), hasta: hoy() }) },
 ]
-const chip = (on: boolean) => cn('px-3 py-1.5 rounded-full text-sm border whitespace-nowrap', on ? 'bg-primary text-primary-foreground border-primary' : 'text-muted-foreground')
+const chip = (on: boolean) => cn('toque inline-flex items-center px-3 rounded-full text-sm border whitespace-nowrap', on ? 'bg-primary text-primary-foreground border-primary' : 'text-muted-foreground')
 
 export function Filtros({ r, set, sinCamara }: { r: Rango; set: (r: Rango) => void; sinCamara?: boolean }) {
   const [elegir, setElegir] = useState(false)

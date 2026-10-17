@@ -80,7 +80,7 @@ export default function Sistema() {
         ))}
       </div>
       <p className="text-sm">{textoCortes(res?.cortes7d)}</p>
-      <button className="text-xs text-muted-foreground underline" onClick={() => setDet(d => !d)}>{det ? 'Ocultar detalle técnico' : 'Ver detalle técnico'}</button>
+      <button className="toque inline-flex items-center text-xs text-muted-foreground underline" onClick={() => setDet(d => !d)}>{det ? 'Ocultar detalle técnico' : 'Ver detalle técnico'}</button>
       {det && <Detalle />}
     </div>
   )

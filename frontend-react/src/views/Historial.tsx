@@ -54,7 +54,7 @@ export default function Historial() {
       <div className="flex gap-2 overflow-x-auto">
         {PESTANAS.map(p => (
           <Link key={p.id} to={`/historial/${p.id}`}
-            className={cn('px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap border',
+            className={cn('toque inline-flex items-center px-4 rounded-full text-sm font-medium whitespace-nowrap border',
               p.id === pestana ? 'bg-primary text-primary-foreground border-primary' : 'text-muted-foreground')}>
             {p.label}
           </Link>
@@ -120,7 +120,7 @@ export default function Historial() {
           </ul>
         </>}
       </div>
-      <button className="h-9 px-4 rounded-md border text-sm disabled:opacity-50" disabled={!filas.length}
+      <button className="toque px-4 rounded-md border text-sm disabled:opacity-50" disabled={!filas.length}
         onClick={() => downloadXlsx(`${pestana}_${r.desde}_${r.hasta}`, filas)}>⬇ Descargar en Excel</button>
     </div>
   )
