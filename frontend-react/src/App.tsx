@@ -129,6 +129,7 @@ export default function App() {
         {/* Main content */}
         <div className="flex-1 flex flex-col min-w-0">
           <main className="flex-1 p-3 sm:p-6 pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-6 overflow-auto">
+            <div className="mx-auto w-full max-w-[1440px]">
             <RouteErrorBoundary key={pathname}>
             <Suspense fallback={<div className="flex items-center justify-center h-full text-muted-foreground text-sm">Cargando...</div>}>
               <Routes>
@@ -146,6 +147,7 @@ export default function App() {
               </Routes>
             </Suspense>
             </RouteErrorBoundary>
+            </div>
           </main>
           <footer className="hidden md:flex h-8 border-t px-6 flex items-center justify-center text-xs text-muted-foreground bg-card shrink-0">
             Powered By <strong className="ml-1">Tecno Electric S.A.</strong>

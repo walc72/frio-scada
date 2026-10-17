@@ -57,14 +57,14 @@ export default function ReplicasTab() {
   if (MODE === 'mock') return <div className="text-sm text-muted-foreground py-8 text-center">No disponible en modo demo.</div>
 
   return (
-    <div className="space-y-4 max-w-3xl">
+    <div className="space-y-3 max-w-3xl">
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">Servidores de solo lectura que copian los datos de esta planta.</p>
         <Button size="sm" onClick={openNew}><Plus className="h-3.5 w-3.5 mr-1" />Nueva réplica</Button>
       </div>
       {rows.length === 0 && <Card className="p-6 text-sm text-muted-foreground text-center">No hay réplicas.</Card>}
       {rows.map(r => (
-        <Card key={r.id} className="p-4 flex flex-wrap items-center gap-3">
+        <Card key={r.id} className="p-3 flex flex-wrap items-center gap-3">
           <div className="min-w-0">
             <div className="font-medium">{r.name}</div>
             <div className="text-xs text-muted-foreground">Última conexión: {fmt(r.lastSeenAt)}{r.lastIp ? ` · desde ${r.lastIp}` : ''}</div>

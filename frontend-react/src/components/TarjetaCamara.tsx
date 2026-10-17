@@ -21,7 +21,7 @@ export default function TarjetaCamara({ cam }: { cam: string }) {
   const badge = hayDatos ? badgeCamara(estado!, cam, f!.nivel) : null
   return (
     <Link to={`/camara/${cam}`} className="block">
-      <Card className={`p-4 space-y-3 rounded-2xl shadow-sm hover:border-primary transition-colors ${alarma ? 'border-2 border-red-600' : ''} ${vencido || incompatible ? 'grayscale bg-muted opacity-70' : ''}`}>
+      <Card className={`p-3 space-y-3 rounded-xl shadow-sm hover:border-primary transition-colors ${alarma ? 'border-2 border-red-600' : ''} ${vencido || incompatible ? 'grayscale bg-muted opacity-70' : ''}`}>
         <div className="flex items-center gap-2">
           <div className="font-semibold text-lg">{nombreCamara(cam)}</div>
           {badge && <Badge className="ml-auto border-transparent text-white" style={{ backgroundColor: badge.c }}>{badge.t}</Badge>}

@@ -30,10 +30,10 @@ export function Confirmar({ abierto, frase, enviando, resultado, detalle, onConf
         <DialogFooter className="gap-2">
           {resultado == null
             ? <>
-                <Button variant="outline" className="h-12 text-base" disabled={enviando} onClick={onCerrar}>Cancelar</Button>
-                <Button className="h-12 text-base" disabled={enviando} onClick={onConfirmar}>{enviando ? 'Enviando…' : 'Sí, hacerlo'}</Button>
+                <Button variant="outline" className="toque h-auto py-2 text-base" disabled={enviando} onClick={onCerrar}>Cancelar</Button>
+                <Button className="toque h-auto py-2 text-base" disabled={enviando} onClick={onConfirmar}>{enviando ? 'Enviando…' : 'Sí, hacerlo'}</Button>
               </>
-            : <Button className="h-12 text-base" disabled={enviando} onClick={onCerrar}>Cerrar</Button>}
+            : <Button className="toque h-auto py-2 text-base" disabled={enviando} onClick={onCerrar}>Cerrar</Button>}
         </DialogFooter>
       </DialogContent>
     </Dialog>

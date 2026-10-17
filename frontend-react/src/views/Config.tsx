@@ -42,9 +42,9 @@ export default function Config() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
     <a href="/grafana/" target="_blank" rel="noreferrer" className="text-sm underline text-primary">Gráficos de largo plazo</a>
-    <Tabs defaultValue="smtp" className="space-y-4">
+    <Tabs defaultValue="smtp" className="space-y-3">
       <TabsList>
         <TabsTrigger value="smtp">Correo</TabsTrigger>
         <TabsTrigger value="camaras">Cámaras</TabsTrigger>
@@ -130,7 +130,7 @@ function SmtpTab() {
 
   return (
     <div className="max-w-2xl">
-      <Card className="p-4 space-y-3">
+      <Card className="p-3 space-y-3">
         <p className="text-sm text-muted-foreground">Servidor de correo saliente usado para alertas y el reporte diario.</p>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div className="sm:col-span-2"><Label>Servidor (host)</Label><Input value={cfg.host} onChange={e => patch({ host: e.target.value })} placeholder="smtp.gmail.com" /></div>
@@ -199,7 +199,7 @@ function DailyReportCard() {
   const next = info.nextRunAt ? new Date(info.nextRunAt) : null
 
   return (
-    <Card className="p-4 space-y-3 mt-4">
+    <Card className="p-3 space-y-3 mt-4">
       <div>
         <div className="font-semibold text-sm">Reporte diario automático</div>
         <p className="text-sm text-muted-foreground">

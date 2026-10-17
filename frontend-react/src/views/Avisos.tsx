@@ -20,7 +20,7 @@ function Canal({ canal, titulo, boton, admin }: { canal: 'telegram' | 'mail'; ti
     } finally { setBusy(false) }
   }
   return (
-    <div className="rounded-2xl bg-white dark:bg-card shadow-sm p-4 space-y-2">
+    <div className="rounded-xl bg-white dark:bg-card shadow-sm p-3 space-y-2">
       <div className="font-semibold">{titulo}</div>
       {admin && <Button onClick={probar} disabled={busy}>{busy ? 'Enviando…' : boton}</Button>}
       {msg && <p className="text-sm">{msg}</p>}
@@ -34,12 +34,12 @@ export default function Avisos() {
   useEffect(() => { apiJson<{ replica?: boolean }>('/sistema/resumen').then(r => setReplica(!!r.replica)).catch(() => {}) }, [])
   return (
     <div className="space-y-3 max-w-md">
-      <h1 className="text-xl font-semibold">Avisos</h1>
+      <h1 className="text-[18px] font-semibold">Avisos</h1>
       {replica ? <p className="text-sm text-muted-foreground">En la réplica de oficina no se envían avisos</p> : <>
         <Canal canal="telegram" titulo="Telegram" boton="Mandar un aviso de prueba" admin={admin} />
         <Canal canal="mail" titulo="Mail" boton="Mandar un mail de prueba" admin={admin} />
       </>}
-      <div className="rounded-2xl bg-white dark:bg-card shadow-sm p-4 space-y-1">
+      <div className="rounded-xl bg-white dark:bg-card shadow-sm p-3 space-y-1">
         <div className="font-semibold">¿Qué avisa?</div>
         <p className="text-sm text-muted-foreground">Alarmas del PLC · PLC sin comunicación más de 2 min · reloj del PLC desviado. Repite cada 1 hora si sigue, y avisa cuando se resuelve.</p>
       </div>

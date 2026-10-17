@@ -74,8 +74,8 @@ export default function Programacion() {
   )
 
   return (
-    <div className="max-w-2xl space-y-4">
-      <div className="flex items-center gap-2"><Link to="/mas" className="text-sm underline">Más</Link><span className="text-muted-foreground">/</span><h1 className="text-xl font-semibold">Programación</h1></div>
+    <div className="max-w-2xl space-y-3">
+      <div className="flex items-center gap-2"><Link to="/mas" className="text-sm underline">Más</Link><span className="text-muted-foreground">/</span><h1 className="text-[18px] font-semibold">Programación</h1></div>
       {!permiso.ok && <div role="alert" className="rounded-md bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-400">{permiso.motivo}</div>}
       {!estado && <div className="text-sm text-muted-foreground">Sin datos todavía</div>}
 
@@ -86,7 +86,7 @@ export default function Programacion() {
       {HORARIOS.filter(h => tiene(`${cam}.H${h}.hora`)).map(h => {
         const p = `${cam}.H${h}.`
         return (
-          <Card key={h} className="space-y-3 rounded-2xl p-4">
+          <Card key={h} className="space-y-3 rounded-xl p-3">
             <div className="font-semibold">Horario {h}</div>
             <div className="grid grid-cols-2 gap-3">
               <label className="space-y-1 text-sm"><span>Hora</span>
@@ -115,7 +115,7 @@ export default function Programacion() {
         )
       })}
 
-      <Card className="space-y-3 rounded-2xl p-4">
+      <Card className="space-y-3 rounded-xl p-3">
         <div className="font-semibold">Recuperación y ajustes</div>
         <div className="grid grid-cols-1 gap-3 min-[400px]:grid-cols-2">
           {tiene(`${cam}.recuperacion`) && <label className="block space-y-1 text-sm"><span>Tiempo de recuperación de {nombreCamara(cam)} (min)</span>{num(`${cam}.recuperacion`, { max: 60 })}</label>}
@@ -125,7 +125,7 @@ export default function Programacion() {
       </Card>
 
       <div className="sticky bottom-[calc(4.5rem+env(safe-area-inset-bottom))] md:bottom-2">
-        <Button className="h-12 w-full text-base shadow-lg" disabled={off || listos.length === 0 || malos.size > 0} onClick={() => { setHechos([]); setTotal(0); setAbierto(true) }}>
+        <Button className="toque h-auto py-2 w-full text-base shadow-lg" disabled={off || listos.length === 0 || malos.size > 0} onClick={() => { setHechos([]); setTotal(0); setAbierto(true) }}>
           {lista.length === 0 ? 'Guardar (sin cambios)' : malos.size ? `Revisá los valores en rojo (${[...camMalas.map(nombreCamara), ...(ajusteMalo ? ['ajustes'] : [])].join(' y ')})` : `Guardar ${listos.length} ${listos.length === 1 ? 'cambio' : 'cambios'}`}
         </Button>
       </div>

@@ -43,8 +43,8 @@ export default function Historial() {
   const maxH = Math.max(1, ...comp.map(c => c.horas))
 
   return (
-    <div className="space-y-4">
-      <h1 className="text-xl font-semibold">Historial</h1>
+    <div className="space-y-3">
+      <h1 className="text-[18px] font-semibold">Historial</h1>
       <div className="flex gap-2 overflow-x-auto">
         {PESTANAS.map(p => (
           <Link key={p.id} to={`/historial/${p.id}`}

@@ -54,7 +54,7 @@ export default function Login() {
                   value={user}
                   onChange={e => { setUser(e.target.value); setError('') }}
                   autoComplete="username"
-                  className={`h-12 text-base pl-10 ${error ? 'border-destructive' : ''}`}
+                  className={`h-10 text-base pl-10 ${error ? 'border-destructive' : ''}`}
                   placeholder="usuario"
                 />
               </div>
@@ -70,7 +70,7 @@ export default function Login() {
                   value={pass}
                   onChange={e => { setPass(e.target.value); setError('') }}
                   autoComplete="current-password"
-                  className={`h-12 text-base pl-10 pr-10 ${error ? 'border-destructive' : ''}`}
+                  className={`h-10 text-base pl-10 pr-10 ${error ? 'border-destructive' : ''}`}
                   placeholder="••••••••"
                 />
                 <button type="button" onClick={() => setShowPass(v => !v)} tabIndex={-1}
@@ -85,7 +85,7 @@ export default function Login() {
               <p className="text-destructive text-sm text-center">{error}</p>
             )}
 
-            <Button type="submit" className="w-full h-14 text-lg" disabled={!user || !pass || loading}>
+            <Button type="submit" className="w-full toque h-auto py-2.5 text-base" disabled={!user || !pass || loading}>
               {loading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Entrando…</> : 'Entrar'}
             </Button>
           </form>

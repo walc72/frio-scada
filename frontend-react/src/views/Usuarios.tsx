@@ -108,7 +108,7 @@ export default function Usuarios() {
   const editingSuper = !!form && form.role === 'superadmin'
 
   return (
-    <div className="space-y-4 max-w-3xl">
+    <div className="space-y-3 max-w-3xl">
       <div className="flex items-start gap-3">
         <div className="text-sm text-muted-foreground flex-1 space-y-0.5">
           {(['superadmin', 'admin', 'operar', 'operador'] as const).map(r => (

@@ -16,13 +16,13 @@ export default function AvisoArranque() {
   if (!pendiente) return <>{dialogo}</>
   const mira = rol === 'operador' || rol === ''
   return (
-    <Card className="space-y-3 rounded-2xl border-amber-500 bg-amber-500/10 p-4" role="alert">
+    <Card className="space-y-3 rounded-xl border-amber-500 bg-amber-500/10 p-3" role="alert">
       <div className="font-semibold">El PLC arrancó con equipos en manual</div>
       <div className="text-sm">Está esperando que elijas qué hacer con ellos.</div>
       {mira ? <div className="text-sm text-muted-foreground">Tu usuario solo puede mirar: la respuesta se da en el panel o con un usuario que pueda operar.</div> : <>
         <div className="grid grid-cols-1 gap-2 min-[400px]:grid-cols-2">
-          <Button className="h-12 whitespace-normal" disabled={!permiso.ok || enviando} onClick={() => pedir({ comando: 7, valor: 1 })}>Mantener en manual</Button>
-          <Button variant="outline" className="h-12 whitespace-normal" disabled={!permiso.ok || enviando} onClick={() => pedir({ comando: 7, valor: 2 })}>Pasar a automático</Button>
+          <Button className="toque h-auto py-2 whitespace-normal" disabled={!permiso.ok || enviando} onClick={() => pedir({ comando: 7, valor: 1 })}>Mantener en manual</Button>
+          <Button variant="outline" className="toque h-auto py-2 whitespace-normal" disabled={!permiso.ok || enviando} onClick={() => pedir({ comando: 7, valor: 2 })}>Pasar a automático</Button>
         </div>
         {!permiso.ok && <div className="text-sm text-amber-700 dark:text-amber-400">{permiso.motivo}</div>}
       </>}
