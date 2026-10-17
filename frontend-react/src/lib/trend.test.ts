@@ -11,8 +11,8 @@ const tramos: Tramo[] = [
   {camara:'C5',grupo:'G8',inicio:m(-600),fin:m(600),estado:'sin-datos' as const},
 ]
 const filas: FilaDescongelado[] = [
-  {camara:'C5',horario:'H2',etapa:0,grupos:'G1G3G5G7',inicio:m(0),fin:m(6),duracionS:360,cortados:'',saltado:false,noEjecutada:false},
-  {camara:'C5',horario:'H2',etapa:1,grupos:'G2G4G6G8',inicio:m(6),fin:m(16),duracionS:600,cortados:'',saltado:false,noEjecutada:false},
+  {camara:'C5',horario:'2',etapa:1,grupos:'G1G3G5G7',inicio:m(0),fin:m(6),duracionS:360,cortados:'',saltado:false,noEjecutada:false},
+  {camara:'C5',horario:'2',etapa:2,grupos:'G2G4G6G8',inicio:m(6),fin:m(16),duracionS:600,cortados:'',saltado:false,noEjecutada:false},
 ]
 test('dentro de la etapa 1: impares descongelando, lleva y falta', () => {
   const d = detalleEnInstante(tramos, filas, 'C5', m(3), 16)
@@ -54,4 +54,8 @@ test('posicionTarjeta: derecha, izquierda y bordes', () => {
   expect(posicionTarjeta(700, 240, 800)).toBe(448)
   expect(posicionTarjeta(150, 240, 300)).toBe(0)
   expect(posicionTarjeta(290, 240, 300)).toBe(38)
+})
+test('horario con prefijo H sigue dando el número', () => {
+  const f = filas.map(x => ({ ...x, horario: 'H2' }))
+  expect(detalleEnInstante(tramos, f, 'C5', m(3)).descongelado).toMatchObject({ horario: 2, etapa: 1 })
 })
