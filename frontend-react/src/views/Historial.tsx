@@ -33,13 +33,14 @@ export default function Historial() {
   const [r, setR] = useState<Rango>({ desde: hoy(), hasta: hoy(), camara: '' })
   const estado = useCamarasStore(s => s.estado)
   const recibidoEn = useCamarasStore(s => s.recibidoEn)
-  const fresco = !estaVencido(recibidoEn, useNow(5000))
+  const incompatible = useCamarasStore(s => s.mapa === 'incompatible')
+  const fresco = !estaVencido(recibidoEn, useNow(5000)) && !incompatible
   const ruta = pestana === 'alarmas' ? 'eventos' : pestana
   const { data, error, cargando } = useDatos<any>(ruta, r.desde, r.hasta, r.camara)
   const comp = useMemo(() => (pestana === 'compresores' ? agruparCompresores(data ?? []) : []), [pestana, data])
   const avisos = useMemo(() => (pestana === 'eventos' ? prepararAvisos(data ?? [], estado, fresco) : []), [pestana, data, estado, fresco])
   const periodos = useMemo(() => (pestana === 'alarmas' ? periodosAlarma(data ?? []) : []), [pestana, data])
-  const cargado = !!data && !error
+  const cargado = !!data && !error && !cargando
   const activas = pestana === 'alarmas' && fresco && estado ? alarmasActivasVista(estado, cargado ? data : []) : []
   if (!PESTANAS.some(p => p.id === pestana)) return <Navigate to="/historial/descongelados" replace />
   const lista: any[] = data ?? []
@@ -68,7 +69,7 @@ export default function Historial() {
               {activas.map(a => <li key={a.clave} className="text-sm text-red-700">
                 <span className="font-semibold">{a.titulo}</span>
                 {a.accion && <span> · {a.accion}</span>}
-                {cargado && <span className="text-xs"> · {a.desde ? `desde ${dia(a.desde)} ${hm(a.desde)}` : 'desde antes de este período'}</span>}
+                {cargado && (!r.camara || a.clave.startsWith(`${r.camara}.`)) && <span className="text-xs"> · {a.desde ? `desde ${dia(a.desde)} ${hm(a.desde)}` : 'desde antes de este período'}</span>}
               </li>)}
             </ul>)}
       <div className="rounded-lg border bg-card">
@@ -89,7 +90,7 @@ export default function Historial() {
             {pestana === 'alarmas' && periodos.map((p, i) => (
               <Fila key={i}>
                 <div className="min-w-0 flex-1 text-sm">{fraseEvento(p.frase, 1)}
-                  <div className="text-xs text-muted-foreground">{dia(p.inicio)} {hm(p.inicio)} → {p.fin === null ? 'sigue activa' : `${dia(p.fin)} ${hm(p.fin)}`}</div>
+                  <div className="text-xs text-muted-foreground">{dia(p.inicio)} {hm(p.inicio)} → {p.fin === null ? '…' : `${dia(p.fin)} ${hm(p.fin)}`}</div>
                 </div>
                 <span className={cn('text-xs whitespace-nowrap', p.fin === null ? 'font-semibold text-red-600' : 'text-muted-foreground')}>{p.duracionMin === null ? 'sigue activa' : duracionTxt(p.duracionMin)}</span>
               </Fila>
