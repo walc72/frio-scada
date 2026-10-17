@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Card } from './ui/card'
 import { GRUPOS, hhmm, type FilaDescongelado } from '../lib/camaras'
 import { COLOR_TRAMO, TEXTO_TRAMO, HACHURA, type Tramo, type HorarioVista } from '../lib/paginaCamara'
@@ -13,6 +13,7 @@ interface Props { tramos: Tramo[] | null; filas: FilaDescongelado[] | null; hora
 
 export default function TrendEquipos({ tramos, filas, horarios, camara, dia0, ahora, minutosPlan, error }: Props) {
   const caja = useRef<HTMLDivElement>(null), svg = useRef<SVGSVGElement>(null), tarjeta = useRef<HTMLDivElement>(null)
+  const idHachura = `hachura${useId().replace(/:/g, '')}`
   const [ancho, setAncho] = useState(1000)
   const [cur, setCur] = useState<{ px: number; ts: number; cx: number; cy: number } | null>(null)
 
@@ -30,7 +31,7 @@ export default function TrendEquipos({ tramos, filas, horarios, camara, dia0, ah
     const t = tarjeta.current, c = caja.current
     if (!cur || !t || !c) return
     t.style.left = `${posicionTarjeta(cur.cx, t.offsetWidth, c.clientWidth)}px`
-    t.style.top = `${Math.max(0, cur.cy - 20)}px`
+    t.style.top = `${Math.max(0, Math.min(cur.cy - 20, c.clientHeight - t.offsetHeight))}px`
   }, [cur])
 
   const x = (ms: number) => L + ((ms - dia0) / DIA) * (W - L - R)
@@ -42,18 +43,21 @@ export default function TrendEquipos({ tramos, filas, horarios, camara, dia0, ah
   }
   const ocultar = () => setCur(null)
 
+  const minuto = cur ? Math.floor(cur.ts / 60000) : null
+  const det = useMemo<DetalleInstante | null>(() => {
+    if (!cur || !tramos) return null
+    const base = detalleEnInstante(tramos, filas ?? [], camara, cur.ts)
+    // Con el horario conocido se vuelve a calcular con los minutos planificados
+    return base.descongelado ? detalleEnInstante(tramos, filas ?? [], camara, cur.ts, minutosPlan(base.descongelado.horario)) : base
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [minuto, tramos, filas, camara, minutosPlan])
+
   if (error) return <Card className="p-4 rounded-2xl text-sm text-muted-foreground">No se pudo cargar el gráfico</Card>
   if (!tramos) return <Card className="p-4 rounded-2xl text-sm text-muted-foreground">Cargando…</Card>
 
-  let det: DetalleInstante | null = null
-  if (cur) {
-    det = detalleEnInstante(tramos, filas ?? [], camara, cur.ts)
-    // Con el horario conocido se vuelve a calcular con los minutos planificados
-    if (det.descongelado) det = detalleEnInstante(tramos, filas ?? [], camara, cur.ts, minutosPlan(det.descongelado.horario))
-  }
   const paso = ancho < 480 ? 4 : 2
   const d = det?.descongelado
-  const enCurso = !!d && !!cur && ahora < (d.finEtapa ?? Infinity) && cur.ts >= ahora - 60000
+  const enCurso = !!d && d.finEtapa == null
   const nCam = camara.replace(/\D/g, '')
 
   return (
@@ -64,7 +68,7 @@ export default function TrendEquipos({ tramos, filas, horarios, camara, dia0, ah
           role="img" aria-label={`Qué hizo cada equipo de la cámara ${nCam} hoy, de 00:00 a 24:00: enfriando, descongelando, apagado o sin datos`}
           onPointerDown={mover} onPointerMove={mover} onPointerLeave={ocultar} onPointerCancel={ocultar}>
           <defs>
-            <pattern id="hachura" width={6} height={6} patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+            <pattern id={idHachura} width={6} height={6} patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
               <rect width={6} height={6} fill="#E5E7EB" /><rect width={3} height={6} fill="#D1D5DB" />
             </pattern>
           </defs>
@@ -81,13 +85,13 @@ export default function TrendEquipos({ tramos, filas, horarios, camara, dia0, ah
                 <text x={4} y={y + 11} fontSize={11} className="fill-foreground">Equipo {g}</text>
                 {tramos.filter(t => t.grupo === `G${g}` && t.fin > dia0 && t.inicio < ahora).map((t, k) => {
                   const a = x(Math.max(t.inicio, dia0)), b = x(Math.min(t.fin, ahora))
-                  return b > a ? <rect key={k} x={a} y={y + 2} width={b - a} height={RH - 5} fill={t.estado === 'sin-datos' ? 'url(#hachura)' : COLOR_TRAMO[t.estado]} /> : null
+                  return b > a ? <rect key={k} x={a} y={y + 2} width={b - a} height={RH - 5} fill={t.estado === 'sin-datos' ? `url(#${idHachura})` : COLOR_TRAMO[t.estado]} /> : null
                 })}
               </g>
             )
           })}
-          {horarios.filter(h => h.estado !== 'mal configurado').map(h => (
-            <text key={h.h} x={x(dia0 + h.min * 60000)} y={12} textAnchor="middle" fontSize={10} fill="#047857">▼ {h.hora}</text>
+          {horarios.filter(h => h.estado !== 'mal configurado' && Math.abs(x(dia0 + h.min * 60000) - x(ahora)) >= 40).map(h => (
+            <text key={h.h} x={x(dia0 + h.min * 60000)} y={12} textAnchor="middle" fontSize={10} className="fill-emerald-700 dark:fill-emerald-400">▼ {h.hora}</text>
           ))}
           <line x1={x(ahora)} x2={x(ahora)} y1={Y0 - 6} y2={Y0 + GRUPOS.length * RH} stroke="#dc2626" strokeWidth={1.5} />
           <text x={x(ahora)} y={Y0 - 9} textAnchor="middle" fontSize={10} fill="#dc2626">ahora</text>
@@ -102,14 +106,14 @@ export default function TrendEquipos({ tramos, filas, horarios, camara, dia0, ah
               <div className="my-1.5 rounded-md border border-orange-200 bg-orange-50 px-2 py-1 text-orange-800 dark:border-orange-900 dark:bg-orange-950/40 dark:text-orange-300">
                 <b>Descongelado {d.horario}</b> ({hhmm(d.inicio)}) · etapa {d.etapa} de 2<br />
                 {enCurso ? (d.faltaMin == null ? `lleva ${d.llevaMin} min` : `lleva ${d.llevaMin} min · faltan ${d.faltaMin} min`)
-                  : `de ${hhmm(d.inicio)} a ${d.finEtapa == null ? '—' : hhmm(d.finEtapa)}`}
+                  : `de ${hhmm(d.inicio)} a ${hhmm(d.finEtapa!)}`}
               </div>
             ) : det.resumen === 'Los 8 equipos enfriando' ? (
               <div className="text-[11px] mb-1.5 text-emerald-700 dark:text-emerald-400">● {det.resumen}</div>
             ) : null}
-            <div className="grid grid-cols-2 gap-x-3.5 gap-y-0.5">
+            <div className={`grid ${ancho < 480 ? 'grid-cols-1' : 'grid-cols-2'} gap-x-3.5 gap-y-0.5`}>
               {det.equipos.map(q => (
-                <div key={q.grupo} className="flex items-center gap-1.5 whitespace-nowrap">
+                <div key={q.grupo} className={`flex min-w-0 items-center gap-1.5 ${ancho < 480 ? '' : 'whitespace-nowrap'}`}>
                   <i className="inline-block h-2 w-2 rounded-full" style={{ background: COLOR_INST[q.estado] }} />
                   Equipo {q.grupo}: {q.estado === 'descongelando' ? <b className="text-orange-700 dark:text-orange-400">descongelando</b> : q.estado}
                 </div>
