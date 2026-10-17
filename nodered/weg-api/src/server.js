@@ -16,6 +16,8 @@ const createReplicaLinkRouter = require('./routes/replicaLink');
 const { createLinkStore } = require('./services/replicaLink');
 const createCamarasRouter = require('./routes/camaras');
 const createAvisosRouter = require('./routes/avisos');
+const createMandoRouter = require('./routes/mando');
+const settingsService = require('./services/settings');
 const createSistemaResumenRouter = require('./routes/sistemaResumen');
 const alerts = require('./services/alerts');
 const createSystemRouter = require('./routes/system');
@@ -118,6 +120,11 @@ app.use('/api/camaras', createCamarasRouter({
   queryCsv: influxRaw.queryAnnotatedCsv, getEstado: configService.getEstadoCamaras,
 }));
 app.use('/api/avisos', createAvisosRouter({ notifyCanal: alerts.notifyCanal, isReplica: REPLICA_MODE }));
+// Maniobras al PLC: pasan por el poller (único escritor del 502) con MANDO_TOKEN; ver docs/modbus/mapa_modbus.md
+app.use('/api/mando', createMandoRouter({
+  pollerUrl: process.env.POLLER_URL || '', token: process.env.MANDO_TOKEN || '', getEstado: configService.getEstadoCamaras,
+  userId: settingsService.mandoUserId, escribir: influxRaw.writeLines, isReplica: REPLICA_MODE,
+}));
 app.use('/api/sistema', createSistemaResumenRouter({
   queryCsv: influxRaw.queryAnnotatedCsv, getEstado: configService.getEstadoCamaras,
   telegramConfigurado: alerts.telegramConfigurado, mailConfigurado: alerts.mailConfigurado,

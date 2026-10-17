@@ -42,6 +42,12 @@ function fluxEventos({ desde, hasta, bucket }) {
   return `${fuente(bucket, rango(desde, hasta))}\n  |> filter(fn: (r) => r._measurement == "eventos")${pivot}`;
 }
 
+// Maniobras remotas (POST /api/mando): una fila por pedido que llegó al poller.
+function fluxMando({ desde, hasta, bucket }) {
+  return `${fuente(bucket, rango(desde, hasta))}
+  |> filter(fn: (r) => r._measurement == "mando")${pivot}`;
+}
+
 // Cambios de comp/arranques en el rango + último valor conocido antes de desde (estado inicial).
 function fluxCompresores({ desde, hasta, camara, bucket }) {
   const base = (r) => `${fuente(bucket, r)}\n  |> filter(fn: (r) => r._measurement == "estado" and r._field == "valor" and (r.campo == "comp" or r.campo == "arranques"))${filtroCamara(camara)}`;
@@ -93,6 +99,14 @@ function parseEventos(csv, { camara, texto } = {}) {
   return filasPivot(csv).map((o) => ({ ts: ms(o._time), hora_plc: o.hora_plc, texto: o.texto, estado: num(o.estado) }))
     .filter((e) => (!camara || e.texto.startsWith(camara + ' ')) && (!q || e.texto.toLowerCase().includes(q)))
     .sort((a, b) => a.ts - b.ts);
+}
+
+// Filas de mando con la forma de los eventos + maniobra:true (el portal les pone el ícono de la mano).
+function parseMando(csv, { camara, texto } = {}) {
+  const q = texto ? String(texto).toLowerCase() : '';
+  return filasPivot(csv).map((o) => ({ ts: ms(o._time), hora_plc: '', texto: `${o.usuario}: ${o.texto}`, estado: num(o.resultado), maniobra: true,
+    usuario: o.usuario, accion: o.texto, camara: o.camara, respuesta: o.respuesta ?? '' }))
+    .filter((e) => (!camara || e.camara === camara) && (!q || e.texto.toLowerCase().includes(q)));
 }
 
 const MAX_COMUNICACION = 1000;
@@ -240,4 +254,4 @@ function parseTramos(csv, { desde, hasta, ahora = Date.now(), latidos = '' }) {
   return salida.sort((a, b) => a.camara.localeCompare(b.camara) || a.grupo.localeCompare(b.grupo, 'en', { numeric: true }) || a.inicio.localeCompare(b.inicio));
 }
 
-module.exports = { fluxTramos, parseTramos, CAMARAS, offsetMs, validarParams, fluxDescongelados, fluxEventos, fluxCompresores, fluxLatidos, fluxComunicacion, parseDescongelados, parseEventos, parseCompresores, parseComunicacion };
+module.exports = { fluxTramos, parseTramos, CAMARAS, offsetMs, validarParams, fluxDescongelados, fluxEventos, fluxMando, parseMando, fluxCompresores, fluxLatidos, fluxComunicacion, parseDescongelados, parseEventos, parseCompresores, parseComunicacion };

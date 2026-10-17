@@ -2,6 +2,8 @@ import { Card } from './ui/card'
 import type { Estado } from '../store/camaras'
 import { minutoAhora, type FilaDescongelado } from '../lib/camaras'
 import { colorEstadoGrupo } from '../lib/estadoGrupo'
+import { useMando, usePermiso } from './Confirmar'
+import { Button } from './ui/button'
 import { horariosVista, pct, type EstadoHorario } from '../lib/paginaCamara'
 
 const C = (k: string) => colorEstadoGrupo(k).fondo
@@ -18,6 +20,8 @@ const MARCA: Record<EstadoHorario, { icono: string; color: string; sufijo: strin
 
 // Barra de 00 a 24 h con los horarios habilitados, la marca de ahora (roja) y una frase por horario.
 export default function LineaDescongelados({ estado, sinDatos, cam, ahora, filas }: { estado: Estado | null; sinDatos: boolean; cam: string; ahora: number; filas: FilaDescongelado[] | null }) {
+  const { pedir, enviando, dialogo } = useMando()
+  const permiso = usePermiso(5)
   const hs = estado && !sinDatos ? horariosVista(estado, cam, ahora, filas) : []
   return (
     <Card className="p-4 space-y-3 rounded-2xl">
@@ -35,10 +39,13 @@ export default function LineaDescongelados({ estado, sinDatos, cam, ahora, filas
               <span className="font-medium">{[MARCA[x.estado].icono, x.hora].filter(Boolean).join(' ')}</span>
               {x.frase && ` · ${x.frase}`}
               <span className="text-muted-foreground"> · {MARCA[x.estado].sufijo}{x.nota && ` (${x.nota})`}</span>
+              {x.estado === 'en curso' && <Button variant="outline" className="ml-2 h-11" disabled={!permiso.ok || enviando} onClick={() => pedir({ comando: 5, camara: cam, valor: 0 })}>Saltar</Button>}
             </li>
           ))}
         </ul>
       )}
+      {!permiso.ok && hs.some(x => x.estado === 'en curso') && <div className="text-xs text-amber-700 dark:text-amber-400">Para saltar el descongelado: {permiso.motivo}</div>}
+      {dialogo}
     </Card>
   )
 }

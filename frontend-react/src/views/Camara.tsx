@@ -1,6 +1,7 @@
 import { useParams, Link } from 'react-router-dom'
 import { Card } from '../components/ui/card'
 import { Badge } from '../components/ui/badge'
+import { Button } from '../components/ui/button'
 import BotonEquipo from '../components/BotonEquipo'
 import LineaDescongelados from '../components/LineaDescongelados'
 import BarrasEquipos from '../components/BarrasEquipos'
@@ -10,13 +11,17 @@ import { fraseCamara, estadoEquipo, faltanMin, fraseEvento, badgeCamara } from '
 import { CAMARAS, GRUPOS, HORARIOS, PLANTA_OFFSET, nombreCamara, txt, num, hhmm, diaPlanta, minutoAhora, minutoDelDia, type FilaDescongelado } from '../lib/camaras'
 import { useNow } from '../lib/useNow'
 import { useDatos } from '../lib/useDatos'
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
+import HojaEquipo from '../components/HojaEquipo'
+import { Icono } from '../components/Icono'
+import { useAuthStore } from '../store/auth'
 import { aTramos, type TramoApi } from '../lib/paginaCamara'
+import { textoManiobra } from '../lib/historial'
 
 const MODOS: Record<string, string> = { AUTOMATICO: 'Automático', MANUAL: 'Manual', STOP: 'Detenido' }
 const CHIPS = [['comp', 'Compresor'], ['eva', 'Evaporador'], ['res', 'Resistencia']] as const
 
-interface Evento { ts: number; texto: string; estado: number }
+interface Evento { ts: number; texto: string; estado: number; maniobra?: boolean }
 
 export default function Camara() {
   const { c } = useParams()
@@ -32,6 +37,9 @@ export default function Camara() {
   const filas = useDatos<FilaDescongelado>('descongelados', dia, dia, valida ? cam : '', 60000)
   const tramos = useMemo(() => (tr.data ? aTramos(tr.data) : null), [tr.data])
   const ev = useDatos<Evento>('eventos', dia, dia, valida ? cam : '', 60000)
+  const rol = useAuthStore(s => s.role)
+  const puedeOperar = rol !== 'operador' && rol !== ''
+  const [hoja, setHoja] = useState<number | null>(null)
   if (!valida) return <div className="text-center text-muted-foreground py-16">Cámara inexistente. <Link className="underline" to="/">Volver</Link></div>
 
   const sinDatos = !estado || incompatible || estaVencido(recibidoEn, ahora)
@@ -76,9 +84,12 @@ export default function Camara() {
                   {CHIPS.map(([k, n]) => <span key={k} className={`rounded-full px-2 py-0.5 text-xs ${tiene(k) ? 'bg-green-600 text-white' : 'bg-muted text-muted-foreground'}`}>{n}</span>)}
                 </div>
               </div>
+              <Button variant="outline" className="h-11 shrink-0 px-3" disabled={!puedeOperar} onClick={() => setHoja(g)}>Cambiar…</Button>
             </div>
           )
         })}
+        {!puedeOperar && <div className="text-xs text-muted-foreground">Tu usuario solo puede mirar</div>}
+        {hoja != null && <HojaEquipo cam={cam} g={hoja} onCerrar={() => setHoja(null)} />}
       </Card>
 
       <LineaDescongelados estado={estado} sinDatos={sinDatos} cam={cam} ahora={ahora} filas={filas.error ? null : filas.data} />
@@ -89,7 +100,7 @@ export default function Camara() {
         {ev.error ? <div className="text-sm text-muted-foreground">No se pudieron cargar los avisos</div>
           : !ev.data ? <div className="text-sm text-muted-foreground">Cargando…</div>
           : avisos.length === 0 ? <div className="text-sm text-muted-foreground">Sin avisos hoy</div>
-          : <ul className="text-sm space-y-1">{avisos.map((a, i) => <li key={i}><span className="text-muted-foreground">{hhmm(a.ts)}</span> {fraseEvento(a.texto, a.estado)}</li>)}</ul>}
+          : <ul className="text-sm space-y-1">{avisos.map((a, i) => <li key={i}><span className="text-muted-foreground">{hhmm(a.ts)}</span> {a.maniobra && <span className="inline-block align-text-bottom" title="Maniobra desde el portal"><Icono nombre="manual" size={16} /></span>} {a.maniobra ? textoManiobra(a) : fraseEvento(a.texto, a.estado)}</li>)}</ul>}
       </Card>
 
       <details className="rounded-2xl border bg-card p-4 text-sm">

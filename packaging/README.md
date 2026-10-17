@@ -47,6 +47,18 @@ También se puede correr a mano (*Actions → Release → Run workflow*): public
 | `crear-token-grafana.sh` | (vive en `scripts/`, va en el paquete) Crea el token de solo lectura de Grafana y lo guarda en `.env`; idempotente. Lo llama `install.sh`. |
 | `config.template.json` | `config.json` inicial de una planta nueva (sin equipos). |
 
+## Actualizar a la versión con mando remoto (PLC v20)
+
+`frio-scada update` agrega `MANDO_TOKEN` al `.env` si falta, pero la primera vez corre el script viejo ya instalado, que no lo hace. Una sola vez, a mano:
+
+```bash
+cd /opt/frio-scada
+grep -q '^MANDO_TOKEN=.' .env || echo "MANDO_TOKEN=$(openssl rand -hex 32)" >> .env
+docker compose up -d
+```
+
+La API y el poller leen la misma variable `MANDO_TOKEN`; si queda vacía, `/mando` queda cerrado (503 en la API, 401 en el poller).
+
 ## Grafana
 
 Grafana no tiene puerto publicado: se ve solo dentro del portal (`/grafana/`, nginx + `auth_request`), en la red `grafana-net` compartida solo con nginx e influxdb.

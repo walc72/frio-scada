@@ -10,6 +10,7 @@ import { badgeDescongelado, UMBRAL_ARRANQUES_HORA, type TipoAviso } from '../lib
 import { agruparCompresores, equipoDe, horasTxt, prepararAvisos, filasAvisos, filasCompresores, filasDescongelados } from '../lib/historial'
 import { downloadXlsx } from '../lib/xlsx'
 import { cn } from '../lib/utils'
+import { Icono } from '../components/Icono'
 
 const PESTANAS = [
   { id: 'descongelados', label: 'Descongelados' },
@@ -72,9 +73,10 @@ export default function Historial() {
             {pestana === 'avisos' && avisos.map((f, i) => (
               <Fila key={i}>
                 <div className="text-sm font-medium w-12 shrink-0">{hm(f.ts)}</div>
-                <span className="mt-1.5 h-2.5 w-2.5 rounded-full shrink-0" style={{ background: COLOR_AVISO[f.tipo] }} />
+                {f.maniobra ? <span className="mt-0.5 shrink-0 text-muted-foreground" title="Maniobra desde el portal"><Icono nombre="manual" size={18} /></span>
+                  : <span className="mt-1.5 h-2.5 w-2.5 rounded-full shrink-0" style={{ background: COLOR_AVISO[f.tipo] }} />}
                 <div className="min-w-0 flex-1 text-sm">{f.frase}
-                  <div className="text-xs text-muted-foreground">{/^C\d/i.test(f.texto) ? `${nombreCamara(f.texto.slice(0, 2).toUpperCase())} · ` : ''}{dia(f.ts)}</div>
+                  <div className="text-xs text-muted-foreground">{f.maniobra ? 'Maniobra desde el portal · ' : /^C\d/i.test(f.texto) ? `${nombreCamara(f.texto.slice(0, 2).toUpperCase())} · ` : ''}{dia(f.ts)}</div>
                 </div>
                 {f.sigue && <span className="text-xs font-semibold text-red-600 whitespace-nowrap">Sigue activo</span>}
               </Fila>

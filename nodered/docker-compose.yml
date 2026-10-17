@@ -200,6 +200,8 @@ services:
       - MQTT_BROKER=mqtt://mosquitto:1883
       - TZ_OFFSET_MIN=${TZ_OFFSET_MIN:--180}
       - INFLUXDB_TOKEN=${INFLUXDB_TOKEN}
+      # Secreto de POST /mando (puerto 3100, solo red interna); el mismo valor lo lleva frio-api
+      - MANDO_TOKEN=${MANDO_TOKEN:-}
     depends_on:
       mosquitto:
         condition: service_healthy
@@ -243,6 +245,8 @@ services:
       - CONFIG_PATH=/app/config/config.json
       - MQTT_BROKER=mqtt://mosquitto:1883
       - POLLER_URL=http://modbus-poller:3100
+      # Secreto de POST /mando del poller: el mismo valor que lleva modbus-poller
+      - MANDO_TOKEN=${MANDO_TOKEN:-}
       # Reporte diario automático (cron interno)
       - REPORTS_DIR=/app/reports
       - DAILY_REPORT_ENABLED=${DAILY_REPORT_ENABLED:-true}

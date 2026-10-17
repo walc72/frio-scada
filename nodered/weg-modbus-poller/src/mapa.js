@@ -3,6 +3,7 @@
 // herramientas/registrador_modbus.py (Unifrisa): mismas claves y valores.
 
 const VERSION = 2;
+const VERSIONES = [2, 3];                                                  // 3 agrega el canal de comandos (700..712)
 const ULTIMO = 687;
 const LARGO_CAMARA = 90;
 const TRAMOS = [[0, 106], [106, 197], [197, 294], [294, 320]];            // inclusivos, solapados en la marca
@@ -116,7 +117,7 @@ function decodificar(m) {
         d[p + `etapa${e}_min`] = round2(real(m, cb + 8 + 2 * (2 * h + e)));
         d[p + `etapa${e}_habilitada`] = bit(m[cb + 24], 2 * h + e);
       }
-      if (cam === 'C4') d[p + 'habilitado_hmi'] = bit(m[cb + 29], h);
+      d[p + 'habilitado_hmi'] = bit(m[cb + 29], h);   // INB_HORARIO: el HAB real del horario (C4 y C5)
     }
   }
   d['param.horas_max_sin_desc'] = round2(real(m, 258));
@@ -138,7 +139,12 @@ function decodificar(m) {
       }
     });
   }
+  if (m[1] >= 3) {
+    d.mando_remoto_hab = bit(m[309], 0);
+    d.sin_mando_remoto = bit(m[309], 1);
+    d.canal_version = m[310];
+  }
   return d;
 }
 
-module.exports = { VERSION, ULTIMO, LARGO_CAMARA, TRAMOS, TRAMOS_EVENTOS, decodificar, tramoValido, dirBloque, u32 };
+module.exports = { VERSION, VERSIONES, ULTIMO, LARGO_CAMARA, TRAMOS, TRAMOS_EVENTOS, decodificar, tramoValido, dirBloque, u32 };

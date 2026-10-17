@@ -79,3 +79,8 @@ test('reintenta una lectura partida y acepta la siguiente sana', async (t) => {
   const r = await leerMapa(dev);
   assert.ok(r.regs);
 });
+
+test('version 3 (con canal de comandos) tambien se acepta', async (t) => {
+  t.mock.method(connections, 'poll', plc({ marcas: [5, 5, 5, 5], version: 3 }));
+  assert.equal((await leerMapa(dev)).regs[1], 3);
+});

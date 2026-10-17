@@ -13,6 +13,8 @@ const { decodificar } = require('./mapa');
 const { createComunicacion } = require('./comunicacion');
 const { createSalidaMqtt } = require('./salidaMqtt');
 const { createCiclo } = require('./ciclo');
+const { createMando } = require('./mando');
+const { crearManejador } = require('./apiMando');
 const connections = require('./connections');
 const { plcDe, vigilarConfig } = require('./configPlc');
 
@@ -55,12 +57,13 @@ client.on('error', (err) => console.error('[MQTT] Error:', err.message));
 if (!plc.ip) console.error('[CONFIG] plc.ip vacío: el poller no sondea nada');
 let mapaStatus = { mapa: 'ok' };
 const publicarStatus = () => client.publish(STATUS_TOPIC, JSON.stringify({ poller: 'online', ts: Date.now(), ...mapaStatus }), { retain: true, qos: 1 });
+const com = createComunicacion();
 const ciclo = createCiclo({
   onMapa: (m) => { mapaStatus = m ? { mapa: 'incompatible', ...m } : { mapa: 'ok' }; publicarStatus(); },
   plc, leerMapa, leerEventos, decodificar, nuevosEventos,
   escribir: escribirInflux,
   mqtt: createSalidaMqtt(client, (cfg.mqtt || {}).topicPrefix || 'frio'),
-  com: createComunicacion(),
+  com,
   fotoIntervalMs: cfg.fotoIntervalMs || 60000,
 });
 const scheduler = createScheduler({
@@ -71,8 +74,15 @@ const scheduler = createScheduler({
 });
 const pollTimer = setInterval(scheduler.tick, 250);
 
+// Único escritor del PLC; /mando solo por la red interna (el puerto 3100 no se publica en el host)
+const mando = createMando({ cliente: connections.cliente(plc), unidad: () => plc.unitId });
+const manejarMando = crearManejador({ mando, token: process.env.MANDO_TOKEN || '' });
+const latidoTimer = setInterval(() => { if (plc.ip && com.estado().conectado) mando.latir(); }, 2000);
+
 const healthServer = http.createServer((req, res) => {
-  if (req.url === '/health') {
+  if (req.url === '/mando') {
+    manejarMando(req, res);
+  } else if (req.url === '/health') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ status: 'ok', mqtt: client.connected }));
   } else {
@@ -90,6 +100,7 @@ const timer = setInterval(touch, 10000);
 function shutdown() {
   clearInterval(timer);
   clearInterval(pollTimer);
+  clearInterval(latidoTimer);
   dejarDeVigilar();
   healthServer.close();
   client.publish(STATUS_TOPIC, JSON.stringify({ poller: 'offline' }), { retain: true, qos: 1 }, () => client.end(false, {}, () => process.exit(0)));

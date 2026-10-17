@@ -5,6 +5,7 @@ import { ChevronRight } from 'lucide-react'
 const ITEMS = [
   { to: '/reportes', label: 'Reporte diario', admin: false },
   { to: '/avisos', label: 'Avisos por Telegram y mail', admin: false },
+  { to: '/programacion', label: 'Programación de descongelados', admin: true },
   { to: '/usuarios', label: 'Usuarios', admin: true },
   { to: '/sistema', label: 'Estado del sistema', admin: false },
   { to: '/config', label: 'Configuración avanzada', admin: true },
