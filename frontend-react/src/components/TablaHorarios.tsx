@@ -42,8 +42,10 @@ export default function TablaHorarios({ estado, cam, horarios, sinDatos }: { est
               <td className="py-1 pr-2">{etapa(x.h, 0)}</td>
               <td className="py-1 pr-2">{etapa(x.h, 1)}</td>
               <td className="py-1" style={{ color: MARCA[x.estado].color }}>
-                {MARCA[x.estado].icono} {MARCA[x.estado].texto}{x.nota && ` (${x.nota})`}
-                {x.estado === 'en curso' && <Button variant="outline" className="ml-2 px-3" disabled={!permiso.ok || enviando} onClick={() => pedir({ comando: 5, camara: cam, valor: 0 })}>Saltar</Button>}
+                <div className="flex flex-wrap items-center gap-1">
+                <span>{MARCA[x.estado].icono} {MARCA[x.estado].texto}{x.nota && ` (${x.nota})`}</span>
+                {x.estado === 'en curso' && <Button variant="outline" className="px-3" disabled={!permiso.ok || enviando} onClick={() => pedir({ comando: 5, camara: cam, valor: 0 })}>Saltar</Button>}
+                </div>
               </td>
             </tr>))}</tbody>
         </table>

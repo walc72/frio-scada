@@ -12,7 +12,7 @@ import { fraseCamara, faltanMin, badgeCamara } from '../lib/frases'
 import { CAMARAS, PLANTA_OFFSET, nombreCamara, txt, num, hhmm, diaPlanta, type FilaDescongelado } from '../lib/camaras'
 import { useNow } from '../lib/useNow'
 import { useDatos } from '../lib/useDatos'
-import { useMemo } from 'react'
+import { useCallback, useMemo } from 'react'
 import { aTramos, horariosVista, type TramoApi } from '../lib/paginaCamara'
 import { alarmasActivasVista, type Evento } from '../lib/alarmas'
 
@@ -31,6 +31,7 @@ export default function Camara() {
   const tr = useDatos<TramoApi>('tramos', dia, dia, valida ? cam : '', 60000)
   const filas = useDatos<FilaDescongelado>('descongelados', dia, dia, valida ? cam : '', 60000)
   const tramos = useMemo(() => (tr.data ? aTramos(tr.data) : null), [tr.data])
+  const minutosPlan = useCallback((h: number) => estado ? [0, 1].reduce((t, i) => t + (num(estado, `${cam}.H${h}.etapa${i}_habilitada`) === 1 ? Number(estado[`${cam}.H${h}.etapa${i}_min`]) || 0 : 0), 0) : undefined, [estado, cam])
   const ev = useDatos<Evento>('eventos', dia, dia, valida ? cam : '', 60000)
   if (!valida) return <div className="text-center text-muted-foreground py-16">Cámara inexistente. <Link className="underline" to="/">Volver</Link></div>
 
@@ -43,8 +44,8 @@ export default function Camara() {
   const dia0 = Date.parse(`${dia}T00:00:00${PLANTA_OFFSET}`)
   const horarios = estado && !sinDatos ? horariosVista(estado, cam, ahora, filas.error ? null : filas.data) : []
   const prox = horarios.find(x => x.estado === 'próximo')
-  const alarmas = estado && !sinDatos ? alarmasActivasVista(estado, ev.data ?? [], cam) : null
-  const minutosPlan = (h: number) => estado ? [0, 1].reduce((t, i) => t + (num(estado, `${cam}.H${h}.etapa${i}_habilitada`) === 1 ? Number(estado[`${cam}.H${h}.etapa${i}_min`]) || 0 : 0), 0) : undefined
+  // Sin eventos cargados (cargando o con error) no se sabe desde cuándo: desde = undefined
+  const alarmas = estado && !sinDatos ? alarmasActivasVista(estado, ev.data ?? [], cam).map(a => ev.data && !ev.error ? a : { ...a, desde: undefined }) : null
 
   return (
     <div className="space-y-3">

@@ -14,7 +14,7 @@ export default function EventosHoy({ eventos, error }: { eventos: Evento[] | nul
       {error ? <div className="text-sm text-muted-foreground">No se pudieron cargar los eventos</div>
         : !eventos ? <div className="text-sm text-muted-foreground">Cargando…</div>
         : ult.length === 0 ? <div className="text-sm text-muted-foreground">Sin eventos hoy</div>
-        : <ul className="space-y-1 text-sm">{ult.map((a, i) => <li key={i}><span className="text-muted-foreground">{hhmm(a.ts)}</span> {a.maniobra && <span className="inline-block align-text-bottom" title="Maniobra desde el portal"><Icono nombre="manual" size={16} /></span>} {a.maniobra ? textoManiobra(a) : fraseEvento(a.texto, a.estado)}</li>)}</ul>}
+        : <ul className="space-y-1 text-sm">{ult.map((a, i) => <li key={`${a.ts}-${i}`}><span className="text-muted-foreground">{hhmm(a.ts)}</span> {a.maniobra && <span className="inline-block align-text-bottom" title="Maniobra desde el portal"><Icono nombre="manual" size={16} /></span>} {a.maniobra ? textoManiobra(a) : fraseEvento(a.texto, a.estado)}</li>)}</ul>}
       <Link to="/historial/eventos" className="mt-2 inline-block text-sm underline">Ver todos</Link>
     </Card>
   )
