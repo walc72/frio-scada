@@ -39,7 +39,7 @@ export default function HojaEquipo({ cam, g, onCerrar }: { cam: string; g: numbe
           <div className="font-semibold">Modo</div>
           <div className="grid grid-cols-1 gap-2 min-[400px]:grid-cols-3">
             {MODOS.map(([clave, v, n]) => (
-              <Button key={clave} variant={modo === clave ? 'default' : 'outline'} className="h-12 whitespace-normal text-sm"
+              <Button key={clave} variant={modo === clave ? 'default' : 'outline'} className={`h-12 whitespace-normal text-sm ${modo === clave ? 'disabled:opacity-100' : ''}`}
                 disabled={off || modo === clave} onClick={() => pedir({ comando: 1, ...base, valor: v })}>{n}</Button>
             ))}
           </div>

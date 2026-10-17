@@ -45,6 +45,7 @@ export function useMando() {
   const [p, setP] = useState<Pedido | null>(null)
   const [enviando, setEnviando] = useState(false)
   const [res, setRes] = useState<string | null>(null)
+  const [listo, setListo] = useState<string | null>(null)   // aviso corto de "hecho": no hace falta otro diálogo
   const vuelo = useRef(false)
   const cerrar = () => { setP(null); setRes(null) }
   const confirmar = async () => {
@@ -52,7 +53,12 @@ export function useMando() {
     vuelo.current = true
     setEnviando(true)
     try {
-      setRes(textoResultado(await enviarMando(p)))
+      const r = await enviarMando(p)
+      if (r.resultado === 1) {
+        setListo(`Listo: ${fraseConfirmacion(p.comando, p.camara ?? '', p.grupo, p.horario, p.valor).replace(/^¿|\?$/g, '')}`)
+        setTimeout(() => setListo(null), 4000)
+        setP(null)
+      } else setRes(textoResultado(r))   // si no se hizo (o no se sabe) el diálogo queda abierto con el motivo
     } finally {
       vuelo.current = false
       setEnviando(false)
@@ -60,8 +66,11 @@ export function useMando() {
     refrescarLuego()
   }
   const dialogo = (
-    <Confirmar abierto={!!p} frase={p ? fraseConfirmacion(p.comando, p.camara ?? '', p.grupo, p.horario, p.valor) : ''}
-      enviando={enviando} resultado={res} onConfirmar={confirmar} onCerrar={cerrar} />
+    <>
+      <Confirmar abierto={!!p} frase={p ? fraseConfirmacion(p.comando, p.camara ?? '', p.grupo, p.horario, p.valor) : ''}
+        enviando={enviando} resultado={res} onConfirmar={confirmar} onCerrar={cerrar} />
+      {listo && <div role="status" className="fixed inset-x-3 bottom-20 z-[60] mx-auto max-w-md rounded-xl bg-green-600 px-4 py-3 text-center text-base font-medium text-white shadow-lg">✓ {listo}</div>}
+    </>
   )
   // Descarta una pregunta vieja sin tocar un pedido en vuelo ni un resultado que el usuario todavía no leyó
   const olvidarPregunta = () => { if (!vuelo.current && res === null) setP(null) }
