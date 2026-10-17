@@ -113,7 +113,7 @@ describe('RUTAS_VIEJAS', () => {
     expect(RUTAS_VIEJAS).toEqual({
       '/descongelados': '/historial/descongelados',
       '/compresores': '/historial/compresores',
-      '/eventos': '/historial/avisos',
+      '/eventos': '/historial/eventos',
     })
   })
 })

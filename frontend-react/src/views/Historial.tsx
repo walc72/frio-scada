@@ -6,15 +6,17 @@ import { useCamarasStore } from '../store/camaras'
 import { useNow } from '../lib/useNow'
 import { estaVencido, colorEstadoGrupo } from '../lib/estadoGrupo'
 import { nombreCamara, fechaHora, type FilaDescongelado } from '../lib/camaras'
-import { badgeDescongelado, UMBRAL_ARRANQUES_HORA, type TipoAviso } from '../lib/frases'
-import { agruparCompresores, equipoDe, horasTxt, prepararAvisos, filasAvisos, filasCompresores, filasDescongelados } from '../lib/historial'
+import { badgeDescongelado, fraseEvento, UMBRAL_ARRANQUES_HORA, type TipoAviso } from '../lib/frases'
+import { alarmasActivasVista, periodosAlarma } from '../lib/alarmas'
+import { agruparCompresores, duracionTxt, equipoDe, horasTxt, prepararAvisos, filasEventos, filasAlarmas, filasCompresores, filasDescongelados } from '../lib/historial'
 import { downloadXlsx } from '../lib/xlsx'
 import { cn } from '../lib/utils'
 import { Icono } from '../components/Icono'
 
 const PESTANAS = [
   { id: 'descongelados', label: 'Descongelados' },
-  { id: 'avisos', label: 'Avisos' },
+  { id: 'alarmas', label: 'Alarmas' },
+  { id: 'eventos', label: 'Eventos' },
   { id: 'compresores', label: 'Compresores' },
 ]
 const C = (k: string) => colorEstadoGrupo(k).fondo
@@ -32,14 +34,17 @@ export default function Historial() {
   const estado = useCamarasStore(s => s.estado)
   const recibidoEn = useCamarasStore(s => s.recibidoEn)
   const fresco = !estaVencido(recibidoEn, useNow(5000))
-  const ruta = pestana === 'avisos' ? 'eventos' : pestana
+  const ruta = pestana === 'alarmas' ? 'eventos' : pestana
   const { data, error, cargando } = useDatos<any>(ruta, r.desde, r.hasta, r.camara)
   const comp = useMemo(() => (pestana === 'compresores' ? agruparCompresores(data ?? []) : []), [pestana, data])
-  const avisos = useMemo(() => (pestana === 'avisos' ? prepararAvisos(data ?? [], estado, fresco) : []), [pestana, data, estado, fresco])
+  const avisos = useMemo(() => (pestana === 'eventos' ? prepararAvisos(data ?? [], estado, fresco) : []), [pestana, data, estado, fresco])
+  const periodos = useMemo(() => (pestana === 'alarmas' ? periodosAlarma(data ?? []) : []), [pestana, data])
+  const cargado = !!data && !error
+  const activas = pestana === 'alarmas' && fresco && estado ? alarmasActivasVista(estado, cargado ? data : []) : []
   if (!PESTANAS.some(p => p.id === pestana)) return <Navigate to="/historial/descongelados" replace />
   const lista: any[] = data ?? []
   const filas = pestana === 'descongelados' ? filasDescongelados(lista as FilaDescongelado[])
-    : pestana === 'avisos' ? filasAvisos(avisos) : filasCompresores(comp)
+    : pestana === 'eventos' ? filasEventos(avisos) : pestana === 'alarmas' ? filasAlarmas(periodos) : filasCompresores(comp)
   const maxH = Math.max(1, ...comp.map(c => c.horas))
 
   return (
@@ -55,6 +60,17 @@ export default function Historial() {
         ))}
       </div>
       <Filtros r={r} set={setR} />
+      {pestana === 'alarmas' && (!fresco || !estado
+        ? <div className="rounded-lg border bg-muted px-3 py-2 text-sm text-muted-foreground">Sin datos del PLC</div>
+        : activas.length === 0
+          ? <div className="rounded-lg border border-green-600 bg-green-50 px-3 py-2 text-sm font-semibold text-green-700">Sin alarmas activas</div>
+          : <ul className="rounded-lg border-2 border-red-600 bg-red-50 px-3 py-2 space-y-1">
+              {activas.map(a => <li key={a.clave} className="text-sm text-red-700">
+                <span className="font-semibold">{a.titulo}</span>
+                {a.accion && <span> · {a.accion}</span>}
+                {cargado && <span className="text-xs"> · {a.desde ? `desde ${dia(a.desde)} ${hm(a.desde)}` : 'desde antes de este período'}</span>}
+              </li>)}
+            </ul>)}
       <div className="rounded-lg border bg-card">
         {cargando && !data ? <div className="text-center text-sm text-muted-foreground py-8">Cargando…</div> : <>
           <SinDatos error={error} vacio={!!data && lista.length === 0} />
@@ -70,7 +86,15 @@ export default function Historial() {
                 <span className="text-xs text-white rounded-full px-2 py-0.5 whitespace-nowrap" style={{ background: COLOR_BADGE[b.etiqueta] }}>{b.etiqueta}</span>
               </Fila>
             })}
-            {pestana === 'avisos' && avisos.map((f, i) => (
+            {pestana === 'alarmas' && periodos.map((p, i) => (
+              <Fila key={i}>
+                <div className="min-w-0 flex-1 text-sm">{fraseEvento(p.frase, 1)}
+                  <div className="text-xs text-muted-foreground">{dia(p.inicio)} {hm(p.inicio)} → {p.fin === null ? 'sigue activa' : `${dia(p.fin)} ${hm(p.fin)}`}</div>
+                </div>
+                <span className={cn('text-xs whitespace-nowrap', p.fin === null ? 'font-semibold text-red-600' : 'text-muted-foreground')}>{p.duracionMin === null ? 'sigue activa' : duracionTxt(p.duracionMin)}</span>
+              </Fila>
+            ))}
+            {pestana === 'eventos' && avisos.map((f, i) => (
               <Fila key={i}>
                 <div className="text-sm font-medium w-12 shrink-0">{hm(f.ts)}</div>
                 {f.maniobra ? <span className="mt-0.5 shrink-0 text-muted-foreground" title="Maniobra desde el portal"><Icono nombre="manual" size={18} /></span>

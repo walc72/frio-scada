@@ -136,6 +136,7 @@ export default function App() {
                 <Route path="/" element={<General />} />
                 <Route path="/camara/:c" element={<Camara />} />
                 {Object.entries(RUTAS_VIEJAS).map(([de, a]) => <Route key={de} path={de} element={<Navigate to={a} replace />} />)}
+                <Route path="/historial/avisos" element={<Navigate to="/historial/eventos" replace />} />
                 <Route path="/historial/:pestana?" element={<Historial />} />
                 <Route path="/mas" element={<Mas />} />
                 <Route path="/avisos" element={<Avisos />} />

@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest'
-import { agruparCompresores, filasCompresores, filasDescongelados, filasAvisos, prepararAvisos } from './historial'
+import { agruparCompresores, filasCompresores, filasDescongelados, filasEventos, prepararAvisos, filasAlarmas, duracionTxt } from './historial'
 
 describe('agruparCompresores', () => {
   const r = agruparCompresores([
@@ -34,7 +34,7 @@ describe('filas de exportación', () => {
     .toEqual([{ Cámara: 'Cámara 4', Equipo: 'Equipo 2', 'Horas en marcha': 3, Arranques: 4, 'Máximo de arranques por hora': 2, 'Horas sin datos': 0 }]))
   test('descongelados', () => expect(filasDescongelados([{ camara: 'C4', horario: 'H1', etapa: 1, grupos: 'G1,G3', inicio: 0, fin: 1, duracionS: 1, cortados: '', saltado: false, noEjecutada: false }])[0])
     .toMatchObject({ Cámara: 'Cámara 4', Equipos: '1,3', Resultado: 'completo', Motivo: 'Terminó normalmente' }))
-  test('avisos', () => expect(filasAvisos(prepararAvisos([{ ts: 0, texto: 'C4 G1 MODO MANUAL', estado: 1 }], null, false))[0])
+  test('avisos', () => expect(filasEventos(prepararAvisos([{ ts: 0, texto: 'C4 G1 MODO MANUAL', estado: 1 }], null, false))[0])
     .toMatchObject({ Tipo: 'Acción de un operario', Aviso: 'Equipo 1 pasó a manual', 'Sigue activo': '' }))
 })
 
@@ -59,3 +59,14 @@ describe('contarDescongelados', () => {
   })
   test('vacío', () => expect(contarDescongelados([])).toEqual({ hechos: 0, saltados: 0, noSeHizo: 0, cortados: 0 }))
 })
+
+describe('filasAlarmas', () => {
+  const a = { clave: 'k', frase: 'C4 G3 RESISTENCIA T.MAX', inicio: 1e12 }
+  test('abierto: sigue activa y sin duración', () => {
+    const r = filasAlarmas([{ ...a, fin: null, duracionMin: null }])[0]
+    expect(r.Fin).toBe('sigue activa'); expect(r['Duración (min)']).toBe('')
+  })
+  test('cerrado: duración en minutos', () =>
+    expect(filasAlarmas([{ ...a, fin: 1e12 + 36e5, duracionMin: 60 }])[0]['Duración (min)']).toBe(60))
+})
+test('duracionTxt', () => { expect(duracionTxt(45)).toBe('45 min'); expect(duracionTxt(135)).toBe('2 h 15 min') })
