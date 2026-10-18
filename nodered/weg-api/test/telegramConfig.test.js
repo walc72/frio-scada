@@ -90,3 +90,86 @@ test('alerts: settings gana sobre el env; env si settings está vacío; sendTele
   assert.equal(visto.url, `https://api.telegram.org/bot${FAKE}/sendMessage`);
   assert.equal(JSON.parse(visto.body).chat_id, '-5');
 });
+
+// ─── POST /telegram/chats (https simulado: nunca toca la red) ───
+async function chats(rol, body, respuesta) {
+  const orig = https.request;
+  const visto = [];
+  https.request = (url, opts, cb) => {
+    visto.push(String(url));
+    const { EventEmitter } = require('events');
+    const req = new EventEmitter();
+    req.destroy = () => {};
+    req.end = () => {
+      if (respuesta === 'red') return req.emit('error', new Error('ECONNREFUSED'));
+      const res = new EventEmitter(); res.statusCode = respuesta.status || 200; cb(res);
+      res.emit('data', JSON.stringify(respuesta.json)); res.emit('end');
+    };
+    return req;
+  };
+  const app = express();
+  app.use(express.json());
+  app.use((req, res, next) => { req.auth = { role: rol, user: 'x' }; next(); });
+  app.use('/api/settings', settingsRoutes);
+  const srv = app.listen(0);
+  const url = `http://127.0.0.1:${srv.address().port}/api/settings/telegram/chats`;
+  const realFetch = fetch;
+  try {
+    const r = await realFetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    return { status: r.status, body: await r.json(), visto };
+  } finally { srv.close(); https.request = orig; }
+}
+const upd = (id, extra) => ({ update_id: id, ...extra });
+
+test('chats: únicos, el más nuevo primero, tipos mapeados y sin offset', async () => {
+  reset();
+  settings.setTelegram({ token: FAKE });
+  const json = { ok: true, result: [
+    upd(1, { message: { chat: { id: -100, type: 'supergroup', title: 'Planta' }, text: 'secreto' } }),
+    upd(2, { message: { chat: { id: 7, type: 'private', first_name: 'Ana', last_name: 'Paz' } } }),
+    upd(3, { channel_post: { chat: { id: -200, type: 'channel', title: 'Avisos' } } }),
+    upd(4, { my_chat_member: { chat: { id: -100, type: 'group', title: 'Planta' } } }),
+    upd(5, { edited_message: { chat: { id: 8, type: 'private', username: 'bob' } } }),
+  ] };
+  const r = await chats('admin', {}, { json });
+  assert.equal(r.status, 200);
+  assert.deepEqual(r.body.chats, [
+    { id: 8, tipo: 'privado', nombre: 'bob' },
+    { id: -100, tipo: 'grupo', nombre: 'Planta' },
+    { id: -200, tipo: 'canal', nombre: 'Avisos' },
+    { id: 7, tipo: 'privado', nombre: 'Ana Paz' },
+  ]);
+  assert.ok(!JSON.stringify(r.body).includes(FAKE) && !JSON.stringify(r.body).includes('secreto'));
+  assert.deepEqual(r.visto, [`https://api.telegram.org/bot${FAKE}/getUpdates`]);
+});
+
+test('chats: el token del body gana al guardado; uno inválido se ignora', async () => {
+  reset();
+  settings.setTelegram({ token: FAKE });
+  const json = { ok: true, result: [] };
+  assert.deepEqual((await chats('admin', { token: FAKE2 }, { json })).visto, [`https://api.telegram.org/bot${FAKE2}/getUpdates`]);
+  assert.deepEqual((await chats('admin', { token: 'basura' }, { json })).visto, [`https://api.telegram.org/bot${FAKE}/getUpdates`]);
+});
+
+test('chats: sin token 400; 401 -> 400; otro error -> 502; red caída -> 502; no admin 403', async () => {
+  reset();
+  let r = await chats('admin', {}, { json: { ok: true, result: [] } });
+  assert.equal(r.status, 400);
+  assert.equal(r.body.error, 'Primero cargá el token del bot');
+  assert.equal(r.visto.length, 0);
+
+  r = await chats('admin', { token: FAKE }, { status: 401, json: { ok: false, error_code: 401, description: 'Unauthorized' } });
+  assert.equal(r.status, 400);
+  assert.equal(r.body.error, 'El token no es válido');
+  assert.ok(!JSON.stringify(r.body).includes(FAKE));
+
+  r = await chats('admin', { token: FAKE }, { status: 409, json: { ok: false, error_code: 409, description: 'Conflict: webhook activo' } });
+  assert.equal(r.status, 502);
+  assert.equal(r.body.error, 'Conflict: webhook activo');
+
+  r = await chats('admin', { token: FAKE }, 'red');
+  assert.equal(r.status, 502);
+  assert.equal(r.body.error, 'No se pudo hablar con Telegram');
+
+  assert.equal((await chats('operador', { token: FAKE }, { json: { ok: true, result: [] } })).status, 403);
+});
