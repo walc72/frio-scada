@@ -12,14 +12,14 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '.
 import { Dialog, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogTrigger } from '../components/ui/dialog'
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '../components/ui/select'
 import CamarasTab from './CamarasTab'
-import { Plus, Trash2, Pencil, Save, X, ChevronRight, RotateCcw, ScanSearch, Loader2, Mail, Lock } from 'lucide-react'
+import { Plus, Trash2, Pencil, Save, X, ChevronRight, RotateCcw, ScanSearch, Loader2, Mail, Lock, Search } from 'lucide-react'
 import { toast } from 'sonner'
 import BrandingTab from './BrandingTab'
 import ConexionTab from './ConexionTab'
 import ReplicasTab from './ReplicasTab'
 import { useServerStore } from '../store/server'
 import { ZONA } from '../lib/camaras'
-import { errorToken, errorChat } from '../lib/telegram'
+import { errorToken, errorChat, TG_TIPO, type TgChat } from '../lib/telegram'
 
 const API_BASE = (import.meta.env.VITE_API_BASE as string) || '/api'
 const MODE = (import.meta.env.VITE_DATA_MODE as string) || 'mock'
@@ -175,6 +175,9 @@ function TelegramTab() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [testing, setTesting] = useState(false)
+  const [buscando, setBuscando] = useState(false)
+  const [chats, setChats] = useState<TgChat[] | null>(null)
+  const [chatsErr, setChatsErr] = useState('')
 
   useEffect(() => {
     (async () => {
@@ -210,6 +213,19 @@ function TelegramTab() {
     finally { setSaving(false) }
   }
 
+  // Lista los chats que vio el bot. Manda el token solo si el usuario escribió uno.
+  async function buscar() {
+    setBuscando(true); setChatsErr('')
+    try {
+      if (MODE === 'mock') { setChats([{ id: -1001234567, tipo: 'grupo', nombre: 'Planta (demo)' }]); return }
+      const r = await authFetch(`${API_BASE}/settings/telegram/chats`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(token.trim() ? { token: token.trim() } : {}) })
+      const d = await r.json().catch(() => null)
+      if (!r.ok) throw new Error(d?.error || `HTTP ${r.status}`)
+      setChats(d.chats || [])
+    } catch (e: any) { setChats(null); setChatsErr(e.message) }
+    finally { setBuscando(false) }
+  }
+
   // Prueba con lo guardado: si hay cambios sin guardar, los guarda antes.
   async function probar() {
     if (!(await save())) return
@@ -241,6 +257,29 @@ function TelegramTab() {
           <Label>Chat ID</Label>
           <Input value={chatId} onChange={e => setChatId(e.target.value)} autoComplete="off" placeholder="-1001234567 o @micanal" />
         </div>
+        <p className="text-sm text-muted-foreground">Agregá el bot al grupo y escribí /start@NombreDelBot en el grupo (o mandale /start al bot si es para vos). Después tocá Buscar.</p>
+        <Button size="sm" variant="outline" disabled={buscando} onClick={buscar}>
+          {buscando ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Search className="h-3.5 w-3.5 mr-1" />}
+          Buscar chats del bot
+        </Button>
+        {chatsErr && <p className="text-xs text-destructive">{chatsErr}</p>}
+        {chats && chats.length === 0 && <p className="text-sm text-muted-foreground">El bot todavía no vio ningún chat. Escribí /start@NombreDelBot en el grupo y volvé a buscar.</p>}
+        {chats && chats.length > 0 && (
+          <ul className="divide-y rounded border">
+            {chats.map(c => (
+              <li key={c.id} className="flex items-center gap-2 p-2">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="font-medium text-sm truncate min-w-0">{c.nombre}</span>
+                    <Badge variant="secondary" className="shrink-0">{TG_TIPO[c.tipo]}</Badge>
+                  </div>
+                  <code className="text-xs text-muted-foreground break-all">{c.id}</code>
+                </div>
+                <Button size="sm" variant="outline" className="shrink-0" onClick={() => setChatId(String(c.id))}>Usar este</Button>
+              </li>
+            ))}
+          </ul>
+        )}
         {err && <p className="text-xs text-destructive">{err}</p>}
         <ol className="text-sm text-muted-foreground list-decimal pl-5 space-y-1">
           <li>Creá el bot con @BotFather (<code>/newbot</code>) y copiá el token.</li>

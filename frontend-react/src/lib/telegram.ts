@@ -4,3 +4,6 @@ export const errorToken = (t: string): string | null =>
 
 export const errorChat = (c: string): string | null =>
   /^(-?\d+|@\w{5,})$/.test(c.trim()) ? null : 'El chat ID es un número (puede ser negativo) o @canal'
+
+export type TgChat = { id: number; tipo: 'grupo' | 'privado' | 'canal'; nombre: string }
+export const TG_TIPO: Record<TgChat['tipo'], string> = { grupo: 'Grupo', privado: 'Privado', canal: 'Canal' }

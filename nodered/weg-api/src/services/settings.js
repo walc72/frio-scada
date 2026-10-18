@@ -313,6 +313,6 @@ function mandoUserId(user) {
 
 module.exports = {
   ROLES, mandoUserId, listUsers, getUsersFull, findUser, createUser, updateUser, deleteUser, setSuperadmin,
-  getSmtpPublic, getSmtpFull, smtpTransportOptions, setSmtp, getTelegramPublic, getTelegramFull, setTelegram, getDailyReport, setDailyReport,
+  getSmtpPublic, getSmtpFull, smtpTransportOptions, setSmtp, getTelegramPublic, getTelegramFull, setTelegram, TG_TOKEN_RE, getDailyReport, setDailyReport,
   hashPassword, SETTINGS_PATH,
 };

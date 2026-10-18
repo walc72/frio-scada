@@ -82,6 +82,17 @@ router.post('/telegram', (req, res) => {
   } catch (e) { fail(res, e); }
 });
 
+// POST { token? }: chats que vio el bot (para elegir el chat ID sin armar la URL a mano).
+// Usa el token del body si es válido; si no, el guardado. Solo devuelve id/tipo/nombre.
+router.post('/telegram/chats', async (req, res) => {
+  const t = req.body && typeof req.body.token === 'string' ? req.body.token.trim() : '';
+  const token = t && settings.TG_TOKEN_RE.test(t) ? t : settings.getTelegramFull().token;
+  if (!token) return res.status(400).json({ error: 'Primero cargá el token del bot' });
+  try {
+    res.json({ chats: await require('../services/alerts').buscarChats(token) });
+  } catch (e) { fail(res, e); }
+});
+
 // ─── Reporte diario: hora de envío ───────────────────────────────────
 // (require diferido: dailyReport arrastra el generador de reportes/PDF)
 const dailyReportInfo = () => {
