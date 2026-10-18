@@ -1,5 +1,4 @@
 import { useMemo, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { Card } from '../components/ui/card'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
@@ -76,7 +75,7 @@ export default function Programacion() {
   return (
     <div className="max-w-2xl space-y-3">
       <div className="sticky -top-3 z-10 -mx-3 -mt-3 flex flex-wrap items-center gap-2 border-b bg-background px-3 pb-2 pt-5 sm:-top-6 sm:-mx-6 sm:-mt-6 sm:px-6 sm:pt-8">
-        <Link to="/mas" className="text-sm underline">Más</Link><span className="text-muted-foreground">/</span><h1 className="text-[18px] font-semibold">Programación</h1>
+        <h1 className="text-[18px] font-semibold">Programación de descongelados</h1>
         {/* Guardar arriba y fijo al hacer scroll: no tapa los campos */}
         <Button className="ml-auto h-auto py-2" variant={listos.length ? 'default' : 'outline'} disabled={off || listos.length === 0 || malos.size > 0} onClick={() => { setHechos([]); setTotal(0); setAbierto(true) }}>
           {lista.length === 0 ? 'Guardar (sin cambios)' : malos.size ? `Revisá los valores en rojo (${[...camMalas.map(nombreCamara), ...(ajusteMalo ? ['ajustes'] : [])].join(' y ')})` : `Guardar ${listos.length} ${listos.length === 1 ? 'cambio' : 'cambios'}`}
