@@ -98,7 +98,12 @@ export default function TrendEquipos({ tramos, filas, horarios, camara, dia0, ah
             )
           })}
           {horarios.filter(h => h.estado !== 'mal configurado' && Math.abs(x(dia0 + h.min * 60000) - x(ahora)) >= 40).map(h => (
-            <text key={h.h} x={x(dia0 + h.min * 60000)} y={12} textAnchor="middle" fontSize={10} className="fill-emerald-700 dark:fill-emerald-400">▼ {h.hora}</text>
+            // La punta del triángulo y la línea punteada marcan la hora exacta (el texto va centrado arriba)
+            <g key={h.h} className="fill-emerald-700 stroke-emerald-700 dark:fill-emerald-400 dark:stroke-emerald-400">
+              <text x={x(dia0 + h.min * 60000)} y={9} textAnchor="middle" fontSize={10} stroke="none">{h.hora}</text>
+              <polygon points={`${x(dia0 + h.min * 60000) - 4},12 ${x(dia0 + h.min * 60000) + 4},12 ${x(dia0 + h.min * 60000)},18`} stroke="none" />
+              <line x1={x(dia0 + h.min * 60000)} x2={x(dia0 + h.min * 60000)} y1={18} y2={Y0 + GRUPOS.length * RH} strokeWidth={1} strokeDasharray="2 3" opacity={0.6} />
+            </g>
           ))}
           <line x1={x(ahora)} x2={x(ahora)} y1={Y0 - 6} y2={Y0 + GRUPOS.length * RH} stroke="#dc2626" strokeWidth={1.5} />
           <text x={x(ahora)} y={Y0 - 9} textAnchor="middle" fontSize={10} fill="#dc2626">ahora</text>
