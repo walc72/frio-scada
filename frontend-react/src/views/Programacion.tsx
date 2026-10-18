@@ -75,7 +75,13 @@ export default function Programacion() {
 
   return (
     <div className="max-w-2xl space-y-3">
-      <div className="flex items-center gap-2"><Link to="/mas" className="text-sm underline">Más</Link><span className="text-muted-foreground">/</span><h1 className="text-[18px] font-semibold">Programación</h1></div>
+      <div className="sticky top-0 z-10 -mx-3 flex flex-wrap items-center gap-2 border-b bg-background px-3 py-2 sm:-mx-6 sm:px-6">
+        <Link to="/mas" className="text-sm underline">Más</Link><span className="text-muted-foreground">/</span><h1 className="text-[18px] font-semibold">Programación</h1>
+        {/* Guardar arriba y fijo al hacer scroll: no tapa los campos */}
+        <Button className="ml-auto h-auto py-2" variant={listos.length ? 'default' : 'outline'} disabled={off || listos.length === 0 || malos.size > 0} onClick={() => { setHechos([]); setTotal(0); setAbierto(true) }}>
+          {lista.length === 0 ? 'Guardar (sin cambios)' : malos.size ? `Revisá los valores en rojo (${[...camMalas.map(nombreCamara), ...(ajusteMalo ? ['ajustes'] : [])].join(' y ')})` : `Guardar ${listos.length} ${listos.length === 1 ? 'cambio' : 'cambios'}`}
+        </Button>
+      </div>
       {!permiso.ok && <div role="alert" className="rounded-md bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-400">{permiso.motivo}</div>}
       {!estado && <div className="text-sm text-muted-foreground">Sin datos todavía</div>}
 
@@ -124,11 +130,6 @@ export default function Programacion() {
         <div className="text-xs text-muted-foreground">Los ajustes valen para las dos cámaras. Horas: de 0 a 999. 0 en el tope de la resistencia = sin tope.</div>
       </Card>
 
-      <div className="sticky bottom-[calc(4.5rem+env(safe-area-inset-bottom))] md:bottom-2">
-        <Button className="h-auto py-2 w-full text-base shadow-lg" disabled={off || listos.length === 0 || malos.size > 0} onClick={() => { setHechos([]); setTotal(0); setAbierto(true) }}>
-          {lista.length === 0 ? 'Guardar (sin cambios)' : malos.size ? `Revisá los valores en rojo (${[...camMalas.map(nombreCamara), ...(ajusteMalo ? ['ajustes'] : [])].join(' y ')})` : `Guardar ${listos.length} ${listos.length === 1 ? 'cambio' : 'cambios'}`}
-        </Button>
-      </div>
 
       <Confirmar abierto={abierto} enviando={corriendo}
         frase={total === 0 ? `¿Guardar ${listos.length} ${listos.length === 1 ? 'cambio' : 'cambios'} en la programación?` : corriendo ? `Guardando… ${hechos.length} de ${total}` : `Listo: ${hechos.filter(h => h.ok).length} de ${total} guardados`}
