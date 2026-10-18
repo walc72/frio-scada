@@ -89,7 +89,9 @@ export const filasCompresores = (c: Compresor[]) => c.map(x => ({
 }))
 
 export const duracionTxt = (min: number) => min >= 60 ? `${Math.floor(min / 60)} h ${min % 60} min` : `${min} min`
-export const filasAlarmas = (p: PeriodoAlarma[]) => p.map(x => ({
-  Inicio: fechaHora(x.inicio), Fin: x.fin === null ? 'sigue activa' : fechaHora(x.fin),
+// sigue(clave): la alarma sigue activa ahora y el rango termina hoy; si no, un período abierto es "sin cierre en el período"
+export const filasAlarmas = (p: PeriodoAlarma[], sigue: (clave: string) => boolean = () => false) => p.map(x => ({
+  Inicio: x.inicio === null ? 'antes del período' : fechaHora(x.inicio),
+  Fin: x.fin === null ? (sigue(x.clave) ? 'sigue activa' : 'sin cierre en el período') : fechaHora(x.fin),
   'Duración (min)': x.duracionMin ?? '', Alarma: fraseEvento(x.frase, 1),
 }))

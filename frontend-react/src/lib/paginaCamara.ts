@@ -1,4 +1,4 @@
-// Helpers puros de la página de una cámara: tramos -> segmentos de barra y horarios -> frases.
+// Helpers puros de la página de una cámara: tramos y horarios -> frases.
 import type { Estado } from '../store/camaras'
 import { HORARIOS, DESVIO_MAX_S, txt, num, aMin, minutoDelDia, minutoAhora, type FilaDescongelado } from './camaras'
 import { badgeDescongelado } from './frases'
@@ -13,18 +13,8 @@ export const COLOR_TRAMO: Record<EstadoTramo, string> = { frio: colorEstadoGrupo
 export const TEXTO_TRAMO: Record<EstadoTramo, string> = { frio: 'Enfriando', descongelando: 'Descongelando', apagado: 'Apagado', 'sin-datos': 'Sin datos' }
 export const HACHURA = 'repeating-linear-gradient(45deg,#E5E7EB,#E5E7EB 3px,#D1D5DB 3px,#D1D5DB 6px)'
 
-export const pct = (min: number) => Math.min(100, Math.max(0, (min / 1440) * 100))
-
 // Un horario cuenta como de hoy si la corrida empezó hasta esto antes de su hora (deriva del reloj del PLC)
 const TOLERANCIA_MIN = DESVIO_MAX_S / 60
-
-// Tramos de un equipo -> segmentos {izq, ancho} en % del día, recortados a [dia0, ahora]
-export function segmentos(tramos: Tramo[], grupo: number, dia0: number, ahora: number) {
-  const ms = (t: number) => pct((Math.min(Math.max(t, dia0), ahora) - dia0) / 60000)
-  return tramos.filter(t => t.grupo === `G${grupo}` && t.fin > dia0 && t.inicio < ahora)
-    .map(t => ({ izq: ms(t.inicio), ancho: ms(t.fin) - ms(t.inicio), estado: t.estado }))
-    .filter(s => s.ancho > 0)
-}
 
 export type EstadoHorario = 'hecho' | 'en curso' | 'próximo' | 'pendiente' | 'sin registro' | 'ya pasó' | 'solapado' | 'mal configurado'
 export interface HorarioVista { h: number; hora: string; min: number; estado: EstadoHorario; frase: string; nota: string }

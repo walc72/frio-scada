@@ -7,7 +7,7 @@ import { useNow } from '../lib/useNow'
 import { estaVencido, colorEstadoGrupo } from '../lib/estadoGrupo'
 import { nombreCamara, fechaHora, type FilaDescongelado } from '../lib/camaras'
 import { badgeDescongelado, fraseEvento, UMBRAL_ARRANQUES_HORA, type TipoAviso } from '../lib/frases'
-import { alarmasActivasVista, periodosAlarma } from '../lib/alarmas'
+import { alarmasActivasVista, periodosAlarma, ultimoPorClave } from '../lib/alarmas'
 import { agruparCompresores, duracionTxt, equipoDe, horasTxt, prepararAvisos, filasEventos, filasAlarmas, filasCompresores, filasDescongelados } from '../lib/historial'
 import { downloadXlsx } from '../lib/xlsx'
 import { cn } from '../lib/utils'
@@ -40,12 +40,15 @@ export default function Historial() {
   const comp = useMemo(() => (pestana === 'compresores' ? agruparCompresores(data ?? []) : []), [pestana, data])
   const avisos = useMemo(() => (pestana === 'eventos' ? prepararAvisos(data ?? [], estado, fresco) : []), [pestana, data, estado, fresco])
   const periodos = useMemo(() => (pestana === 'alarmas' ? periodosAlarma(data ?? []) : []), [pestana, data])
+  const ultimos = useMemo(() => (pestana === 'alarmas' ? ultimoPorClave(data ?? []) : new Map()), [pestana, data])
   const cargado = !!data && !error && !cargando
-  const activas = pestana === 'alarmas' && fresco && estado ? alarmasActivasVista(estado, cargado ? data : []) : []
+  const finHoy = r.hasta === hoy() // "desde" y "sigue activa" solo valen si el rango llega a hoy
+  const activas = pestana === 'alarmas' && fresco && estado ? alarmasActivasVista(estado, ultimos) : []
+  const siguen = (clave: string) => finHoy && activas.some(a => a.clave === clave)
   if (!PESTANAS.some(p => p.id === pestana)) return <Navigate to="/historial/descongelados" replace />
   const lista: any[] = data ?? []
   const filas = pestana === 'descongelados' ? filasDescongelados(lista as FilaDescongelado[])
-    : pestana === 'eventos' ? filasEventos(avisos) : pestana === 'alarmas' ? filasAlarmas(periodos) : filasCompresores(comp)
+    : pestana === 'eventos' ? filasEventos(avisos) : pestana === 'alarmas' ? filasAlarmas(periodos, siguen) : filasCompresores(comp)
   const maxH = Math.max(1, ...comp.map(c => c.horas))
 
   return (
@@ -64,12 +67,12 @@ export default function Historial() {
       {pestana === 'alarmas' && (!fresco || !estado
         ? <div className="rounded-lg border bg-muted px-3 py-2 text-sm text-muted-foreground">Sin datos del PLC</div>
         : activas.length === 0
-          ? <div className="rounded-lg border border-green-600 bg-green-50 px-3 py-2 text-sm font-semibold text-green-700">Sin alarmas activas</div>
-          : <ul className="rounded-lg border-2 border-red-600 bg-red-50 px-3 py-2 space-y-1">
-              {activas.map(a => <li key={a.clave} className="text-sm text-red-700">
+          ? <div className="rounded-lg border border-green-600 bg-green-50 px-3 py-2 text-sm font-semibold text-green-800 dark:bg-green-950 dark:text-green-300">Sin alarmas activas</div>
+          : <ul className="rounded-lg border-2 border-red-600 bg-red-50 px-3 py-2 space-y-1 dark:bg-red-950">
+              {activas.map(a => <li key={a.clave} className="text-sm text-red-900 dark:text-red-200">
                 <span className="font-semibold">{a.titulo}</span>
                 {a.accion && <span> · {a.accion}</span>}
-                {cargado && (!r.camara || a.clave.startsWith(`${r.camara}.`)) && <span className="text-xs"> · {a.desde ? `desde ${dia(a.desde)} ${hm(a.desde)}` : 'desde antes de este período'}</span>}
+                {cargado && finHoy && (!r.camara || a.clave.startsWith(`${r.camara}.`)) && <span className="text-xs"> · {a.desde ? `desde ${dia(a.desde)} ${hm(a.desde)}` : 'desde antes de este período'}</span>}
               </li>)}
             </ul>)}
       <div className="rounded-lg border bg-card">
@@ -90,9 +93,9 @@ export default function Historial() {
             {pestana === 'alarmas' && periodos.map((p, i) => (
               <Fila key={i}>
                 <div className="min-w-0 flex-1 text-sm">{fraseEvento(p.frase, 1)}
-                  <div className="text-xs text-muted-foreground">{dia(p.inicio)} {hm(p.inicio)} → {p.fin === null ? '…' : `${dia(p.fin)} ${hm(p.fin)}`}</div>
+                  <div className="text-xs text-muted-foreground">{p.inicio === null ? 'antes del período' : `${dia(p.inicio)} ${hm(p.inicio)}`} → {p.fin === null ? '…' : p.inicio === null ? hm(p.fin) : `${dia(p.fin)} ${hm(p.fin)}`}</div>
                 </div>
-                <span className={cn('text-xs whitespace-nowrap', p.fin === null ? 'font-semibold text-red-600' : 'text-muted-foreground')}>{p.duracionMin === null ? 'sigue activa' : duracionTxt(p.duracionMin)}</span>
+                <span className={cn('text-xs whitespace-nowrap', p.fin === null && siguen(p.clave) ? 'font-semibold text-red-600' : 'text-muted-foreground')}>{p.duracionMin !== null ? duracionTxt(p.duracionMin) : p.fin !== null ? '' : siguen(p.clave) ? 'sigue activa' : 'sin cierre en el período'}</span>
               </Fila>
             ))}
             {pestana === 'eventos' && avisos.map((f, i) => (

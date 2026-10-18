@@ -26,6 +26,13 @@ export default function TrendEquipos({ tramos, filas, horarios, camara, dia0, ah
     return () => ro.disconnect()
   }, [tramos, error])
 
+  // Con el dedo la tarjeta queda al levantarlo; se oculta tocando fuera del gráfico
+  useEffect(() => {
+    const fuera = (e: PointerEvent) => { if (!svg.current?.contains(e.target as Node)) setCur(null) }
+    document.addEventListener('pointerdown', fuera)
+    return () => document.removeEventListener('pointerdown', fuera)
+  }, [])
+
   // El ancho de la tarjeta se conoce recién al dibujarla: se posiciona antes de pintar
   useLayoutEffect(() => {
     const t = tarjeta.current, c = caja.current
@@ -52,8 +59,8 @@ export default function TrendEquipos({ tramos, filas, horarios, camara, dia0, ah
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [minuto, tramos, filas, camara, minutosPlan])
 
-  if (error) return <Card className="p-4 rounded-2xl text-sm text-muted-foreground">No se pudo cargar el gráfico</Card>
-  if (!tramos) return <Card className="p-4 rounded-2xl text-sm text-muted-foreground">Cargando…</Card>
+  if (error) return <Card className="p-3 rounded-xl text-sm text-muted-foreground">No se pudo cargar el gráfico</Card>
+  if (!tramos) return <Card className="p-3 rounded-xl text-sm text-muted-foreground">Cargando…</Card>
 
   const paso = ancho < 480 ? 4 : 2
   const d = det?.descongelado
@@ -61,12 +68,12 @@ export default function TrendEquipos({ tramos, filas, horarios, camara, dia0, ah
   const nCam = camara.replace(/\D/g, '')
 
   return (
-    <Card className="p-4 space-y-3 rounded-2xl">
+    <Card className="p-3 space-y-3 rounded-xl">
       <div className="font-semibold">Qué hizo cada equipo hoy</div>
       <div ref={caja} className="relative">
         <svg ref={svg} viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block', touchAction: 'pan-y' }}
           role="img" aria-label={`Qué hizo cada equipo de la cámara ${nCam} hoy, de 00:00 a 24:00: enfriando, descongelando, apagado o sin datos`}
-          onPointerDown={mover} onPointerMove={mover} onPointerLeave={ocultar} onPointerCancel={ocultar}>
+          onPointerDown={mover} onPointerMove={mover} onPointerLeave={e => { if (e.pointerType !== 'touch') ocultar() }} onPointerCancel={ocultar}>
           <defs>
             <pattern id={idHachura} width={6} height={6} patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
               <rect width={6} height={6} fill="#E5E7EB" /><rect width={3} height={6} fill="#D1D5DB" />

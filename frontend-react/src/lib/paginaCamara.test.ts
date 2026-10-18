@@ -1,31 +1,11 @@
 import { describe, test, expect } from 'vitest'
 import type { Estado } from '../store/camaras'
 import type { FilaDescongelado } from './camaras'
-import { segmentos, horariosVista, repartoTexto, pct, aTramos, type Tramo } from './paginaCamara'
+import { horariosVista, repartoTexto, aTramos, type Tramo } from './paginaCamara'
 
 const DIA0 = Date.UTC(2026, 9, 16, 3, 0) // 00:00 de planta
 const AHORA = Date.UTC(2026, 9, 16, 15, 0) // 12:00 de planta
 const t = (g: string, a: number, b: number, estado: Tramo['estado']): Tramo => aTramos([{ camara: 'C4', grupo: g, inicio: new Date(DIA0 + a * 6e4).toISOString(), fin: new Date(DIA0 + b * 6e4).toISOString(), estado }])[0]
-
-describe('segmentos', () => {
-  test('muestra con la forma real de la API (ISO)', () => {
-    const tr = aTramos(JSON.parse('[{"camara":"C4","grupo":"G1","inicio":"2026-10-16T11:00:02.646Z","fin":"2026-10-16T11:05:34.895Z","estado":"descongelando"}]'))
-    const s = segmentos(tr, 1, DIA0, AHORA)
-    expect(s).toHaveLength(1)
-    expect(s[0].izq).toBeCloseTo(pct(480.04), 1)
-    expect(s[0].ancho).toBeCloseTo(pct(5.54), 1)
-    expect(Number.isNaN(s[0].izq)).toBe(false)
-  })
-  test('porcentajes del día y recorte a ahora y a 00:00', () => {
-    const s = segmentos([t('G1', -60, 360, 'frio'), t('G1', 360, 400, 'descongelando'), t('G1', 700, 900, 'frio'), t('G2', 0, 100, 'frio')], 1, DIA0, AHORA)
-    expect(s).toHaveLength(3)
-    expect(s[0]).toMatchObject({ izq: 0, estado: 'frio' })
-    expect(s[0].ancho).toBeCloseTo(25)
-    expect(s[1].izq).toBeCloseTo(25)
-    expect(s[2].izq + s[2].ancho).toBeCloseTo(pct(720))
-  })
-  test('sin tramos', () => expect(segmentos([], 1, DIA0, AHORA)).toEqual([]))
-})
 
 const E: Estado = {
   'C4.H1.estado': 'PROGRAMADO', 'C4.H1.hora': '04:00',

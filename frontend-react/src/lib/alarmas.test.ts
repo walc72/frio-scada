@@ -1,7 +1,7 @@
 import { describe, test, expect } from 'vitest'
 import type { Estado } from '../store/camaras'
 import { claveAlarmaDeEvento } from './frases'
-import { desdeAlarma, periodosAlarma, esEventoDeAlarma, alarmasActivasVista } from './alarmas'
+import { desdeAlarma, periodosAlarma, alarmasActivasVista, ultimoPorClave } from './alarmas'
 
 const t = (hm: string) => Date.parse(`2026-10-17T${hm}:00-03:00`)
 const ev = [
@@ -20,10 +20,10 @@ describe('alarmas', () => {
     expect(claveAlarmaDeEvento('RELOJ DEL PLC INVALIDO')).toBe('alarma_reloj')
   })
   test('desde = la última aparición sin cierre posterior', () => {
-    expect(desdeAlarma(ev, 'C5.G4.alarma_sin_desc')).toBe(t('14:20'))
+    expect(desdeAlarma(ultimoPorClave(ev), 'C5.G4.alarma_sin_desc')).toBe(t('14:20'))
   })
   test('sin evento de hoy → null ("desde antes de hoy")', () => {
-    expect(desdeAlarma(ev, 'C5.G1.alarma_res')).toBeNull()
+    expect(desdeAlarma(ultimoPorClave(ev), 'C5.G1.alarma_res')).toBeNull()
   })
   test('aparece, se resuelve y vuelve: dos períodos, el último sigue activo', () => {
     const p = periodosAlarma(ev)
@@ -31,18 +31,27 @@ describe('alarmas', () => {
     expect(p[0]).toMatchObject({ inicio: t('14:20'), fin: null, duracionMin: null })
     expect(p[1]).toMatchObject({ inicio: t('09:00'), fin: t('10:00'), duracionMin: 60 })
   })
-  test('las maniobras y los cambios de modo no son eventos de alarma', () => {
-    expect(ev.filter(esEventoDeAlarma)).toHaveLength(3)
+  test('cierre sin inicio en los eventos cargados: período con inicio null', () => {
+    const p = periodosAlarma([{ ts: t('08:00'), texto: 'C5 G4 SIN DESCONGELAR', estado: 0 }, { ts: t('08:30'), texto: 'C5 G4 SIN DESCONGELAR', estado: 0 }])
+    expect(p).toHaveLength(1)
+    expect(p[0]).toMatchObject({ inicio: null, fin: t('08:00'), duracionMin: null })
+  })
+  test('las maniobras y los cambios de modo no entran en los períodos', () => {
+    expect(periodosAlarma(ev)).toHaveLength(2)
   })
   test('vista de activas con desde', () => {
     const estado = { 'C5.G4.alarma_sin_desc': 1 } as Estado
-    const a = alarmasActivasVista(estado, ev, 'C5')
+    const a = alarmasActivasVista(estado, ultimoPorClave(ev), 'C5')
     expect(a).toHaveLength(1)
     expect(a[0]).toMatchObject({ clave: 'C5.G4.alarma_sin_desc', desde: t('14:20') })
     expect(a[0].titulo).toMatch(/^Equipo 4: /)
   })
+  test('con cámara también salen las alarmas de la planta, no las de otra cámara', () => {
+    const e = { 'C4.alarma_manual': 1, 'C5.alarma_manual': 1, alarma_reloj: 1 } as Estado
+    expect(alarmasActivasVista(e, new Map(), 'C5').map(x => x.clave).sort()).toEqual(['C5.alarma_manual', 'alarma_reloj'])
+  })
   test('títulos de cámara y PLC', () => {
-    const a = alarmasActivasVista({ 'C5.alarma_manual': 1, alarma_reloj: 1 } as Estado, [])
+    const a = alarmasActivasVista({ 'C5.alarma_manual': 1, alarma_reloj: 1 } as Estado, new Map())
     expect(a.map(x => x.titulo.split(':')[0]).sort()).toEqual(['Cámara 5', 'PLC'])
   })
 })

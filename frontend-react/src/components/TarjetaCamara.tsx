@@ -18,7 +18,7 @@ export default function TarjetaCamara({ cam }: { cam: string }) {
   const f = estado && !vencido && !incompatible ? fraseCamara(estado, cam, ahora) : null
   const hayDatos = !!f && f.nivel !== 'sin-datos'
   const alarma = f?.nivel === 'alarma'
-  const nAlarmas = estado && !vencido && !incompatible ? alarmasActivas(estado, cam).length : 0
+  const nAlarmas = estado && !vencido && !incompatible ? alarmasActivas(estado).filter(a => !a.c || a.c === cam).length : 0
   const badge = hayDatos ? badgeCamara(estado!, cam, f!.nivel) : null
   return (
     <Link to={`/camara/${cam}`} className="block">

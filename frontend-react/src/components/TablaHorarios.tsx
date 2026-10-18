@@ -30,7 +30,7 @@ export default function TablaHorarios({ estado, cam, horarios, sinDatos }: { est
   }
   return (
     <Card className="p-3 rounded-xl">
-      <div className="mb-2 text-sm font-semibold">Descongelados de hoy</div>
+      <div className="mb-2 text-sm font-semibold">Horarios de descongelado</div>
       {sinDatos ? <div className="text-sm text-muted-foreground">Sin datos</div>
         : horarios.length === 0 ? <div className="text-sm text-muted-foreground">Sin descongelados programados</div> : (
         <table className="w-full text-left text-xs sm:text-sm">
@@ -43,7 +43,7 @@ export default function TablaHorarios({ estado, cam, horarios, sinDatos }: { est
               <td className="py-1 pr-2">{etapa(x.h, 1)}</td>
               <td className="py-1" style={{ color: MARCA[x.estado].color }}>
                 <div className="flex flex-wrap items-center gap-1">
-                <span>{MARCA[x.estado].icono} {MARCA[x.estado].texto}{x.nota && ` (${x.nota})`}</span>
+                <span>{MARCA[x.estado].icono} {x.estado === 'solapado' || x.estado === 'mal configurado' ? x.frase : MARCA[x.estado].texto}{x.nota && ` (${x.nota})`}</span>
                 {x.estado === 'en curso' && <Button variant="outline" className="px-3" disabled={!permiso.ok || enviando} onClick={() => pedir({ comando: 5, camara: cam, valor: 0 })}>Saltar</Button>}
                 </div>
               </td>

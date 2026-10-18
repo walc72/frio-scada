@@ -9,7 +9,7 @@ export function useDatos<T = any>(ruta: string, desde: string, hasta: string, ca
   const [cargando, setCargando] = useState(true)
   useEffect(() => {
     let vivo = true
-    setCargando(true)
+    setCargando(true); setData(null); setError(false) // otra clave (cámara/día): no mostrar datos de la anterior; el refresco periódico no pasa por acá
     const q = new URLSearchParams(ventanaPlanta(desde, hasta))
     if (camara) q.set('camara', camara)
     const cargar = () => apiJson<T[]>(`/camaras/${ruta}?${q}`)

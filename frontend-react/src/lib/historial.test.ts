@@ -63,8 +63,16 @@ describe('contarDescongelados', () => {
 describe('filasAlarmas', () => {
   const a = { clave: 'k', frase: 'C4 G3 RESISTENCIA T.MAX', inicio: 1e12 }
   test('abierto: sigue activa y sin duración', () => {
-    const r = filasAlarmas([{ ...a, fin: null, duracionMin: null }])[0]
+    const r = filasAlarmas([{ ...a, fin: null, duracionMin: null }], () => true)[0]
     expect(r.Fin).toBe('sigue activa'); expect(r['Duración (min)']).toBe('')
+  })
+  test('abierto pero la alarma ya no está activa (otro rango): sin cierre en el período', () => {
+    expect(filasAlarmas([{ ...a, fin: null, duracionMin: null }], () => false)[0].Fin).toBe('sin cierre en el período')
+    expect(filasAlarmas([{ ...a, fin: null, duracionMin: null }], k => k === 'k')[0].Fin).toBe('sigue activa')
+  })
+  test('cierre sin inicio: antes del período', () => {
+    const r = filasAlarmas([{ ...a, inicio: null, fin: 1e12, duracionMin: null }])[0]
+    expect(r.Inicio).toBe('antes del período'); expect(r['Duración (min)']).toBe('')
   })
   test('cerrado: duración en minutos', () =>
     expect(filasAlarmas([{ ...a, fin: 1e12 + 36e5, duracionMin: 60 }])[0]['Duración (min)']).toBe(60))

@@ -8,13 +8,13 @@ import TrendEquipos from '../components/TrendEquipos'
 import EventosHoy from '../components/EventosHoy'
 import { useCamarasStore } from '../store/camaras'
 import { estaVencido } from '../lib/estadoGrupo'
-import { fraseCamara, faltanMin, badgeCamara } from '../lib/frases'
+import { fraseCamara, faltanMin, badgeCamara, proximoTexto } from '../lib/frases'
 import { CAMARAS, PLANTA_OFFSET, nombreCamara, txt, num, hhmm, diaPlanta, type FilaDescongelado } from '../lib/camaras'
 import { useNow } from '../lib/useNow'
 import { useDatos } from '../lib/useDatos'
 import { useCallback, useMemo } from 'react'
 import { aTramos, horariosVista, type TramoApi } from '../lib/paginaCamara'
-import { alarmasActivasVista, type Evento } from '../lib/alarmas'
+import { alarmasActivasVista, ultimoPorClave, type Evento } from '../lib/alarmas'
 
 const MODOS: Record<string, string> = { AUTOMATICO: 'Automático', MANUAL: 'Manual', STOP: 'Detenido' }
 
@@ -33,6 +33,7 @@ export default function Camara() {
   const tramos = useMemo(() => (tr.data ? aTramos(tr.data) : null), [tr.data])
   const minutosPlan = useCallback((h: number) => estado ? [0, 1].reduce((t, i) => t + (num(estado, `${cam}.H${h}.etapa${i}_habilitada`) === 1 ? Number(estado[`${cam}.H${h}.etapa${i}_min`]) || 0 : 0), 0) : undefined, [estado, cam])
   const ev = useDatos<Evento>('eventos', dia, dia, valida ? cam : '', 60000)
+  const ultimos = useMemo(() => ultimoPorClave(ev.data ?? []), [ev.data])
   if (!valida) return <div className="text-center text-muted-foreground py-16">Cámara inexistente. <Link className="underline" to="/">Volver</Link></div>
 
   const sinDatos = !estado || incompatible || estaVencido(recibidoEn, ahora)
@@ -43,9 +44,8 @@ export default function Camara() {
   const falta = hayDatos ? faltanMin(estado!, cam) : null
   const dia0 = Date.parse(`${dia}T00:00:00${PLANTA_OFFSET}`)
   const horarios = estado && !sinDatos ? horariosVista(estado, cam, ahora, filas.error ? null : filas.data) : []
-  const prox = horarios.find(x => x.estado === 'próximo')
   // Sin eventos cargados (cargando o con error) no se sabe desde cuándo: desde = undefined
-  const alarmas = estado && !sinDatos ? alarmasActivasVista(estado, ev.data ?? [], cam).map(a => ev.data && !ev.error ? a : { ...a, desde: undefined }) : null
+  const alarmas = estado && !sinDatos ? alarmasActivasVista(estado, ultimos, cam).map(a => ev.data && !ev.error && !ev.cargando ? a : { ...a, desde: undefined }) : null
 
   return (
     <div className="space-y-3">
@@ -56,14 +56,14 @@ export default function Camara() {
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <h1 className="text-lg font-semibold">{nombreCamara(cam)}</h1>
         {modo && <span className="text-sm text-muted-foreground">{modo}</span>}
-        {hayDatos && <span className="text-sm text-muted-foreground">{falta != null ? `faltan ${falta} min` : prox ? `Próximo descongelado ${prox.hora}` : ''}</span>}
+        {hayDatos && <span className="text-sm text-muted-foreground">{falta != null ? `faltan ${falta} min` : (p => p.startsWith('Sin') ? p : `Próximo descongelado: ${p}`)(proximoTexto(estado!, cam, ahora))}</span>}
         {badge && <Badge className="ml-auto border-transparent text-white" style={{ backgroundColor: badge.c }}>{badge.t}</Badge>}
         {!hayDatos && <span className="ml-auto text-sm text-amber-600 dark:text-amber-400">{incompatible ? 'El PLC tiene un programa viejo' : ts ? `Sin datos desde ${hhmm(ts)}` : 'Sin datos todavía'}</span>}
       </div>
       {hayDatos && <div><div className="text-sm font-semibold">{f!.titulo}</div>{f!.detalle && <div className="text-xs text-muted-foreground">{f!.detalle}</div>}</div>}
 
       <div className="grid gap-3 lg:grid-cols-[1.6fr_1fr]">
-        <TablaEquipos estado={estado} cam={cam} hayDatos={hayDatos} />
+        <TablaEquipos key={cam} estado={estado} cam={cam} hayDatos={hayDatos} />
         <div className="space-y-3">
           <PanelAlarmas alarmas={alarmas} />
           <TablaHorarios estado={estado} cam={cam} horarios={horarios} sinDatos={sinDatos} />
