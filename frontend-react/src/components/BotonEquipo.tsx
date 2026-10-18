@@ -14,7 +14,7 @@ export function BotonEquipo({ c, g }: { c: string; g: number }) {
   const eq = estado && !sinDatos ? estadoEquipo(estado, c, g) : { texto: 'Sin datos', color: '#9A9A9A', icono: 'apagado' as const }
   return (
     <div className="flex flex-col items-center gap-1">
-      <div className="flex h-12 w-12 items-center justify-center rounded-lg text-white" style={{ backgroundColor: eq.color }} role="img" aria-label={`Equipo ${g}: ${eq.texto}`}>
+      <div className="flex h-11 w-11 items-center justify-center rounded-lg text-white" style={{ backgroundColor: eq.color }} role="img" aria-label={`Equipo ${g}: ${eq.texto}`}>
         <Icono nombre={eq.icono} size={26} />
       </div>
       <span className="text-xs font-medium">{g}</span>

@@ -19,6 +19,7 @@ import ConexionTab from './ConexionTab'
 import ReplicasTab from './ReplicasTab'
 import { useServerStore } from '../store/server'
 import { ZONA } from '../lib/camaras'
+import { errorToken, errorChat } from '../lib/telegram'
 
 const API_BASE = (import.meta.env.VITE_API_BASE as string) || '/api'
 const MODE = (import.meta.env.VITE_DATA_MODE as string) || 'mock'
@@ -42,11 +43,12 @@ export default function Config() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
     <a href="/grafana/" target="_blank" rel="noreferrer" className="text-sm underline text-primary">Gráficos de largo plazo</a>
-    <Tabs defaultValue="smtp" className="space-y-4">
+    <Tabs defaultValue={new URLSearchParams(window.location.search).get('tab') === 'telegram' ? 'telegram' : 'smtp'} className="space-y-3">
       <TabsList>
         <TabsTrigger value="smtp">Correo</TabsTrigger>
+        <TabsTrigger value="telegram">Telegram</TabsTrigger>
         <TabsTrigger value="camaras">Cámaras</TabsTrigger>
         {superadmin && <TabsTrigger value="brand">Marca</TabsTrigger>}
         {superadmin && <TabsTrigger value="conexion">Conexión</TabsTrigger>}
@@ -61,6 +63,7 @@ export default function Config() {
       )}
       {/* fieldset disabled deshabilita inputs/botones (incl. Switch/Select de Radix, que son <button>) */}
       <TabsContent value="smtp"><SmtpTab /></TabsContent>
+      <TabsContent value="telegram"><TelegramTab /></TabsContent>
       <TabsContent value="camaras"><CamarasTab key={JSON.stringify(store.config?.camaras ?? null)} /></TabsContent>
       {superadmin && <TabsContent value="brand"><BrandingTab /></TabsContent>}
       {superadmin && <TabsContent value="conexion"><ConexionTab /></TabsContent>}
@@ -130,7 +133,7 @@ function SmtpTab() {
 
   return (
     <div className="max-w-2xl">
-      <Card className="p-4 space-y-3">
+      <Card className="p-3 space-y-3">
         <p className="text-sm text-muted-foreground">Servidor de correo saliente usado para alertas y el reporte diario.</p>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div className="sm:col-span-2"><Label>Servidor (host)</Label><Input value={cfg.host} onChange={e => patch({ host: e.target.value })} placeholder="smtp.gmail.com" /></div>
@@ -160,6 +163,101 @@ function SmtpTab() {
         </div>
       </Card>
       <DailyReportCard />
+    </div>
+  )
+}
+
+// ─── Telegram ─────────────────────────────────────────────────────────
+function TelegramTab() {
+  const [chatId, setChatId] = useState('')
+  const [token, setToken] = useState('')
+  const [hasToken, setHasToken] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [testing, setTesting] = useState(false)
+
+  useEffect(() => {
+    (async () => {
+      try {
+        if (MODE === 'mock') { setChatId('-1001234567'); setHasToken(true) }
+        else {
+          const r = await authFetch(`${API_BASE}/settings/telegram`)
+          if (!r.ok) throw new Error(`HTTP ${r.status}`)
+          const d = await r.json()
+          setChatId(d.chatId || ''); setHasToken(!!d.hasToken)
+        }
+      } catch (e: any) { toast.error(`No se pudo cargar Telegram: ${e.message}`) }
+      finally { setLoading(false) }
+    })()
+  }, [])
+
+  const err = errorToken(token) || (chatId.trim() ? errorChat(chatId) : null)
+
+  async function save(): Promise<boolean> {
+    if (err) { toast.error(err); return false }
+    if (MODE === 'mock') { toast.success('Guardado (demo)'); setHasToken(h => h || !!token); setToken(''); return true }
+    setSaving(true)
+    try {
+      const body: any = { chatId: chatId.trim() }
+      if (token.trim()) body.token = token.trim()
+      const r = await authFetch(`${API_BASE}/settings/telegram`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      const d = await r.json().catch(() => null)
+      if (!r.ok) throw new Error(d?.error || `HTTP ${r.status}`)
+      setHasToken(!!d.telegram?.hasToken); setToken('')
+      toast.success('Telegram guardado')
+      return true
+    } catch (e: any) { toast.error(`No se pudo guardar: ${e.message}`); return false }
+    finally { setSaving(false) }
+  }
+
+  // Prueba con lo guardado: si hay cambios sin guardar, los guarda antes.
+  async function probar() {
+    if (!(await save())) return
+    if (MODE === 'mock') { toast.success('Aviso de prueba enviado (demo)'); return }
+    setTesting(true)
+    try {
+      const r = await authFetch(`${API_BASE}/avisos/prueba`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ canal: 'telegram' }) })
+      const d = await r.json().catch(() => null)
+      if (r.status === 429) toast.error('Esperá un minuto antes de volver a probar')
+      else if (r.ok && d?.ok) toast.success('Aviso enviado. Fijate en Telegram.')
+      else toast.error(`No se pudo: ${d?.error || `HTTP ${r.status}`}`)
+    } catch { toast.error('No se pudo: no hay conexión con el servidor') }
+    finally { setTesting(false) }
+  }
+
+  if (loading) return <div className="text-muted-foreground text-sm py-8 text-center">Cargando configuración…</div>
+
+  return (
+    <div className="max-w-2xl">
+      <Card className="p-3 space-y-3">
+        <p className="text-sm text-muted-foreground">Bot de Telegram que manda las alarmas y los avisos.</p>
+        <div>
+          <Label>Token del bot</Label>
+          <Input type="password" value={token} onChange={e => setToken(e.target.value)} autoComplete="new-password"
+            placeholder={hasToken ? '•••••• (sin cambios)' : '123456:ABC…'} />
+          {hasToken && <p className="text-xs text-muted-foreground mt-1">token guardado ✓</p>}
+        </div>
+        <div>
+          <Label>Chat ID</Label>
+          <Input value={chatId} onChange={e => setChatId(e.target.value)} autoComplete="off" placeholder="-1001234567 o @micanal" />
+        </div>
+        {err && <p className="text-xs text-destructive">{err}</p>}
+        <ol className="text-sm text-muted-foreground list-decimal pl-5 space-y-1">
+          <li>Creá el bot con @BotFather (<code>/newbot</code>) y copiá el token.</li>
+          <li>Agregá el bot al grupo, o escribile un mensaje.</li>
+          <li>Sacá el chat ID: abrí <code>https://api.telegram.org/bot&lt;TOKEN&gt;/getUpdates</code> y buscá <code>"chat":{'{"id":…}'}</code>.</li>
+        </ol>
+        <div className="flex justify-between pt-1">
+          <Button size="sm" variant="outline" disabled={testing || saving} onClick={probar}>
+            {testing ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Mail className="h-3.5 w-3.5 mr-1" />}
+            Mandar un aviso de prueba
+          </Button>
+          <Button size="sm" disabled={saving || !!err} onClick={save}>
+            {saving ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Save className="h-3.5 w-3.5 mr-1" />}
+            Guardar
+          </Button>
+        </div>
+      </Card>
     </div>
   )
 }
@@ -199,7 +297,7 @@ function DailyReportCard() {
   const next = info.nextRunAt ? new Date(info.nextRunAt) : null
 
   return (
-    <Card className="p-4 space-y-3 mt-4">
+    <Card className="p-3 space-y-3 mt-4">
       <div>
         <div className="font-semibold text-sm">Reporte diario automático</div>
         <p className="text-sm text-muted-foreground">

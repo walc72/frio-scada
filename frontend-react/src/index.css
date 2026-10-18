@@ -3,6 +3,8 @@
 @tailwind utilities;
 
 @layer base {
+  html { font-size: 14px; }
+
   :root {
     /* Tema claro */
     --background: 216 33% 97%;
@@ -78,4 +80,10 @@
     @apply bg-background text-foreground font-sans;
     font-feature-settings: "rlig" 1, "calt" 1;
   }
+}
+
+/* Blanco táctil en px: no depende del rem de 14 px */
+@layer components {
+  .toque { min-height: 44px; }
+  @media (min-width: 768px) { .toque { min-height: 36px; } }
 }

@@ -291,6 +291,15 @@ export function sigueActivo(texto: string, estado: Estado | null, fresco: boolea
   return !!k && !k.startsWith('.') && !!estado[k]
 }
 
+// Clave de estado vivo (la misma de alarmasActivas) del evento si es una alarma/atención con flag y texto de resuelto; si no, null.
+// Por tipo: "DESCONGELADO ETAPA e" es info y no cuenta aunque tenga flanco.
+export function claveAlarmaDeEvento(texto: string): string | null {
+  const r = buscarEvento(texto)
+  if (!r || (r.row.tipo !== 'alarma' && r.row.tipo !== 'atencion') || !r.row.flag || !r.row.resuelve) return null
+  const k = r.row.flag(r.m, r.c)
+  return k.startsWith('.') ? null : k
+}
+
 // Etiqueta de estado de la cámara (mismos colores que el HMI); null si no hay datos o nada que decir
 export function badgeCamara(estado: Estado, c: string, nivel: Nivel): { t: string; c: string } | null {
   if (nivel === 'sin-datos') return null

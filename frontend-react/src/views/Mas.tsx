@@ -15,11 +15,11 @@ export default function Mas() {
   const isAdmin = useAuthStore(s => s.isAdmin())
   return (
     <div className="max-w-xl space-y-3">
-      <h1 className="text-xl font-semibold">Más</h1>
+      <h1 className="text-[18px] font-semibold">Más</h1>
       <ul className="rounded-lg border bg-card divide-y">
         {ITEMS.filter(i => !i.admin || isAdmin).map(i => (
           <li key={i.to}>
-            <Link to={i.to} className="flex items-center justify-between px-4 py-4 text-base">
+            <Link to={i.to} className="toque flex items-center justify-between px-3 py-3 text-base">
               {i.label}<ChevronRight className="h-5 w-5 text-muted-foreground" />
             </Link>
           </li>

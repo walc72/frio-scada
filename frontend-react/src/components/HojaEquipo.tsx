@@ -39,7 +39,7 @@ export default function HojaEquipo({ cam, g, onCerrar }: { cam: string; g: numbe
           <div className="font-semibold">Modo</div>
           <div className="grid grid-cols-1 gap-2 min-[400px]:grid-cols-3">
             {MODOS.map(([clave, v, n]) => (
-              <Button key={clave} variant={modo === clave ? 'default' : 'outline'} className={`h-12 whitespace-normal text-sm ${modo === clave ? 'disabled:opacity-100' : ''}`}
+              <Button key={clave} variant={modo === clave ? 'default' : 'outline'} className={`h-auto py-2 whitespace-normal text-sm ${modo === clave ? 'disabled:opacity-100' : ''}`}
                 disabled={off || modo === clave} onClick={() => pedir({ comando: 1, ...base, valor: v })}>{n}</Button>
             ))}
           </div>
@@ -48,7 +48,7 @@ export default function HojaEquipo({ cam, g, onCerrar }: { cam: string; g: numbe
         {modo === 'MANUAL' && (
           <section className="space-y-3">
             {([[2, 'comp', 'Compresor'], [3, 'eva', 'Evaporador']] as const).map(([cmd, key, n]) => (
-              <label key={cmd} className="flex min-h-12 items-center justify-between gap-3">
+              <label key={cmd} className="flex toque items-center justify-between gap-3">
                 <span className="font-medium">{n}</span>
                 <Switch checked={num(estado, k(estado?.[k(key + '_pedido')] != null ? key + '_pedido' : key)) === 1} disabled={off} aria-label={n}
                   onCheckedChange={v => pedir({ comando: cmd, ...base, valor: v ? 1 : 0 })} />
@@ -58,10 +58,10 @@ export default function HojaEquipo({ cam, g, onCerrar }: { cam: string; g: numbe
               <div className="font-medium">Resistencia {num(estado, k('res')) === 1 ? '(prendida)' : '(apagada)'}</div>
               <div className="flex flex-wrap items-center gap-2">
                 <Input type="number" inputMode="numeric" min={1} max={tope || undefined} value={minutos} onChange={e => setMinutos(e.target.value)}
-                  className="h-12 w-24 text-base" aria-label="Minutos de resistencia" disabled={off} />
+                  className="h-10 w-24 text-base" aria-label="Minutos de resistencia" disabled={off} />
                 <span className="text-sm">min</span>
-                <Button className="h-12 flex-1 whitespace-normal" disabled={off || !minOk} onClick={() => pedir({ comando: 4, ...base, valor: min })}>Prender</Button>
-                <Button variant="outline" className="h-12 flex-1 whitespace-normal" disabled={off} onClick={() => pedir({ comando: 4, ...base, valor: 0 })}>Apagar</Button>
+                <Button className="h-auto py-2 flex-1 whitespace-normal" disabled={off || !minOk} onClick={() => pedir({ comando: 4, ...base, valor: min })}>Prender</Button>
+                <Button variant="outline" className="h-auto py-2 flex-1 whitespace-normal" disabled={off} onClick={() => pedir({ comando: 4, ...base, valor: 0 })}>Apagar</Button>
               </div>
               {!minOk && <div className="text-xs text-red-600">{tope ? `Poné minutos enteros, de 1 a ${tope}` : 'Poné minutos enteros (1 o más)'}</div>}
             </div>
@@ -69,7 +69,7 @@ export default function HojaEquipo({ cam, g, onCerrar }: { cam: string; g: numbe
         )}
 
         {eq?.clave === 'DESCONGELANDO' && (
-          <Button variant="destructive" className="h-12 text-base" disabled={off} onClick={() => pedir({ comando: 6, ...base, valor: 0 })}>Cortar descongelado</Button>
+          <Button variant="destructive" className="h-auto py-2 text-base" disabled={off} onClick={() => pedir({ comando: 6, ...base, valor: 0 })}>Cortar descongelado</Button>
         )}
       </DialogContent>
     </Dialog>

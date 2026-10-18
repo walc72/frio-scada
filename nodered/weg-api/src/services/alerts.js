@@ -24,13 +24,14 @@ function getTransport() {
   return nodemailer.createTransport({ ...settings.smtpTransportOptions(), connectionTimeout: 10000, greetingTimeout: 10000, socketTimeout: 15000 });
 }
 
-const telegramConfigurado = () => !!(process.env.TELEGRAM_TOKEN && process.env.TELEGRAM_CHAT_ID);
+const telegramConfigurado = () => { const c = settings.getTelegramFull(); return !!(c.token && c.chatId); };
 
 // Rechaza si Telegram no responde 200.
 function sendTelegram(text) {
-  const body = JSON.stringify({ chat_id: process.env.TELEGRAM_CHAT_ID, text });
+  const { token, chatId } = settings.getTelegramFull();
+  const body = JSON.stringify({ chat_id: chatId, text });
   return new Promise((resolve, reject) => {
-    const req = https.request(`https://api.telegram.org/bot${process.env.TELEGRAM_TOKEN}/sendMessage`,
+    const req = https.request(`https://api.telegram.org/bot${token}/sendMessage`,
       { method: 'POST', headers: { 'Content-Type': 'application/json' }, timeout: 10000 }, (res) => {
         res.resume();
         res.statusCode === 200 ? resolve() : reject(new Error(`HTTP ${res.statusCode}`));
@@ -83,4 +84,4 @@ async function notifyCanal(canal, texto) {
   } else throw new Error('Canal desconocido');
 }
 
-module.exports = { notify, notifyCanal, telegramConfigurado, mailConfigurado, getHistory, addHistory };
+module.exports = { notify, notifyCanal, sendTelegram, telegramConfigurado, mailConfigurado, getHistory, addHistory };

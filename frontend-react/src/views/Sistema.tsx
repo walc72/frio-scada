@@ -20,8 +20,8 @@ function Detalle() {
   const fmt = (k: string, v: any) => (k === 'ts' || k === 'time' ? fechaHora(v) : String(v ?? ''))
   const dato = (t: string, v: string) => <div><div className="text-xs text-muted-foreground">{t}</div><div className="font-medium">{v}</div></div>
   return (
-    <div className="space-y-4">
-      <Card className="p-4 grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
+    <div className="space-y-3">
+      <Card className="p-3 grid grid-cols-2 md:grid-cols-5 gap-3 text-sm">
         {dato('Poller', poller ?? 'sin dato')}
         {dato('PLC', vencido ? 'sin datos' : conectado ? 'comunicando' : 'sin comunicación')}
         {dato('Última lectura', ts ? hhmm(ts) : '—')}
@@ -69,8 +69,8 @@ export default function Sistema() {
   }, [])
   return (
     <div className="space-y-3 max-w-md md:max-w-none">
-      <h1 className="text-xl font-semibold">Estado del sistema</h1>
-      <div className="rounded-2xl bg-white dark:bg-card shadow-sm divide-y">
+      <h1 className="text-[18px] font-semibold">Estado del sistema</h1>
+      <div className="rounded-xl bg-white dark:bg-card shadow-sm divide-y">
         {filasSistema(res, ahora).map(f => (
           <div key={f.titulo} className="flex items-center gap-3 p-3 text-sm">
             <span className={`h-3 w-3 shrink-0 rounded-full ${PUNTO[f.color]}`} />
@@ -80,7 +80,7 @@ export default function Sistema() {
         ))}
       </div>
       <p className="text-sm">{textoCortes(res?.cortes7d)}</p>
-      <button className="text-xs text-muted-foreground underline" onClick={() => setDet(d => !d)}>{det ? 'Ocultar detalle técnico' : 'Ver detalle técnico'}</button>
+      <button className="toque inline-flex items-center text-xs text-muted-foreground underline" onClick={() => setDet(d => !d)}>{det ? 'Ocultar detalle técnico' : 'Ver detalle técnico'}</button>
       {det && <Detalle />}
     </div>
   )

@@ -73,7 +73,7 @@ function TailscaleCard({ replica }: { replica: boolean }) {
   const label = TS_LABEL[st?.state || ''] || { text: st?.state || '…', cls: 'bg-muted text-muted-foreground' }
 
   return (
-    <Card className="p-4 space-y-3">
+    <Card className="p-3 space-y-3">
       <div className="flex items-center gap-2">
         <PlugZap className="h-4 w-4 text-primary" />
         <div className="font-semibold">Tailscale</div>
@@ -97,7 +97,7 @@ function TailscaleCard({ replica }: { replica: boolean }) {
             </div>
           )}
           {st.authUrl && (
-            <div className="flex flex-wrap items-center gap-4">
+            <div className="flex flex-wrap items-center gap-3">
               {qr && <img src={qr} alt="QR de login de Tailscale" className="rounded-md border bg-white p-1" />}
               <div className="space-y-2 text-sm min-w-0">
                 <p>Abrí el link (o escaneá el QR) e iniciá sesión con la cuenta del tailnet correcto.</p>
@@ -173,7 +173,7 @@ function PlantLinkCard() {
   const ago = sync?.lastSync ? Math.max(0, Math.round((Date.now() - sync.lastSync) / 1000)) : null
 
   return (
-    <Card className="p-4 space-y-3">
+    <Card className="p-3 space-y-3">
       <div className="flex items-center gap-2">
         <Link2 className="h-4 w-4 text-primary" />
         <div className="font-semibold">Planta</div>
@@ -216,7 +216,7 @@ export default function ConexionTab() {
   const replica = useServerStore(s => s.replica)
   if (MODE === 'mock') return <div className="text-sm text-muted-foreground py-8 text-center">No disponible en modo demo.</div>
   return (
-    <div className="space-y-4 max-w-2xl">
+    <div className="space-y-3 max-w-2xl">
       <TailscaleCard replica={replica} />
       {replica && <PlantLinkCard />}
     </div>

@@ -1,6 +1,7 @@
 // Funciones puras del Historial: agregación de compresores y filas de exportación (columnas visibles, en palabras).
 import { nombreCamara, fechaHora, type FilaDescongelado } from './camaras'
 import type { Estado } from '../store/camaras'
+import type { PeriodoAlarma } from './alarmas'
 import { badgeDescongelado, fraseEvento, tipoAviso, sigueActivo, type TipoAviso } from './frases'
 
 export interface FilaCompresor { camara: string; dia: string; grupo: string; horas: number; horasSinDatos?: number; arranques: number; maxArranquesHora: number }
@@ -79,10 +80,18 @@ export function prepararAvisos(data: { ts: number; texto: string; estado: string
     return { ...f, tipo: tipoAviso(f.texto, f.estado), frase: fraseEvento(f.texto, f.estado), sigue: nuevo && Number(f.estado) === 1 && sigueActivo(f.texto, estado, fresco) }
   })
 }
-export const filasAvisos = (a: AvisoFila[]) =>
+export const filasEventos = (a: AvisoFila[]) =>
   a.map(f => ({ Hora: fechaHora(f.ts), Tipo: TIPO[f.tipo], Aviso: f.frase, 'Sigue activo': f.sigue ? 'sí' : '' }))
 
 export const filasCompresores = (c: Compresor[]) => c.map(x => ({
   Cámara: nombreCamara(x.camara), Equipo: equipoDe(x.grupo), 'Horas en marcha': Math.round(x.horas * 10) / 10, Arranques: x.arranques,
   'Máximo de arranques por hora': x.maxArranquesHora, 'Horas sin datos': x.horasSinDatos,
+}))
+
+export const duracionTxt = (min: number) => min >= 60 ? `${Math.floor(min / 60)} h ${min % 60} min` : `${min} min`
+// sigue(clave): la alarma sigue activa ahora y el rango termina hoy; si no, un período abierto es "sin cierre en el período"
+export const filasAlarmas = (p: PeriodoAlarma[], sigue: (clave: string) => boolean = () => false) => p.map(x => ({
+  Inicio: x.inicio === null ? 'antes del período' : fechaHora(x.inicio),
+  Fin: x.fin === null ? (sigue(x.clave) ? 'sigue activa' : 'sin cierre en el período') : fechaHora(x.fin),
+  'Duración (min)': x.duracionMin ?? '', Alarma: fraseEvento(x.frase, 1),
 }))

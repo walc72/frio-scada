@@ -2,5 +2,5 @@
 export const RUTAS_VIEJAS: Record<string, string> = {
   '/descongelados': '/historial/descongelados',
   '/compresores': '/historial/compresores',
-  '/eventos': '/historial/avisos',
+  '/eventos': '/historial/eventos',
 }

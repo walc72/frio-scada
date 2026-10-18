@@ -37,7 +37,7 @@ export default function CamarasTab() {
   }
 
   return (
-    <Card className="p-4 space-y-4 max-w-xl">
+    <Card className="p-3 space-y-3 max-w-xl">
       <div className="font-semibold">Conexión con el PLC (Modbus TCP)</div>
       <div className="grid grid-cols-4 gap-2">
         <div className="col-span-2 space-y-1"><Label>Dirección IP</Label><Input value={ip} onChange={e => setIp(e.target.value)} placeholder="192.168.3.71" /></div>

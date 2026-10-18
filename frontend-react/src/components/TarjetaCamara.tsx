@@ -4,7 +4,7 @@ import { Badge } from './ui/badge'
 import BotonEquipo from './BotonEquipo'
 import { useCamarasStore } from '../store/camaras'
 import { estaVencido } from '../lib/estadoGrupo'
-import { fraseCamara, proximoTexto, badgeCamara } from '../lib/frases'
+import { alarmasActivas, fraseCamara, proximoTexto, badgeCamara } from '../lib/frases'
 import { GRUPOS, nombreCamara, hhmm } from '../lib/camaras'
 import { useNow } from '../lib/useNow'
 
@@ -18,10 +18,11 @@ export default function TarjetaCamara({ cam }: { cam: string }) {
   const f = estado && !vencido && !incompatible ? fraseCamara(estado, cam, ahora) : null
   const hayDatos = !!f && f.nivel !== 'sin-datos'
   const alarma = f?.nivel === 'alarma'
+  const nAlarmas = estado && !vencido && !incompatible ? alarmasActivas(estado).filter(a => !a.c || a.c === cam).length : 0
   const badge = hayDatos ? badgeCamara(estado!, cam, f!.nivel) : null
   return (
     <Link to={`/camara/${cam}`} className="block">
-      <Card className={`p-4 space-y-3 rounded-2xl shadow-sm hover:border-primary transition-colors ${alarma ? 'border-2 border-red-600' : ''} ${vencido || incompatible ? 'grayscale bg-muted opacity-70' : ''}`}>
+      <Card className={`p-3 space-y-3 rounded-xl shadow-sm hover:border-primary transition-colors ${alarma ? 'border-2 border-red-600' : ''} ${vencido || incompatible ? 'grayscale bg-muted opacity-70' : ''}`}>
         <div className="flex items-center gap-2">
           <div className="font-semibold text-lg">{nombreCamara(cam)}</div>
           {badge && <Badge className="ml-auto border-transparent text-white" style={{ backgroundColor: badge.c }}>{badge.t}</Badge>}
@@ -32,6 +33,7 @@ export default function TarjetaCamara({ cam }: { cam: string }) {
         {hayDatos ? (
           <div>
             <div className="font-bold">{f!.titulo}</div>
+            {nAlarmas > 0 && <div className="text-sm font-semibold text-red-600">{nAlarmas} {nAlarmas === 1 ? 'alarma activa' : 'alarmas activas'}</div>}
             {f!.detalle && <div className="text-sm text-muted-foreground">{f!.detalle}</div>}
             {!/Próximo|Sin descongelados/.test(f!.detalle) && <div className="text-sm text-muted-foreground">Próximo: {proximoTexto(estado!, cam, ahora)}</div>}
           </div>

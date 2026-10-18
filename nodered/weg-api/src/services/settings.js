@@ -230,6 +230,44 @@ function setSmtp(patch) {
   write(s);
 }
 
+// ─── Telegram ────────────────────────────────────────────────────────
+// settings.json sobre TELEGRAM_TOKEN / TELEGRAM_CHAT_ID (los pone el instalador).
+const TG_TOKEN_RE = /^\d+:[A-Za-z0-9_-]{30,}$/;
+const TG_CHAT_RE = /^(-?\d+|@\w{5,})$/;
+
+function getTelegramFull() {
+  const t = read().telegram || {};
+  return {
+    token: t.token || process.env.TELEGRAM_TOKEN || '',
+    chatId: t.chatId || process.env.TELEGRAM_CHAT_ID || '',
+  };
+}
+
+// Pública: el token nunca sale (hasToken indica si hay uno)
+function getTelegramPublic() {
+  const c = getTelegramFull();
+  return { chatId: c.chatId, hasToken: !!c.token };
+}
+
+// body: { token?, chatId? } — token vacío/ausente = sin cambios
+function setTelegram(patch) {
+  if (!patch || typeof patch !== 'object') throw httpError(400, 'Datos inválidos');
+  const next = { ...(read().telegram || {}) };
+  if (typeof patch.token === 'string' && patch.token.trim()) {
+    const token = patch.token.trim();
+    if (!TG_TOKEN_RE.test(token)) throw httpError(400, 'Token inválido: debe verse como 123456:ABC… (el que te da @BotFather)');
+    next.token = token;
+  }
+  if (typeof patch.chatId === 'string' || typeof patch.chatId === 'number') {
+    const chatId = String(patch.chatId).trim();
+    if (chatId && !TG_CHAT_RE.test(chatId)) throw httpError(400, 'Chat ID inválido: un número (puede ser negativo) o @canal');
+    next.chatId = chatId;
+  }
+  const s = read();
+  s.telegram = next;
+  write(s);
+}
+
 // ─── Reporte diario: hora de envío ───────────────────────────────────
 // Hora local (TZ del contenedor) a la que sale el reporte del día anterior; es
 // también el cierre de la carga manual (lluvia/río). settings.json sobre el
@@ -275,6 +313,6 @@ function mandoUserId(user) {
 
 module.exports = {
   ROLES, mandoUserId, listUsers, getUsersFull, findUser, createUser, updateUser, deleteUser, setSuperadmin,
-  getSmtpPublic, getSmtpFull, smtpTransportOptions, setSmtp, getDailyReport, setDailyReport,
+  getSmtpPublic, getSmtpFull, smtpTransportOptions, setSmtp, getTelegramPublic, getTelegramFull, setTelegram, getDailyReport, setDailyReport,
   hashPassword, SETTINGS_PATH,
 };

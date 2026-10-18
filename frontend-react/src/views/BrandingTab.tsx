@@ -56,7 +56,7 @@ export default function BrandingTab() {
 
   return (
     <div className="max-w-2xl">
-      <Card className="p-4 space-y-4">
+      <Card className="p-3 space-y-3">
         <p className="text-sm text-muted-foreground">
           Logo y textos del login, del encabezado y de los reportes PDF. Solo afecta a este servidor.
         </p>
@@ -70,9 +70,9 @@ export default function BrandingTab() {
         </div>
         <div className="space-y-2">
           <Label>Logo (PNG o JPG, máx. 1 MB)</Label>
-          <div className="flex items-center gap-4 flex-wrap">
+          <div className="flex items-center gap-3 flex-wrap">
             <div className="bg-white rounded-xl px-4 py-3 border">
-              <img src={logo || b.logoUrl} alt="Logo" className="h-12 w-auto max-w-[240px] object-contain block" />
+              <img src={logo || b.logoUrl} alt="Logo" className="h-10 w-auto max-w-[240px] object-contain block" />
             </div>
             <label className="inline-flex items-center gap-1.5 text-sm cursor-pointer border border-input rounded-md px-3 h-9 hover:bg-muted">
               <Upload className="h-3.5 w-3.5" />Elegir archivo

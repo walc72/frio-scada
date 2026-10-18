@@ -69,6 +69,19 @@ router.post('/smtp', (req, res) => {
   }
 });
 
+// ─── Telegram ────────────────────────────────────────────────────────
+// GET: chat y hasToken (el token nunca se devuelve). POST: token vacío = sin cambios.
+router.get('/telegram', (req, res) => {
+  res.json(settings.getTelegramPublic());
+});
+
+router.post('/telegram', (req, res) => {
+  try {
+    settings.setTelegram(req.body || {});
+    res.json({ ok: true, telegram: settings.getTelegramPublic() });
+  } catch (e) { fail(res, e); }
+});
+
 // ─── Reporte diario: hora de envío ───────────────────────────────────
 // (require diferido: dailyReport arrastra el generador de reportes/PDF)
 const dailyReportInfo = () => {

@@ -33,8 +33,8 @@ export default function Reportes() {
 
   return (
     <div className="space-y-3 max-w-md">
-      <h1 className="text-xl font-semibold">Reporte diario</h1>
-      <div className="rounded-2xl bg-white dark:bg-card shadow-sm p-4 space-y-1 text-sm">
+      <h1 className="text-[18px] font-semibold">Reporte diario</h1>
+      <div className="rounded-xl bg-white dark:bg-card shadow-sm p-3 space-y-1 text-sm">
         <div className="font-semibold">Ayer, {fechaDia(Date.parse(`${dia}T12:00:00-03:00`))}</div>
         <div>Descongelados: {n(r.descongelados)}{r.saltados ? ` (${r.saltados} se saltaron)` : ''}</div>
         <div>Alarmas: {n(r.avisos)} (sin contar acciones de operarios)</div>

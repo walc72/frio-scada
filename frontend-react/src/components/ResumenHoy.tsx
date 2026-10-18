@@ -22,7 +22,7 @@ export default function ResumenHoy() {
     <div className="text-center"><div className="text-3xl font-bold">{v}</div><div className="text-xs text-muted-foreground">{t}</div></div>
   )
   return (
-    <Card className="p-4 rounded-2xl shadow-sm">
+    <Card className="p-3 rounded-xl shadow-sm">
       <div className="font-semibold mb-2">Hoy</div>
       <div className="grid grid-cols-3 gap-2">
         <Num v={desc} t="descongelados" /><Num v={alarmas} t="alarmas" /><Num v={comp} t="compresores en marcha" />
