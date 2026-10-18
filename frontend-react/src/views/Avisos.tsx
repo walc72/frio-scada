@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { apiJson } from '../lib/api'
 import { Button } from '../components/ui/button'
 import { authFetch } from '../store/auth'
@@ -39,6 +40,7 @@ export default function Avisos() {
         <Canal canal="telegram" titulo="Telegram" boton="Mandar un aviso de prueba" admin={admin} />
         <Canal canal="mail" titulo="Mail" boton="Mandar un mail de prueba" admin={admin} />
       </>}
+      {admin && <Link to="/config?tab=telegram" className="text-sm underline text-primary">Configurar</Link>}
       <div className="rounded-xl bg-white dark:bg-card shadow-sm p-3 space-y-1">
         <div className="font-semibold">¿Qué avisa?</div>
         <p className="text-sm text-muted-foreground">Alarmas del PLC · PLC sin comunicación más de 2 min · reloj del PLC desviado. Repite cada 1 hora si sigue, y avisa cuando se resuelve.</p>
