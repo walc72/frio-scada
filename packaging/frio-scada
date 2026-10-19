@@ -56,6 +56,8 @@ update() {
 
   # instalaciones anteriores a PLC v20 no tienen MANDO_TOKEN (misma generación que install.sh: gen 32)
   grep -q '^MANDO_TOKEN=.' .env || echo "MANDO_TOKEN=$(openssl rand -hex 32)" >> .env
+  # y AGENT_TOKEN (portal ↔ agente de Tailscale/sistema), por si falta en instalaciones viejas
+  grep -q '^AGENT_TOKEN=.' .env || echo "AGENT_TOKEN=$(openssl rand -hex 32)" >> .env
 
   docker compose pull -q --ignore-pull-failures 2>&1 | grep -vi 'warn' || true
   docker compose up -d --remove-orphans
