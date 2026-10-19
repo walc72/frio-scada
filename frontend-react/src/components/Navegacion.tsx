@@ -5,6 +5,8 @@ import { cn } from '../lib/utils'
 const ITEMS = [
   { to: '/', label: 'Inicio', icono: 'inicio', activo: (p: string) => p === '/' },
   { to: '/camara/C4', label: 'Cámaras', icono: 'camaras', activo: (p: string) => p.startsWith('/camara') },
+  { to: '/alarmas', label: 'Alarmas', icono: 'alarmas', activo: (p: string) => p.startsWith('/alarmas') },
+  { to: '/eventos', label: 'Eventos', icono: 'eventos', activo: (p: string) => p.startsWith('/eventos') },
   { to: '/historial', label: 'Historial', icono: 'historial', activo: (p: string) => p.startsWith('/historial') },
   { to: '/mas', label: 'Más', icono: 'mas', activo: (p: string) => ['/mas', '/reportes', '/avisos', '/sistema', '/usuarios', '/config'].some(r => p.startsWith(r)) },
 ] as const

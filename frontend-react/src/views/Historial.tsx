@@ -15,8 +15,6 @@ import { Icono } from '../components/Icono'
 
 const PESTANAS = [
   { id: 'descongelados', label: 'Descongelados' },
-  { id: 'alarmas', label: 'Alarmas' },
-  { id: 'eventos', label: 'Eventos' },
   { id: 'compresores', label: 'Equipos' },
 ]
 const C = (k: string) => colorEstadoGrupo(k).fondo
@@ -59,8 +57,10 @@ function BloqueEquipos({ camara, equipos }: { camara: string; equipos: EquipoHis
   )
 }
 
-export default function Historial() {
-  const { pestana = 'descongelados' } = useParams()
+// fija: Alarmas y Eventos tienen su propia entrada en el menú; Historial queda con Descongelados y Equipos
+export default function Historial({ fija }: { fija?: 'alarmas' | 'eventos' }) {
+  const { pestana: param = 'descongelados' } = useParams()
+  const pestana = fija ?? param
   const [r, setR] = useState<Rango>({ desde: hoy(), hasta: hoy(), camara: '' })
   const estado = useCamarasStore(s => s.estado)
   const recibidoEn = useCamarasStore(s => s.recibidoEn)
@@ -81,15 +81,15 @@ export default function Historial() {
   const grupos = agruparActivas(activas)
   // las abiertas que siguen activas ya están en el recuadro rojo
   const otras = agruparPeriodos(periodos.filter(p => !(p.fin === null && siguen(p.clave))))
-  if (!PESTANAS.some(p => p.id === pestana)) return <Navigate to="/historial/descongelados" replace />
+  if (!fija && !PESTANAS.some(p => p.id === pestana)) return <Navigate to="/historial/descongelados" replace />
   const lista: any[] = data ?? []
   const filas = pestana === 'descongelados' ? filasDescongelados(lista as FilaDescongelado[])
     : pestana === 'eventos' ? filasEventos(avisos) : pestana === 'alarmas' ? filasAlarmas(periodos, siguen) : filasCompresores(comp)
 
   return (
     <div className="space-y-3">
-      <h1 className="text-xl font-semibold">Historial</h1>
-      <div className="flex gap-2 overflow-x-auto">
+      <h1 className="text-xl font-semibold">{fija === 'alarmas' ? 'Alarmas' : fija === 'eventos' ? 'Eventos' : 'Historial'}</h1>
+      {!fija && <div className="flex gap-2 overflow-x-auto">
         {PESTANAS.map(p => (
           <Link key={p.id} to={`/historial/${p.id}`}
             className={cn('toque inline-flex items-center px-4 rounded-full text-sm font-medium whitespace-nowrap border',
@@ -97,7 +97,7 @@ export default function Historial() {
             {p.label}
           </Link>
         ))}
-      </div>
+      </div>}
       <Filtros r={r} set={setR} />
       {pestana === 'alarmas' && (!fresco || !estado
         ? <div className="rounded-lg border bg-muted px-3 py-2 text-sm text-muted-foreground">Sin datos del PLC</div>
