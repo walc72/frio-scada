@@ -109,5 +109,5 @@ export function agruparPeriodos(periodos: PeriodoAlarma[]): GrupoPeriodo[] {
     const { camara, tipo } = g[0]
     const inicio = minimo(g.map(x => x.p.inicio)), fin = maximo(g.map(x => x.p.fin))
     return { claves: g.map(x => x.p.clave), camara, equipos, texto: titulo(camara, equipos, tipo), inicio, fin, duracionMin: inicio !== null && fin !== null ? Math.round((fin - inicio) / 60000) : null }
-  })
+  }).sort((a, b) => (b.inicio ?? b.fin ?? 0) - (a.inicio ?? a.fin ?? 0)) // más nueva primero
 }

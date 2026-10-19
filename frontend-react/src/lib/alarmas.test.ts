@@ -93,4 +93,9 @@ describe('agrupar', () => {
     expect(r[0]).toMatchObject({ equipos: [2, 4, 6], inicio: t('14:59'), fin: t('16:09'), duracionMin: 70 })
     expect(agruparPeriodos([p(2, '15:00', '16:08'), p(4, '15:00', '16:30')])).toHaveLength(2)
   })
+  test('períodos: más nueva primero; inicio null se ordena por su fin', () => {
+    const p = (g: number, i: string | null, f: string | null) => ({ clave: `C4.G${g}.alarma_res`, frase: '', inicio: i ? t(i) : null, fin: f ? t(f) : null, duracionMin: null })
+    const r = agruparPeriodos([p(1, '09:00', '09:30'), p(2, null, '12:00'), p(3, '14:00', null), p(4, '10:00', '10:30')])
+    expect(r.map(x => x.equipos[0])).toEqual([3, 2, 4, 1])
+  })
 })
