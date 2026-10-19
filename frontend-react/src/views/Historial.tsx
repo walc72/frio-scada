@@ -39,7 +39,7 @@ function BloqueEquipos({ camara, equipos }: { camara: string; equipos: EquipoHis
     <section className="border-b last:border-0 px-3 py-3 space-y-1.5">
       <h2 className="text-sm font-semibold">{nombreCamara(camara)}</h2>
       {dias.length > 1 && <div className="grid grid-cols-[4.5rem_1fr] sm:grid-cols-[4.5rem_1fr_19rem] gap-x-3 text-[10px] text-muted-foreground">
-        <span /><div className="flex gap-0.5">{dias.map(d => <span key={d.dia} className="flex-1 max-w-10 text-center truncate">{diaCorto(d.dia)}</span>)}</div>
+        <span /><div className="flex gap-0.5">{dias.map(d => <span key={d.dia} className="flex-1 text-center truncate">{diaCorto(d.dia)}</span>)}</div>
       </div>}
       {equipos.map(e => (
         <div key={e.grupo} className="grid grid-cols-[4.5rem_1fr] sm:grid-cols-[4.5rem_1fr_19rem] gap-x-3 gap-y-0.5 items-center">
