@@ -117,15 +117,30 @@ export default function EditorProgramacion({ camaraFija, enDialogo, inicial, onE
             </div>
             {tiene(p + 'etapas') && (
               <fieldset className="space-y-1">
-                <legend className="text-sm">Equipos que descongelan en la etapa 2</legend>
-                <div className="grid grid-cols-2 gap-x-3 min-[400px]:grid-cols-4">
-                  {GRUPOS.map((g, i) => {
-                    const s = String(val(p + 'etapas'))
-                    return <label key={g} className="toque inline-flex items-center gap-2 text-sm">
-                      <input type="checkbox" className="h-5 w-5" checked={s[i] === '2'} disabled={off}
-                        onChange={e => set(p + 'etapas', s.slice(0, i) + (e.target.checked ? '2' : '1') + s.slice(i + 1))} />Equipo {g}</label>
-                  })}
-                </div>
+                <legend className="text-sm">En qué etapa descongela cada equipo</legend>
+                {(() => {
+                  const s = String(val(p + 'etapas'))
+                  const en = (e: string) => GRUPOS.filter((_, i) => s[i] === e).join(', ') || 'ninguno'
+                  const poner = (i: number, e: '1' | '2') => set(p + 'etapas', s.slice(0, i) + e + s.slice(i + 1))
+                  return <>
+                    <div className="grid grid-cols-2 gap-2 min-[560px]:grid-cols-4">
+                      {GRUPOS.map((g, i) => (
+                        <div key={g} className="flex min-w-0 items-center justify-between gap-2 rounded-md border px-2 py-1">
+                          <span className="text-sm">Equipo {g}</span>
+                          <div className="flex overflow-hidden rounded-md border" role="radiogroup" aria-label={`Etapa del equipo ${g}`}>
+                            {(['1', '2'] as const).map(e => (
+                              <button key={e} type="button" role="radio" aria-checked={s[i] === e} disabled={off} onClick={() => poner(i, e)}
+                                className={`toque min-w-[40px] px-2 text-sm font-semibold ${s[i] === e ? (e === '1' ? 'bg-sky-600 text-white' : 'bg-violet-600 text-white') : 'bg-background text-muted-foreground'}`}>{e}</button>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      <span className="font-semibold text-sky-700 dark:text-sky-400">Etapa 1:</span> equipos {en('1')} · <span className="font-semibold text-violet-700 dark:text-violet-400">Etapa 2:</span> equipos {en('2')}
+                    </div>
+                  </>
+                })()}
                 {malos.has(p + 'etapas') && <div className="text-xs text-red-600">Tiene que haber al menos un equipo en cada etapa</div>}
               </fieldset>
             )}
