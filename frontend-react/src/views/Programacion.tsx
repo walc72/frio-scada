@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Card } from '../components/ui/card'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
@@ -15,7 +16,9 @@ const frase = (p: Pedido) => fraseConfirmacion(p.comando, p.camara ?? '', undefi
 export default function Programacion() {
   const estado = useCamarasStore(s => s.estado)
   const permiso = usePermiso(20)
-  const [cam, setCam] = useState<string>(CAMARAS[0])
+  const [params] = useSearchParams()
+  // ?camara=C5 (desde el botón Ajustes de la página de la cámara) abre esa cámara
+  const [cam, setCam] = useState<string>(() => (CAMARAS as readonly string[]).includes(params.get('camara') ?? '') ? params.get('camara')! : CAMARAS[0])
   const [ed, setEd] = useState<Record<string, Valor>>({})
   const [abierto, setAbierto] = useState(false)
   const [corriendo, setCorriendo] = useState(false)
