@@ -194,3 +194,43 @@ describe('fraseEvento / tipoAviso / sigueActivo con textos reales', () => {
     expect(badgeCamara(fxVacio, 'C4', 'sin-datos')).toBeNull()
   })
 })
+
+import { equiposDeReparto } from './frases'
+describe('eventos REM del PLC (comandos del portal)', () => {
+  test.each([
+    ['REM u1 AJUSTE 2 = 24', 'Desde el portal: horas máximas sin descongelar = 24 h'],
+    ['REM u1 AJUSTE 1 = 0', 'Desde el portal: tope de la resistencia en manual = sin tope'],
+    ['REM u1 AJUSTE 1 = 30', 'Desde el portal: tope de la resistencia en manual = 30 min'],
+    ['REM u1 AJUSTE 3 = 8', 'Desde el portal: horas máximas en manual = 8 h'],
+    ['REM u12 C5 G3 MODO AUTO', 'Desde el portal: Cámara 5, equipo 3 pasó a automático'],
+    ['REM u12 C5 G3 MODO MANUAL', 'Desde el portal: Cámara 5, equipo 3 pasó a manual'],
+    ['REM u12 C5 G3 MODO FUERA', 'Desde el portal: Cámara 5, equipo 3 pasó a fuera de servicio'],
+    ['REM u12 C4 H2 HORA 1030', 'Desde el portal: Cámara 4, horario 2 a las 10:30'],
+    ['REM u3 C5 H1 E1 T 5.0', 'Desde el portal: Cámara 5, horario 1, etapa 1 = 5 min'],
+    ['REM u3 C5 H1 E2 T 7.5', 'Desde el portal: Cámara 5, horario 1, etapa 2 = 7,5 min'],
+    ['REM u3 C5 H1 E2 ON', 'Desde el portal: Cámara 5, horario 1, etapa 2 activada'],
+    ['REM u3 C5 H1 E1 OFF', 'Desde el portal: Cámara 5, horario 1, etapa 1 desactivada'],
+    ['REM u3 C5 H1 REPARTO 170', 'Desde el portal: Cámara 5, horario 1, etapa 2: equipos 2, 4, 6, 8'],
+    ['REM u3 C5 G2 RES 30 MIN', 'Desde el portal: Cámara 5, equipo 2: resistencia 30 min'],
+    ['REM u3 C5 G2 RES OFF', 'Desde el portal: Cámara 5, equipo 2: resistencia apagada'],
+    ['REM u3 C5 G1 COMP ON', 'Desde el portal: Cámara 5, equipo 1: compresor encendido'],
+    ['REM u3 C5 G1 COMP OFF', 'Desde el portal: Cámara 5, equipo 1: compresor apagado'],
+    ['REM u3 C5 G1 EVA ON', 'Desde el portal: Cámara 5, equipo 1: evaporador encendido'],
+    ['REM u3 C5 G1 EVA OFF', 'Desde el portal: Cámara 5, equipo 1: evaporador apagado'],
+    ['REM u3 C5 SALTO DESC', 'Desde el portal: Cámara 5, se saltó el descongelado'],
+    ['REM u3 C5 G4 CORTE DESC', 'Desde el portal: Cámara 5, equipo 4: se cortó el descongelado'],
+    ['REM u3 C5 ARRANQUE MANTENER', 'Desde el portal: Cámara 5, al arrancar, se dejan los equipos en manual'],
+    ['REM u3 ARRANQUE AUTO', 'Desde el portal: al arrancar, se pasan los equipos a automático'],
+    ['REM u3 C5 G2 HAB ON', 'Desde el portal: Cámara 5, equipo 2: habilitado'],
+    ['REM u3 C5 G2 HAB OFF', 'Desde el portal: Cámara 5, equipo 2: deshabilitado'],
+    ['REM u3 C5 RECUP 15 MIN', 'Desde el portal: Cámara 5, recuperación 15 min'],
+    ['REM u3 C5 G2 RESET MANT', 'Desde el portal: Cámara 5, equipo 2: se reinició el mantenimiento'],
+    ['  rem  u12  c5  g3  modo   auto ', 'Desde el portal: Cámara 5, equipo 3 pasó a automático'],
+  ])('%s', (t, frase) => { expect(fraseEvento(t)).toBe(frase); expect(tipoAviso(t, 1)).toBe('operario') })
+  test('reparto: máscara de bits', () => {
+    expect(equiposDeReparto(170)).toEqual([2, 4, 6, 8])
+    expect(equiposDeReparto(1)).toEqual([1])
+    expect(equiposDeReparto(255)).toHaveLength(8)
+    expect(fraseEvento('REM u1 C5 H2 REPARTO 0')).toBe('Desde el portal: Cámara 5, horario 2, etapa 2: ningún equipo')
+  })
+})

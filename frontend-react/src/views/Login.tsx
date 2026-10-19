@@ -9,6 +9,8 @@ import { Lock, User, Eye, EyeOff, Loader2 } from 'lucide-react'
 export default function Login() {
   const login = useAuthStore(s => s.login)
   const logoUrl = useBrandingStore(s => s.logoUrl)
+  const brandFooter = useBrandingStore(s => s.footer)
+  const brandName = useBrandingStore(s => s.name)
   const [user, setUser] = useState('')
   const [pass, setPass] = useState('')
   const [showPass, setShowPass] = useState(false)
@@ -38,7 +40,7 @@ export default function Login() {
     <div className="min-h-screen w-full flex flex-col items-center justify-center p-6 gap-6 bg-background">
       <div className={`w-full max-w-[420px] ${shake ? 'animate-shake' : ''}`}>
         <div className="flex flex-col items-center gap-2 mb-8 text-center">
-          <img src={logoUrl} alt="Tecno Electric" className="h-16 w-auto max-w-[280px] object-contain" />
+          <img src={logoUrl} alt={brandName} className="h-16 w-auto max-w-[280px] object-contain" />
           <h1 className="text-3xl font-semibold tracking-tight">Cámaras de frío</h1>
           <p className="text-base text-muted-foreground">Unifrisa</p>
         </div>
@@ -91,9 +93,9 @@ export default function Login() {
           </form>
         </div>
 
-        <p className="text-xs text-muted-foreground">
-          Powered by <strong>Tecno Electric S.A.</strong>
-        </p>
+        {brandFooter && <p className="text-xs text-muted-foreground">
+          Powered by <strong>{brandFooter}</strong>
+        </p>}
       <style>{`
         @keyframes shake {
           0%, 100% { transform: translateX(0); }

@@ -35,6 +35,7 @@ export default function EditorProgramacion({ camaraFija, enDialogo, inicial, onE
   const malos = new Set(lista.filter(x => !x.ok).map(x => x.campo.id))
   const camMalas = CAMARAS.filter(k => lista.some(x => !x.ok && x.campo.camara === k))
   const ajusteMalo = lista.some(x => !x.ok && !x.campo.camara)
+  const [abiertos, setAbiertos] = useState<Set<string>>(new Set())
   const val = (id: string): Valor => (id in ed ? ed[id] : porId[id]?.actual ?? '')
   const set = (id: string, v: Valor) => setEd(x => ({ ...x, [id]: v }))
   const off = !permiso.ok || corriendo
@@ -103,9 +104,24 @@ export default function EditorProgramacion({ camaraFija, enDialogo, inicial, onE
 
       {HORARIOS.filter(h => tiene(`${cam}.H${h}.hora`)).map(h => {
         const p = `${cam}.H${h}.`
+        // Colapsado muestra un resumen; se abre solo si tiene un valor inválido
+        const conError = [...malos].some(k => k.startsWith(p))
+        const editado = Object.keys(ed).some(k => k.startsWith(p))
+        const abierto = conError || abiertos.has(p)
+        const min = (k: string) => (tiene(p + k) ? `${String(val(p + k))} min` : '—')
         return (
-          <Card key={h} className="space-y-3 rounded-xl p-3">
-            <div className="font-semibold">Horario {h}</div>
+          <Card key={h} className="rounded-xl p-3">
+            <button type="button" aria-expanded={abierto} onClick={() => setAbiertos(a => { const n = new Set(a); n.has(p) ? n.delete(p) : n.add(p); return n })}
+              className="toque flex w-full min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-left">
+              <span className="text-muted-foreground">{abierto ? '▾' : '▸'}</span>
+              <span className="font-semibold">Horario {h}</span>
+              {!abierto && <span className="min-w-0 text-sm text-muted-foreground">
+                {String(val(p + 'hora')).padStart(5, '0')} · {tiene(p + 'hab') ? (val(p + 'hab') ? 'habilitado' : 'deshabilitado') : ''} · etapa 1 {min('t1')} · etapa 2 {min('t2')}
+              </span>}
+              {editado && <span className="ml-auto text-xs font-semibold text-amber-600 dark:text-amber-400">cambios sin guardar</span>}
+              {conError && <span className="ml-auto text-xs font-semibold text-red-600">revisar</span>}
+            </button>
+            {abierto && <div className="mt-3 space-y-3">
             <div className="grid grid-cols-2 gap-3">
               <label className="space-y-1 text-sm"><span>Hora</span>
                 <Input type="time" value={String(val(p + 'hora')).padStart(5, '0')} disabled={off} onChange={e => set(p + 'hora', e.target.value)} className={`min-w-0 text-base ${malos.has(p + 'hora') ? 'border-red-500' : ''}`} /></label>
@@ -144,6 +160,7 @@ export default function EditorProgramacion({ camaraFija, enDialogo, inicial, onE
                 {malos.has(p + 'etapas') && <div className="text-xs text-red-600">Tiene que haber al menos un equipo en cada etapa</div>}
               </fieldset>
             )}
+            </div>}
           </Card>
         )
       })}

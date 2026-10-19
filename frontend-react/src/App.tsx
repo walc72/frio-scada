@@ -69,6 +69,7 @@ export default function App() {
   const isAdmin = isAdminRole(role)
   const logoUrl = useBrandingStore(s => s.logoUrl)
   const brandName = useBrandingStore(s => s.name)
+  const brandFooter = useBrandingStore(s => s.footer)
 
   // Marca pública: se carga una vez, antes del login
   useEffect(() => { useBrandingStore.getState().load() }, [])
@@ -150,9 +151,9 @@ export default function App() {
             </RouteErrorBoundary>
             </div>
           </main>
-          <footer className="hidden md:flex h-8 border-t px-6 flex items-center justify-center text-xs text-muted-foreground bg-card shrink-0">
-            Powered By <strong className="ml-1">Tecno Electric S.A.</strong>
-          </footer>
+          {brandFooter && <footer className="hidden md:flex h-8 border-t px-6 flex items-center justify-center text-xs text-muted-foreground bg-card shrink-0">
+            Powered By <strong className="ml-1">{brandFooter}</strong>
+          </footer>}
         </div>
       </div>
     </div>

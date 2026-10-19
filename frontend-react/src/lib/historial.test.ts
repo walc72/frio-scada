@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest'
-import { agruparCompresores, filasCompresores, filasDescongelados, filasEventos, prepararAvisos, filasAlarmas, duracionTxt } from './historial'
+import { agruparCompresores, filasCompresores, filasDescongelados, filasEventos, prepararAvisos, quitarRemDuplicados, filasAlarmas, duracionTxt } from './historial'
 
 describe('agruparCompresores', () => {
   const r = agruparCompresores([
@@ -84,3 +84,25 @@ test('filasAlarmas agrupa y trae Cámara y Equipos', () => {
   expect(r[0]).toMatchObject({ 'Cámara': 'Cámara 5', Equipos: '1, 3', 'Duración (min)': 60, Alarma: 'llevan demasiadas horas sin descongelar' })
 })
 test('duracionTxt', () => { expect(duracionTxt(45)).toBe('45 min'); expect(duracionTxt(135)).toBe('2 h 15 min') })
+
+describe('quitarRemDuplicados', () => {
+  const T = 1_000_000_000
+  const man = { ts: T, texto: 'ana: Cámara 5 equipo 3 a automático', estado: 1, maniobra: true }
+  const rem = (dt: number) => ({ ts: T + dt, texto: 'REM u1 C5 G3 MODO AUTO', estado: 1 })
+  test('REM a <=120 s de una maniobra se oculta (antes o después)', () => {
+    expect(quitarRemDuplicados([man, rem(120e3)])).toEqual([man])
+    expect(quitarRemDuplicados([man, rem(-30e3)])).toEqual([man])
+  })
+  test('REM a 300 s se queda', () => expect(quitarRemDuplicados([man, rem(300e3)])).toHaveLength(2))
+  test('eventos comunes no se tocan', () => {
+    const e = { ts: T, texto: 'C4 G3 RESISTENCIA T.MAX', estado: 1 }
+    expect(quitarRemDuplicados([man, e])).toHaveLength(2)
+  })
+  test('REM sin maniobra conserva el texto legible', () => {
+    const r = prepararAvisos([rem(0)], null, false)
+    expect(r).toHaveLength(1)
+    expect(r[0].frase).toBe('Desde el portal: Cámara 5, equipo 3 pasó a automático')
+    expect(prepararAvisos([man, rem(5e3)], null, false)).toHaveLength(1)
+    expect(filasEventos(prepararAvisos([man, rem(5e3)], null, false))).toHaveLength(1)
+  })
+})

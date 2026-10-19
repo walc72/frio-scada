@@ -2,7 +2,7 @@
 import { nombreCamara, fechaHora, type FilaDescongelado } from './camaras'
 import type { Estado } from '../store/camaras'
 import { agruparPeriodos, type PeriodoAlarma } from './alarmas'
-import { badgeDescongelado, fraseEvento, tipoAviso, sigueActivo, type TipoAviso } from './frases'
+import { badgeDescongelado, esRem, fraseEvento, tipoAviso, sigueActivo, type TipoAviso } from './frases'
 
 export interface FilaCompresor { camara: string; dia: string; grupo: string; horas: number; horasSinDatos?: number; arranques: number; maxArranquesHora: number }
 export interface Compresor { camara: string; grupo: string; horas: number; horasSinDatos: number; arranques: number; maxArranquesHora: number }
@@ -69,10 +69,17 @@ export interface AvisoFila { ts: number; texto: string; estado: string | number;
 // Maniobra desde el portal ("usuario: acción"); el estado es el resultado del PLC (1 hecho, 0 sin confirmar, otro no se hizo)
 export const textoManiobra = (f: { texto: string; estado: string | number }) =>
   Number(f.estado) === 1 ? f.texto : `${f.texto} (${Number(f.estado) === 0 ? 'sin confirmar' : 'no se hizo'})`
+// El PLC registra "REM u.." al aplicar un comando del portal, y el API ya guarda esa misma acción como maniobra: se oculta el REM
+// si hay una maniobra a +-120 s (sin maniobra cercana, p.ej. falló la auditoría, se queda).
+const VENTANA_REM_MS = 120e3
+export function quitarRemDuplicados<T extends { ts: number; texto: string; maniobra?: boolean }>(eventos: T[]): T[] {
+  const man = eventos.filter(e => e.maniobra).map(e => e.ts)
+  return eventos.filter(e => e.maniobra || !esRem(e.texto) || !man.some(t => Math.abs(t - e.ts) <= VENTANA_REM_MS))
+}
 // Más nuevo primero. "Sigue activo" solo en el último evento de cada texto, si apareció (estado 1) y el flag vivo sigue prendido.
 export function prepararAvisos(data: { ts: number; texto: string; estado: string | number; maniobra?: boolean }[], estado: Estado | null, fresco: boolean): AvisoFila[] {
   const vistos = new Set<string>()
-  return [...data].sort((a, b) => b.ts - a.ts).map(f => {
+  return [...quitarRemDuplicados(data)].sort((a, b) => b.ts - a.ts).map(f => {
     const k = String(f.texto ?? "").trim().toUpperCase()
     const nuevo = !vistos.has(k)
     vistos.add(k)
