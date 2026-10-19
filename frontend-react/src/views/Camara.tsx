@@ -7,6 +7,7 @@ import TablaHorarios from '../components/TablaHorarios'
 import TrendEquipos from '../components/TrendEquipos'
 import EventosHoy from '../components/EventosHoy'
 import { useCamarasStore } from '../store/camaras'
+import { useAuthStore } from '../store/auth'
 import { estaVencido } from '../lib/estadoGrupo'
 import { fraseCamara, faltanMin, badgeCamara, proximoTexto } from '../lib/frases'
 import { CAMARAS, PLANTA_OFFSET, nombreCamara, txt, num, hhmm, diaPlanta, type FilaDescongelado } from '../lib/camaras'
@@ -25,6 +26,7 @@ export default function Camara() {
   const ts = useCamarasStore(s => s.ts)
   const recibidoEn = useCamarasStore(s => s.recibidoEn)
   const incompatible = useCamarasStore(s => s.mapa === 'incompatible')
+  const admin = useAuthStore(s => s.isAdmin())
   const ahora = useNow(1000)
   const dia = diaPlanta(ahora)
   const valida = (CAMARAS as readonly string[]).includes(cam)
@@ -58,6 +60,7 @@ export default function Camara() {
         {modo && <span className="text-sm text-muted-foreground">{modo}</span>}
         {hayDatos && <span className="text-sm text-muted-foreground">{falta != null ? `faltan ${falta} min` : (p => p.startsWith('Sin') ? p : `Próximo descongelado: ${p}`)(proximoTexto(estado!, cam, ahora))}</span>}
         {badge && <Badge className="ml-auto border-transparent text-white" style={{ backgroundColor: badge.c }}>{badge.t}</Badge>}
+        {admin && <Link to={`/programacion?camara=${cam}`} className={`toque inline-flex items-center gap-1 rounded-md border px-3 text-sm font-medium hover:bg-muted ${badge ? '' : 'ml-auto'}`}>⚙ Ajustes</Link>}
         {!hayDatos && <span className="ml-auto text-sm text-amber-600 dark:text-amber-400">{incompatible ? 'El PLC tiene un programa viejo' : ts ? `Sin datos desde ${hhmm(ts)}` : 'Sin datos todavía'}</span>}
       </div>
       {hayDatos && <div><div className="text-sm font-semibold">{f!.titulo}</div>{f!.detalle && <div className="text-xs text-muted-foreground">{f!.detalle}</div>}</div>}
