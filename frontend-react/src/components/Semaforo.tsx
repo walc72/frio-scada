@@ -23,7 +23,7 @@ export default function Semaforo() {
   const cam = s.nivel === 'alarma' && estado ? alarmasActivas(estado)[0]?.c : undefined
   const cuerpo = (
     <div className={`${ESTILO[s.nivel].bg} text-white rounded-xl p-3 shadow-sm`}>
-      <div className="text-[18px] font-bold" aria-live="polite">{ESTILO[s.nivel].icono} {s.titulo}</div>
+      <div className="text-xl font-bold" aria-live="polite">{ESTILO[s.nivel].icono} {s.titulo}</div>
       {s.detalle && <div className="text-sm opacity-90">{s.detalle}</div>}
       {hace != null && <div className="text-xs opacity-80 mt-1">Actualizado hace {hace} s</div>}
     </div>

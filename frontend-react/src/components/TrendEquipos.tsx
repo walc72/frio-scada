@@ -112,8 +112,8 @@ export default function TrendEquipos({ tramos, filas, horarios, camara, dia0, ah
         {cur && det && (
           <div ref={tarjeta} className="pointer-events-none absolute z-10 rounded-[10px] border bg-popover text-popover-foreground shadow-lg px-3 py-2.5 text-xs"
             style={{ width: 'max-content', maxWidth: 'min(320px, 100%)', left: 0, top: 0 }}>
-            <div className="text-[18px] font-bold tracking-wide">{det.hora}</div>
-            <div className="text-[11px] text-muted-foreground mb-1.5">Cámara {nCam} · hoy</div>
+            <div className="text-xl font-bold tracking-wide">{det.hora}</div>
+            <div className="text-xs text-muted-foreground mb-1.5">Cámara {nCam} · hoy</div>
             {d ? (
               <div className="my-1.5 rounded-md border border-orange-200 bg-orange-50 px-2 py-1 text-orange-800 dark:border-orange-900 dark:bg-orange-950/40 dark:text-orange-300">
                 <b>Descongelado {d.horario}</b> ({hhmm(d.inicio)}) · etapa {d.etapa} de 2<br />
@@ -121,7 +121,7 @@ export default function TrendEquipos({ tramos, filas, horarios, camara, dia0, ah
                   : `de ${hhmm(d.inicio)} a ${hhmm(d.finEtapa!)}`}
               </div>
             ) : det.resumen === 'Los 8 equipos enfriando' ? (
-              <div className="text-[11px] mb-1.5 text-emerald-700 dark:text-emerald-400">● {det.resumen}</div>
+              <div className="text-xs mb-1.5 text-emerald-700 dark:text-emerald-400">● {det.resumen}</div>
             ) : null}
             <div className={`grid ${ancho < 480 ? 'grid-cols-1' : 'grid-cols-2'} gap-x-3.5 gap-y-0.5`}>
               {det.equipos.map(q => (

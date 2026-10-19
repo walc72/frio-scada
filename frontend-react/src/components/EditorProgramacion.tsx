@@ -90,7 +90,7 @@ export default function EditorProgramacion({ camaraFija, enDialogo, inicial, onE
     <div className={enDialogo ? 'space-y-3' : 'max-w-2xl space-y-3'}>
       {!enDialogo && (
         <div className="sticky -top-3 z-10 -mx-3 -mt-3 flex flex-wrap items-center gap-2 border-b bg-background px-3 pb-2 pt-5 sm:-top-6 sm:-mx-6 sm:-mt-6 sm:px-6 sm:pt-8">
-          <h1 className="text-[18px] font-semibold">Programación de descongelados</h1>
+          <h1 className="text-xl font-semibold">Programación de descongelados</h1>
           {/* Guardar arriba y fijo al hacer scroll: no tapa los campos */}
           {botonGuardar}
         </div>

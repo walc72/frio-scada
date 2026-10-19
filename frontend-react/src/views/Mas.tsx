@@ -15,7 +15,7 @@ export default function Mas() {
   const isAdmin = useAuthStore(s => s.isAdmin())
   return (
     <div className="max-w-xl space-y-3">
-      <h1 className="text-[18px] font-semibold">Más</h1>
+      <h1 className="text-xl font-semibold">Más</h1>
       <ul className="rounded-lg border bg-card divide-y">
         {ITEMS.filter(i => !i.admin || isAdmin).map(i => (
           <li key={i.to}>

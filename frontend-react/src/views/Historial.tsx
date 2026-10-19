@@ -38,7 +38,7 @@ function BloqueEquipos({ camara, equipos }: { camara: string; equipos: EquipoHis
   return (
     <section className="border-b last:border-0 px-3 py-3 space-y-1.5">
       <h2 className="text-sm font-semibold">{nombreCamara(camara)}</h2>
-      {dias.length > 1 && <div className="grid grid-cols-[4.5rem_1fr] sm:grid-cols-[4.5rem_1fr_19rem] gap-x-3 text-[10px] text-muted-foreground">
+      {dias.length > 1 && <div className="grid grid-cols-[4.5rem_1fr] sm:grid-cols-[4.5rem_1fr_19rem] gap-x-3 text-xs text-muted-foreground">
         <span /><div className="flex gap-0.5">{dias.map(d => <span key={d.dia} className="flex-1 text-center truncate">{diaCorto(d.dia)}</span>)}</div>
       </div>}
       {equipos.map(e => (
@@ -88,7 +88,7 @@ export default function Historial() {
 
   return (
     <div className="space-y-3">
-      <h1 className="text-[18px] font-semibold">Historial</h1>
+      <h1 className="text-xl font-semibold">Historial</h1>
       <div className="flex gap-2 overflow-x-auto">
         {PESTANAS.map(p => (
           <Link key={p.id} to={`/historial/${p.id}`}
