@@ -1,4 +1,5 @@
 'use strict';
+const escHtml = (t) => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 const router = require('express').Router();
 const nodemailer = require('nodemailer');
@@ -129,7 +130,7 @@ router.post('/smtp/test', async (req, res) => {
       from: `"Frío SCADA" <${c.from || c.user}>`,
       to,
       subject: '[Frío SCADA] Correo de prueba',
-      html: '<div style="font-family:Arial"><h3 style="color:#E87722">Correo de prueba</h3><p>La configuración SMTP funciona correctamente.</p><p style="color:#999;font-size:11px">Tecno Electric S.A.</p></div>',
+      html: '<div style="font-family:Arial"><h3 style="color:#E87722">Correo de prueba</h3><p>La configuración SMTP funciona correctamente.</p><p style="color:#999;font-size:11px">' + escHtml(require('../services/branding').get().footer) + '</p></div>',
     });
     res.json({ ok: true, to });
   } catch (e) {

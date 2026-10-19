@@ -7,6 +7,7 @@ const MODE = (import.meta.env.VITE_DATA_MODE as string) || 'mock'
 export interface Branding {
   name: string
   subtitle: string
+  footer: string
   logoUrl: string
   customLogo: boolean
 }
@@ -14,6 +15,7 @@ export interface Branding {
 export const DEFAULT_BRANDING: Branding = {
   name: 'Frío SCADA',
   subtitle: 'Monitoreo remoto de cámaras frías.',
+  footer: 'Tecno Electric S.A.',
   logoUrl: '/logo-te.png',
   customLogo: false,
 }
@@ -22,7 +24,7 @@ type Result = { ok: boolean; error?: string }
 
 interface BrandingState extends Branding {
   load: () => Promise<void>
-  save: (patch: { name?: string; subtitle?: string; logo?: string }) => Promise<Result>
+  save: (patch: { name?: string; subtitle?: string; footer?: string; logo?: string }) => Promise<Result>
   reset: () => Promise<Result>
 }
 
@@ -47,8 +49,8 @@ function cached(): Branding {
 function apply(b: Branding) {
   document.title = b.name
   try {
-    const { name, subtitle, logoUrl, customLogo } = b
-    localStorage.setItem(CACHE_KEY, JSON.stringify({ name, subtitle, logoUrl, customLogo }))
+    const { name, subtitle, footer, logoUrl, customLogo } = b
+    localStorage.setItem(CACHE_KEY, JSON.stringify({ name, subtitle, footer, logoUrl, customLogo }))
   } catch { /* sin storage: solo se pierde el arranque rápido */ }
 }
 
@@ -72,7 +74,7 @@ export const useBrandingStore = create<BrandingState>((set, get) => ({
 
   save: async (patch) => {
     if (MODE === 'mock') {
-      const b = { ...get(), ...(patch.name !== undefined ? { name: patch.name } : {}), ...(patch.subtitle !== undefined ? { subtitle: patch.subtitle } : {}) }
+      const b = { ...get(), ...(patch.name !== undefined ? { name: patch.name } : {}), ...(patch.subtitle !== undefined ? { subtitle: patch.subtitle } : {}), ...(patch.footer !== undefined ? { footer: patch.footer } : {}) }
       set(b); apply(b)
       return { ok: true }
     }

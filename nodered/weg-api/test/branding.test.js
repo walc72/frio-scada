@@ -109,3 +109,12 @@ test('routes: GET public, PUT needs superadmin, body up to 2 MB', async () => {
     assert.equal((await del.json()).name, 'Frío SCADA');
   } finally { await new Promise(r => server.close(r)); }
 });
+
+test('footer: por defecto Tecno Electric, se cambia, vacío lo oculta, se valida el largo', () => {
+  branding.reset();
+  assert.equal(branding.get().footer, 'Tecno Electric S.A.');
+  assert.equal(branding.set({ footer: '  Unifrisa  ' }).footer, 'Unifrisa');
+  assert.equal(branding.set({ footer: '' }).footer, '');
+  assert.throws(() => branding.set({ footer: 'x'.repeat(81) }), /máximo 80/);
+  branding.reset();
+});

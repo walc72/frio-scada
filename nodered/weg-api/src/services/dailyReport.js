@@ -1,4 +1,5 @@
 'use strict';
+const escHtml = (t) => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 // Reporte diario automático: a la hora configurada genera el Excel de
 // cámaras del día anterior (desde InfluxDB), lo guarda en REPORTS_DIR y —si hay
@@ -68,7 +69,7 @@ async function buildAndSend(dateStr, opts = {}) {
         html: `<div style="font-family:Arial,sans-serif;max-width:620px">
           <h2 style="color:#E87722;margin-bottom:4px">Reporte de cámaras — ${date}</h2>
           <ul style="color:#555">${li}</ul>
-          <p style="color:#999;font-size:11px">Generado automáticamente · Powered by Tecno Electric S.A.</p>
+          <p style="color:#999;font-size:11px">Generado automáticamente${require('./branding').get().footer ? ` · Powered by ${escHtml(require('./branding').get().footer)}` : ''}</p>
         </div>`,
         attachments: xlsx ? [{ filename: `reporte-camaras_${date}.xlsx`, content: xlsx,
           contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }] : [],

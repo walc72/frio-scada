@@ -668,7 +668,7 @@ function toPDF(rows, title) {
       const savedBottom = doc.page.margins.bottom;
       doc.page.margins.bottom = 0;
       doc.fontSize(7.5).fillColor(GREY)
-        .text(`Generado ${new Date().toLocaleString('es-PY')}  |  Powered by Tecno Electric S.A.`,
+        .text(`Generado ${new Date().toLocaleString('es-PY')}${branding.get().footer ? `  |  Powered by ${branding.get().footer}` : ''}`,
           mL, pageH - 28, { width: contentW, align: 'center', lineBreak: false });
       doc.page.margins.bottom = savedBottom;
     }

@@ -16,6 +16,7 @@ const MAX_LOGO_BYTES = 1024 * 1024;
 const DEFAULTS = {
   name: 'Frío SCADA',
   subtitle: 'Monitoreo remoto de cámaras frías.',
+  footer: 'Tecno Electric S.A.',   // "Powered by …" del pie (vacío = sin pie)
 };
 
 function read() {
@@ -60,6 +61,7 @@ function get() {
   return {
     name: s.name || DEFAULTS.name,
     subtitle: typeof s.subtitle === 'string' ? s.subtitle : DEFAULTS.subtitle,
+    footer: typeof s.footer === 'string' ? s.footer : DEFAULTS.footer,
     logoUrl: `/api/branding/logo?v=${v}`,
     customLogo: p !== DEFAULT_LOGO,
   };
@@ -83,6 +85,8 @@ function set(patch) {
     s.name = name;
   }
   if (subtitle !== undefined) s.subtitle = subtitle;
+  const footer = text(patch.footer, 'Pie de página', 80);
+  if (footer !== undefined) s.footer = footer;
 
   if (patch.logo !== undefined) {
     if (typeof patch.logo !== 'string') throw new Error('logo inválido');

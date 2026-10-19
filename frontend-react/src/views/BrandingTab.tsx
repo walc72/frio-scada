@@ -22,10 +22,11 @@ export default function BrandingTab() {
   const b = useBrandingStore()
   const [name, setName] = useState(b.name)
   const [subtitle, setSubtitle] = useState(b.subtitle)
+  const [footer, setFooter] = useState(b.footer)
   const [logo, setLogo] = useState<string | null>(null) // data URL pendiente de guardar
   const [saving, setSaving] = useState(false)
 
-  useEffect(() => { setName(b.name); setSubtitle(b.subtitle) }, [b.name, b.subtitle])
+  useEffect(() => { setName(b.name); setSubtitle(b.subtitle); setFooter(b.footer) }, [b.name, b.subtitle, b.footer])
 
   async function pick(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0]
@@ -39,7 +40,7 @@ export default function BrandingTab() {
   async function save() {
     if (!name.trim()) { toast.error('El nombre no puede quedar vacío'); return }
     setSaving(true)
-    const r = await b.save({ name: name.trim(), subtitle: subtitle.trim(), ...(logo ? { logo } : {}) })
+    const r = await b.save({ name: name.trim(), subtitle: subtitle.trim(), footer: footer.trim(), ...(logo ? { logo } : {}) })
     setSaving(false)
     if (r.ok) { setLogo(null); toast.success('Marca guardada') }
     else toast.error(`No se pudo guardar: ${r.error}`)
@@ -58,7 +59,7 @@ export default function BrandingTab() {
     <div className="max-w-2xl">
       <Card className="p-3 space-y-3">
         <p className="text-sm text-muted-foreground">
-          Logo y textos del login, del encabezado y de los reportes PDF. Solo afecta a este servidor.
+          Logo y textos del login, del encabezado, del pie de página y de los reportes PDF. Solo afecta a este servidor.
         </p>
         <div>
           <Label>Nombre</Label>
@@ -67,6 +68,10 @@ export default function BrandingTab() {
         <div>
           <Label>Subtítulo del login</Label>
           <Input value={subtitle} maxLength={200} onChange={e => setSubtitle(e.target.value)} placeholder="(vacío = sin subtítulo)" />
+        </div>
+        <div>
+          <Label>Pie de página ("Powered by …")</Label>
+          <Input value={footer} maxLength={80} onChange={e => setFooter(e.target.value)} placeholder="(vacío = sin pie de página)" />
         </div>
         <div className="space-y-2">
           <Label>Logo (PNG o JPG, máx. 1 MB)</Label>
