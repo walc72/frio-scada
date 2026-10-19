@@ -80,4 +80,17 @@ describe('agrupar', () => {
     expect(r[0]).toMatchObject({ equipos: [2, 4], texto: 'Cámara 5 · Equipos 2, 4: llevan demasiadas horas sin descongelar', duracionMin: 79 })
     expect(r[1].texto).toMatch(/^Cámara 5 · Equipo 6: lleva /)
   })
+  test('tolerancia 5 min: 14:59 y 15:00 son un grupo, 20:08 y 20:21 no', () => {
+    const r = agruparActivas([2, 4, 6, 8].map(g => act(`C4.G${g}.alarma_sin_desc`, t(g === 2 ? '14:59' : '15:00'))))
+    expect(r).toHaveLength(1)
+    expect(r[0]).toMatchObject({ equipos: [2, 4, 6, 8], desde: t('14:59') })
+    expect(agruparActivas([act('C4.G1.alarma_sin_desc', t('20:08')), act('C4.G2.alarma_sin_desc', t('20:21'))])).toHaveLength(2)
+  })
+  test('períodos: inicios cercanos se juntan (primer inicio, duración recalculada); fines lejanos no', () => {
+    const p = (g: number, i: string, f: string) => ({ clave: `C4.G${g}.alarma_sin_desc`, frase: '', inicio: t(i), fin: t(f), duracionMin: 0 })
+    const r = agruparPeriodos([p(2, '14:59', '16:08'), p(4, '15:00', '16:08'), p(6, '15:00', '16:09')])
+    expect(r).toHaveLength(1)
+    expect(r[0]).toMatchObject({ equipos: [2, 4, 6], inicio: t('14:59'), fin: t('16:09'), duracionMin: 70 })
+    expect(agruparPeriodos([p(2, '15:00', '16:08'), p(4, '15:00', '16:30')])).toHaveLength(2)
+  })
 })

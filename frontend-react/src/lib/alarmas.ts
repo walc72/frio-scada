@@ -70,20 +70,33 @@ const titulo = (camara: string | null, equipos: number[], tipo: string, camaraIm
   const cam = camara === null ? 'PLC' : camara === camaraImplicita ? '' : nombreCamara(camara)
   return `${[cam, eq].filter(Boolean).join(' · ')}: ${txt}`
 }
-const agrupar = <T,>(items: T[], clave: (x: T) => string) => {
-  const m = new Map<string, T[]>()
-  for (const x of items) { const k = clave(x); m.set(k, [...(m.get(k) ?? []), x]) }
-  return [...m.values()]
+// El PLC levanta alarmas del mismo evento con segundos de diferencia: se juntan si caen dentro de esta tolerancia
+export const TOLERANCIA_MIN = 5
+const TOL = TOLERANCIA_MIN * 60000
+type T0 = number | null | undefined
+const cerca = (a: T0, b: T0) => (typeof a === 'number' && typeof b === 'number' ? Math.abs(a - b) <= TOL : (a ?? null) === (b ?? null) && typeof a !== 'number')
+// Agrupa en orden de tiempo: entra al primer grupo de la misma base cuyos tiempos (comparados con los del primer miembro) estén dentro de la tolerancia
+function agrupar<T>(items: T[], base: (x: T) => string, tiempos: (x: T) => T0[]): T[][] {
+  const orden = [...items].sort((a, b) => (tiempos(a)[0] ?? -Infinity) - (tiempos(b)[0] ?? -Infinity))
+  const grupos: T[][] = []
+  for (const x of orden) {
+    const g = grupos.find(g => base(g[0]) === base(x) && tiempos(g[0]).every((t, k) => cerca(t, tiempos(x)[k])))
+    if (g) g.push(x); else grupos.push([x])
+  }
+  return grupos
 }
+const minimo = (v: T0[]) => { const n = v.filter((t): t is number => typeof t === 'number'); return n.length ? Math.min(...n) : null }
+const maximo = (v: T0[]) => { const n = v.filter((t): t is number => typeof t === 'number'); return n.length ? Math.max(...n) : null }
 
 export interface GrupoActivo { clave: string; camara: string | null; titulo: string; accion?: string; desde: number | null | undefined; equipos: number[] }
 export function agruparActivas(lista: (Omit<AlarmaActivaVista, 'desde'> & { desde?: number | null })[], opciones: { camaraImplicita?: string } = {}): GrupoActivo[] {
   const ps = lista.map(a => ({ a, ...parseClave(a.clave) }))
-  return agrupar(ps, x => `${x.camara}|${x.tipo}|${x.a.desde === null ? 'null' : x.a.desde === undefined ? 'u' : Math.floor(x.a.desde / 60000)}`)
+  return agrupar(ps, x => `${x.camara}|${x.tipo}`, x => [x.a.desde])
     .map(g => {
       const equipos = g.map(x => x.equipo).filter((e): e is number => e !== null).sort((a, b) => a - b)
       const { camara, tipo } = g[0]
-      return { clave: `${camara}|${tipo}|${g[0].a.desde}`, camara, titulo: titulo(camara, equipos, tipo, opciones.camaraImplicita), accion: textoAlarma(tipo).accion, desde: g[0].a.desde, equipos, tipo }
+      const desde = minimo(g.map(x => x.a.desde)) ?? g[0].a.desde
+      return { clave: `${camara}|${tipo}|${desde}`, camara, titulo: titulo(camara, equipos, tipo, opciones.camaraImplicita), accion: textoAlarma(tipo).accion, desde, equipos, tipo }
     })
     .sort((a, b) => ordenCamara(a.camara).localeCompare(ordenCamara(b.camara)) || a.tipo.localeCompare(b.tipo) || 0)
     .map(({ tipo: _t, ...r }) => r)
@@ -91,10 +104,10 @@ export function agruparActivas(lista: (Omit<AlarmaActivaVista, 'desde'> & { desd
 
 export interface GrupoPeriodo { claves: string[]; camara: string | null; equipos: number[]; texto: string; inicio: number | null; fin: number | null; duracionMin: number | null }
 export function agruparPeriodos(periodos: PeriodoAlarma[]): GrupoPeriodo[] {
-  const min = (t: number | null) => (t === null ? 'null' : Math.floor(t / 60000))
-  return agrupar(periodos.map(p => ({ p, ...parseClave(p.clave) })), x => `${x.camara}|${x.tipo}|${min(x.p.inicio)}|${min(x.p.fin)}`).map(g => {
+  return agrupar(periodos.map(p => ({ p, ...parseClave(p.clave) })), x => `${x.camara}|${x.tipo}`, x => [x.p.inicio, x.p.fin]).map(g => {
     const equipos = g.map(x => x.equipo).filter((e): e is number => e !== null).sort((a, b) => a - b)
-    const { camara, tipo, p } = g[0]
-    return { claves: g.map(x => x.p.clave), camara, equipos, texto: titulo(camara, equipos, tipo), inicio: p.inicio, fin: p.fin, duracionMin: p.duracionMin }
+    const { camara, tipo } = g[0]
+    const inicio = minimo(g.map(x => x.p.inicio)), fin = maximo(g.map(x => x.p.fin))
+    return { claves: g.map(x => x.p.clave), camara, equipos, texto: titulo(camara, equipos, tipo), inicio, fin, duracionMin: inicio !== null && fin !== null ? Math.round((fin - inicio) / 60000) : null }
   })
 }
