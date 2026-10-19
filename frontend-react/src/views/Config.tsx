@@ -340,7 +340,7 @@ function DailyReportCard() {
       <div>
         <div className="font-semibold text-sm">Reporte diario automático</div>
         <p className="text-sm text-muted-foreground">
-          A esta hora se genera el PDF del día anterior y se envía a los destinatarios de arriba.
+          A esta hora se genera el PDF del día anterior y se manda por correo (a los destinatarios de arriba) y/o Telegram, según lo elegido en Más → Reporte diario.
           También es el cierre del día para cargar lluvia y altura del río.
         </p>
       </div>

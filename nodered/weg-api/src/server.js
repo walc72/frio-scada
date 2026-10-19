@@ -106,6 +106,7 @@ app.get('/health', (req, res) => {
 app.use('/api/config', configRoutes);
 app.use('/api/status', statusRoutes);
 app.use('/api/reports', reportRoutes);
+app.get('/api/reportes/diario.pdf', reportRoutes.diarioPdf);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/replicas', createReplicasRouter({
   registry: replicaRegistry, isReplica: REPLICA_MODE, legacyToken: process.env.REPLICA_TOKEN || '',
@@ -181,7 +182,7 @@ const server = app.listen(PORT, '0.0.0.0', () => {
   if (REPLICA_MODE) console.log('[API] Modo réplica: alertas desactivadas');
   else alertasCamaras.start();
 
-  // Reporte diario automático (cron interno -> Excel por email); en la réplica no: sale de planta
+  // Reporte diario automático (cron interno -> PDF por correo y/o Telegram); en la réplica no: sale de planta
   if (!REPLICA_MODE) dailyReportService.start();
 
   // Watch config for changes

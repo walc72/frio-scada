@@ -181,4 +181,4 @@ function start() {
 
 const getNextRunAt = () => (ENABLED ? nextRunAt : null);
 
-module.exports = { runScheduled, start, reschedule, getNextRunAt, buildAndSend, REPORTS_DIR, ENABLED };
+module.exports = { sigueVivo, runScheduled, start, reschedule, getNextRunAt, buildAndSend, REPORTS_DIR, ENABLED };
