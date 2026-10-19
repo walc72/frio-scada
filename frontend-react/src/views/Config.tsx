@@ -27,7 +27,7 @@ const MODE = (import.meta.env.VITE_DATA_MODE as string) || 'mock'
 export default function Config() {
   const store = useConfigStore()
   const replica = useServerStore(s => s.replica)
-  // Marca, Conexión y Réplicas: solo el superadmin
+  // Conexión y Réplicas: solo el superadmin (Marca la puede cambiar cualquier admin)
   const superadmin = useAuthStore(s => s.role === 'superadmin')
 
   useEffect(() => { if (!store.config) store.load() }, [])
@@ -50,7 +50,7 @@ export default function Config() {
         <TabsTrigger value="smtp">Correo</TabsTrigger>
         <TabsTrigger value="telegram">Telegram</TabsTrigger>
         <TabsTrigger value="camaras">Cámaras</TabsTrigger>
-        {superadmin && <TabsTrigger value="brand">Marca</TabsTrigger>}
+        <TabsTrigger value="brand">Marca</TabsTrigger>
         {superadmin && <TabsTrigger value="conexion">Conexión</TabsTrigger>}
         {superadmin && !replica && <TabsTrigger value="replicas">Réplicas</TabsTrigger>}
       </TabsList>
@@ -65,7 +65,7 @@ export default function Config() {
       <TabsContent value="smtp"><SmtpTab /></TabsContent>
       <TabsContent value="telegram"><TelegramTab /></TabsContent>
       <TabsContent value="camaras"><CamarasTab key={JSON.stringify(store.config?.camaras ?? null)} /></TabsContent>
-      {superadmin && <TabsContent value="brand"><BrandingTab /></TabsContent>}
+      <TabsContent value="brand"><BrandingTab /></TabsContent>
       {superadmin && <TabsContent value="conexion"><ConexionTab /></TabsContent>}
       {superadmin && !replica && <TabsContent value="replicas"><ReplicasTab /></TabsContent>}
     </Tabs>
