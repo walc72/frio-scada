@@ -14,7 +14,7 @@ import { useNow } from '../lib/useNow'
 import { useDatos } from '../lib/useDatos'
 import { useCallback, useMemo } from 'react'
 import { aTramos, horariosVista, type TramoApi } from '../lib/paginaCamara'
-import { alarmasActivasVista, ultimoPorClave, type Evento } from '../lib/alarmas'
+import { agruparActivas, alarmasActivasVista, ultimoPorClave, type Evento } from '../lib/alarmas'
 
 const MODOS: Record<string, string> = { AUTOMATICO: 'Automático', MANUAL: 'Manual', STOP: 'Detenido' }
 
@@ -45,7 +45,7 @@ export default function Camara() {
   const dia0 = Date.parse(`${dia}T00:00:00${PLANTA_OFFSET}`)
   const horarios = estado && !sinDatos ? horariosVista(estado, cam, ahora, filas.error ? null : filas.data) : []
   // Sin eventos cargados (cargando o con error) no se sabe desde cuándo: desde = undefined
-  const alarmas = estado && !sinDatos ? alarmasActivasVista(estado, ultimos, cam).map(a => ev.data && !ev.error && !ev.cargando ? a : { ...a, desde: undefined }) : null
+  const alarmas = estado && !sinDatos ? agruparActivas(alarmasActivasVista(estado, ultimos, cam).map(a => ev.data && !ev.error && !ev.cargando ? a : { ...a, desde: undefined }), { camaraImplicita: cam }) : null
 
   return (
     <div className="space-y-3">

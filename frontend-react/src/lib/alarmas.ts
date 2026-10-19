@@ -54,3 +54,47 @@ export function periodosAlarma(eventos: Evento[]): PeriodoAlarma[] {
   }
   return r.reverse()
 }
+
+// "C5.G4.alarma_sin_desc" → cámara C5, equipo 4, tipo alarma_sin_desc; "alarma_reloj" → planta
+const parseClave = (clave: string) => {
+  const p = clave.split('.')
+  const g = p.find(x => /^G\d+$/.test(x))
+  return { camara: /^C\d+$/.test(p[0]) ? p[0] : null, equipo: g ? Number(g.slice(1)) : null, tipo: p[p.length - 1] }
+}
+const ordenCamara = (c: string | null) => (c === null ? '' : c)
+// Un solo renglón por (cámara, tipo, instante): "Cámara 5 · Equipos 1, 3: lleva(n)…". camaraImplicita: se omite su nombre (página de esa cámara).
+const titulo = (camara: string | null, equipos: number[], tipo: string, camaraImplicita?: string) => {
+  const t = textoAlarma(tipo)
+  const txt = equipos.length > 1 ? t.textoPlural ?? t.texto : t.texto
+  const eq = equipos.length ? `${equipos.length > 1 ? 'Equipos' : 'Equipo'} ${equipos.join(', ')}` : ''
+  const cam = camara === null ? 'PLC' : camara === camaraImplicita ? '' : nombreCamara(camara)
+  return `${[cam, eq].filter(Boolean).join(' · ')}: ${txt}`
+}
+const agrupar = <T,>(items: T[], clave: (x: T) => string) => {
+  const m = new Map<string, T[]>()
+  for (const x of items) { const k = clave(x); m.set(k, [...(m.get(k) ?? []), x]) }
+  return [...m.values()]
+}
+
+export interface GrupoActivo { clave: string; camara: string | null; titulo: string; accion?: string; desde: number | null | undefined; equipos: number[] }
+export function agruparActivas(lista: (Omit<AlarmaActivaVista, 'desde'> & { desde?: number | null })[], opciones: { camaraImplicita?: string } = {}): GrupoActivo[] {
+  const ps = lista.map(a => ({ a, ...parseClave(a.clave) }))
+  return agrupar(ps, x => `${x.camara}|${x.tipo}|${x.a.desde === null ? 'null' : x.a.desde === undefined ? 'u' : Math.floor(x.a.desde / 60000)}`)
+    .map(g => {
+      const equipos = g.map(x => x.equipo).filter((e): e is number => e !== null).sort((a, b) => a - b)
+      const { camara, tipo } = g[0]
+      return { clave: `${camara}|${tipo}|${g[0].a.desde}`, camara, titulo: titulo(camara, equipos, tipo, opciones.camaraImplicita), accion: textoAlarma(tipo).accion, desde: g[0].a.desde, equipos, tipo }
+    })
+    .sort((a, b) => ordenCamara(a.camara).localeCompare(ordenCamara(b.camara)) || a.tipo.localeCompare(b.tipo) || 0)
+    .map(({ tipo: _t, ...r }) => r)
+}
+
+export interface GrupoPeriodo { claves: string[]; camara: string | null; equipos: number[]; texto: string; inicio: number | null; fin: number | null; duracionMin: number | null }
+export function agruparPeriodos(periodos: PeriodoAlarma[]): GrupoPeriodo[] {
+  const min = (t: number | null) => (t === null ? 'null' : Math.floor(t / 60000))
+  return agrupar(periodos.map(p => ({ p, ...parseClave(p.clave) })), x => `${x.camara}|${x.tipo}|${min(x.p.inicio)}|${min(x.p.fin)}`).map(g => {
+    const equipos = g.map(x => x.equipo).filter((e): e is number => e !== null).sort((a, b) => a - b)
+    const { camara, tipo, p } = g[0]
+    return { claves: g.map(x => x.p.clave), camara, equipos, texto: titulo(camara, equipos, tipo), inicio: p.inicio, fin: p.fin, duracionMin: p.duracionMin }
+  })
+}

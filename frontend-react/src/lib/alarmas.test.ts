@@ -1,7 +1,7 @@
 import { describe, test, expect } from 'vitest'
 import type { Estado } from '../store/camaras'
 import { claveAlarmaDeEvento } from './frases'
-import { desdeAlarma, periodosAlarma, alarmasActivasVista, ultimoPorClave } from './alarmas'
+import { agruparActivas, agruparPeriodos, desdeAlarma, periodosAlarma, alarmasActivasVista, ultimoPorClave } from './alarmas'
 
 const t = (hm: string) => Date.parse(`2026-10-17T${hm}:00-03:00`)
 const ev = [
@@ -53,5 +53,31 @@ describe('alarmas', () => {
   test('títulos de cámara y PLC', () => {
     const a = alarmasActivasVista({ 'C5.alarma_manual': 1, alarma_reloj: 1 } as Estado, new Map())
     expect(a.map(x => x.titulo.split(':')[0]).sort()).toEqual(['Cámara 5', 'PLC'])
+  })
+})
+
+describe('agrupar', () => {
+  const act = (clave: string, desde: number | null) => ({ clave, titulo: '', desde })
+  const ocho = [1, 2, 3, 4, 5, 6, 7, 8].map(g => act(`C5.G${g}.alarma_sin_desc`, g % 2 ? t('20:08') : t('20:21')))
+  test('8 equipos, dos instantes: dos líneas en plural', () => {
+    const r = agruparActivas(ocho)
+    expect(r.map(x => x.titulo)).toEqual([
+      'Cámara 5 · Equipos 1, 3, 5, 7: llevan demasiadas horas sin descongelar',
+      'Cámara 5 · Equipos 2, 4, 6, 8: llevan demasiadas horas sin descongelar'])
+  })
+  test('un equipo: singular; cámara y planta; orden planta primero', () => {
+    const r = agruparActivas([act('C5.alarma_manual', null), act('C4.G4.alarma_sin_desc', null), act('alarma_reloj', null)])
+    expect(r.map(x => x.titulo)).toEqual(['PLC: el reloj del PLC está mal', 'Cámara 4 · Equipo 4: lleva demasiadas horas sin descongelar', 'Cámara 5: hay equipos en manual demasiado tiempo'])
+  })
+  test('en la página de la cámara no se repite su nombre', () => {
+    const r = agruparActivas([act('C5.G2.alarma_sin_desc', null), act('C5.G3.alarma_sin_desc', null), act('alarma_reloj', null)], { camaraImplicita: 'C5' })
+    expect(r.map(x => x.titulo)).toEqual(['PLC: el reloj del PLC está mal', 'Equipos 2, 3: llevan demasiadas horas sin descongelar'])
+  })
+  test('períodos: mismo tipo, inicio y fin se juntan', () => {
+    const p = (g: number, fin: number | null) => ({ clave: `C5.G${g}.alarma_sin_desc`, frase: '', inicio: t('20:21'), fin, duracionMin: fin ? 79 : null })
+    const r = agruparPeriodos([p(2, t('21:40')), p(4, t('21:40')), p(6, null)])
+    expect(r).toHaveLength(2)
+    expect(r[0]).toMatchObject({ equipos: [2, 4], texto: 'Cámara 5 · Equipos 2, 4: llevan demasiadas horas sin descongelar', duracionMin: 79 })
+    expect(r[1].texto).toMatch(/^Cámara 5 · Equipo 6: lleva /)
   })
 })

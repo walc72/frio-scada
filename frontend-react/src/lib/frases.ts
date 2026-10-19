@@ -77,19 +77,19 @@ export function proximoTexto(estado: Estado, c: string, ahora: number): string {
 }
 
 // ---- alarmas ----
-const ALARMAS: Record<string, { texto: string; accion?: string }> = {
+const ALARMAS: Record<string, { texto: string; textoPlural?: string; accion?: string }> = {
   alarma_reloj: { texto: 'el reloj del PLC está mal', accion: 'avisar al técnico para ajustar la hora' },
   alarma_indice: { texto: 'falló el índice de alarmas del PLC', accion: 'avisar al técnico' },
   alarma_espera: { texto: 'esperó demasiado para empezar una etapa de descongelado', accion: 'revisar que los equipos de la etapa anterior hayan terminado' },
   alarma_recuperacion: { texto: 'tardó demasiado en volver a frío', accion: 'revisar que los equipos estén enfriando' },
   alarma_manual: { texto: 'hay equipos en manual demasiado tiempo', accion: 'pasarlos a automático desde el panel' },
-  alarma_res: { texto: 'la resistencia se cortó por tiempo', accion: 'avisar al técnico para revisar la resistencia' },
-  alarma_sin_desc: { texto: 'lleva demasiadas horas sin descongelar', accion: 'revisar los horarios de descongelado' },
+  alarma_res: { texto: 'la resistencia se cortó por tiempo', textoPlural: 'las resistencias se cortaron por tiempo', accion: 'avisar al técnico para revisar la resistencia' },
+  alarma_sin_desc: { texto: 'lleva demasiadas horas sin descongelar', textoPlural: 'llevan demasiadas horas sin descongelar', accion: 'revisar los horarios de descongelado' },
   hora_invalida: { texto: 'un horario de descongelado tiene una hora inválida', accion: 'corregirlo en la configuración del PLC' },
   solapado: { texto: 'un horario de descongelado se pisa con otro', accion: 'corregirlo en la configuración del PLC' },
   tiempo_invalido: { texto: 'un horario de descongelado tiene un tiempo inválido', accion: 'corregirlo en la configuración del PLC' },
 }
-export function textoAlarma(clave: string): { texto: string; accion?: string } {
+export function textoAlarma(clave: string): { texto: string; textoPlural?: string; accion?: string } {
   return ALARMAS[clave.split('.').pop() ?? ''] ?? { texto: 'hay una alarma en el PLC', accion: 'avisar al técnico' }
 }
 

@@ -6,8 +6,8 @@ import { useCamarasStore } from '../store/camaras'
 import { useNow } from '../lib/useNow'
 import { estaVencido, colorEstadoGrupo } from '../lib/estadoGrupo'
 import { nombreCamara, fechaHora, type FilaDescongelado } from '../lib/camaras'
-import { badgeDescongelado, fraseEvento, UMBRAL_ARRANQUES_HORA, type TipoAviso } from '../lib/frases'
-import { alarmasActivasVista, periodosAlarma, ultimoPorClave } from '../lib/alarmas'
+import { badgeDescongelado, UMBRAL_ARRANQUES_HORA, type TipoAviso } from '../lib/frases'
+import { agruparActivas, agruparPeriodos, alarmasActivasVista, periodosAlarma, ultimoPorClave } from '../lib/alarmas'
 import { agruparCompresores, duracionTxt, equipoDe, horasTxt, prepararAvisos, filasEventos, filasAlarmas, filasCompresores, filasDescongelados } from '../lib/historial'
 import { downloadXlsx } from '../lib/xlsx'
 import { cn } from '../lib/utils'
@@ -45,6 +45,9 @@ export default function Historial() {
   const finHoy = r.hasta === hoy() // "desde" y "sigue activa" solo valen si el rango llega a hoy
   const activas = pestana === 'alarmas' && fresco && estado ? alarmasActivasVista(estado, ultimos) : []
   const siguen = (clave: string) => finHoy && activas.some(a => a.clave === clave)
+  const grupos = agruparActivas(activas)
+  // las abiertas que siguen activas ya están en el recuadro rojo
+  const otras = agruparPeriodos(periodos.filter(p => !(p.fin === null && siguen(p.clave))))
   if (!PESTANAS.some(p => p.id === pestana)) return <Navigate to="/historial/descongelados" replace />
   const lista: any[] = data ?? []
   const filas = pestana === 'descongelados' ? filasDescongelados(lista as FilaDescongelado[])
@@ -69,15 +72,17 @@ export default function Historial() {
         : activas.length === 0
           ? <div className="rounded-lg border border-green-600 bg-green-50 px-3 py-2 text-sm font-semibold text-green-800 dark:bg-green-950 dark:text-green-300">Sin alarmas activas</div>
           : <ul className="rounded-lg border-2 border-red-600 bg-red-50 px-3 py-2 space-y-1 dark:bg-red-950">
-              {activas.map(a => <li key={a.clave} className="text-sm text-red-900 dark:text-red-200">
+              {grupos.map(a => <li key={a.clave} className="text-sm text-red-900 dark:text-red-200">
                 <span className="font-semibold">{a.titulo}</span>
                 {a.accion && <span> · {a.accion}</span>}
-                {cargado && finHoy && (!r.camara || a.clave.startsWith(`${r.camara}.`)) && <span className="text-xs"> · {a.desde ? `desde ${dia(a.desde)} ${hm(a.desde)}` : 'desde antes de este período'}</span>}
+                {cargado && finHoy && (!r.camara || a.camara === r.camara) && <span className="text-xs"> · {a.desde ? `desde ${dia(a.desde).slice(0, 5)} ${hm(a.desde)}` : 'desde antes de este período'}</span>}
               </li>)}
             </ul>)}
+      {pestana === 'alarmas' && <h2 className="text-sm font-semibold">Alarmas del período</h2>}
       <div className="rounded-lg border bg-card">
         {cargando && !data ? <div className="text-center text-sm text-muted-foreground py-8">Cargando…</div> : <>
           <SinDatos error={error} vacio={!!data && lista.length === 0} />
+          {pestana === 'alarmas' && cargado && lista.length > 0 && otras.length === 0 && <div className="px-3 py-3 text-xs text-muted-foreground">No hubo otras alarmas en el período</div>}
           <ul>
             {pestana === 'descongelados' && (lista as FilaDescongelado[]).map((f, i) => {
               const b = badgeDescongelado(f)
@@ -90,12 +95,12 @@ export default function Historial() {
                 <span className="text-xs text-white rounded-full px-2 py-0.5 whitespace-nowrap" style={{ background: COLOR_BADGE[b.etiqueta] }}>{b.etiqueta}</span>
               </Fila>
             })}
-            {pestana === 'alarmas' && periodos.map((p, i) => (
+            {pestana === 'alarmas' && otras.map((p, i) => (
               <Fila key={i}>
-                <div className="min-w-0 flex-1 text-sm">{fraseEvento(p.frase, 1)}
-                  <div className="text-xs text-muted-foreground">{p.inicio === null ? 'antes del período' : `${dia(p.inicio)} ${hm(p.inicio)}`} → {p.fin === null ? '…' : p.inicio === null ? hm(p.fin) : `${dia(p.fin)} ${hm(p.fin)}`}</div>
+                <div className="min-w-0 flex-1 text-sm">{p.texto}
+                  <div className="text-xs text-muted-foreground">{p.inicio === null ? 'antes del período' : `${dia(p.inicio).slice(0, 5)} ${hm(p.inicio)}`} → {p.fin === null ? '…' : p.inicio === null ? hm(p.fin) : `${dia(p.fin).slice(0, 5)} ${hm(p.fin)}`}</div>
                 </div>
-                <span className={cn('text-xs whitespace-nowrap', p.fin === null && siguen(p.clave) ? 'font-semibold text-red-600' : 'text-muted-foreground')}>{p.duracionMin !== null ? duracionTxt(p.duracionMin) : p.fin !== null ? '' : siguen(p.clave) ? 'sigue activa' : 'sin cierre en el período'}</span>
+                <span className="text-xs whitespace-nowrap text-muted-foreground">{p.duracionMin !== null ? duracionTxt(p.duracionMin) : p.fin !== null ? '' : 'sin cierre en el período'}</span>
               </Fila>
             ))}
             {pestana === 'eventos' && avisos.map((f, i) => (
