@@ -31,6 +31,8 @@ const NAV = {
   camaras: 'M12 2.5v19M3.8 7.25l16.4 9.5M20.2 7.25L3.8 16.75',
   historial: 'M12 3a9 9 0 100 18 9 9 0 000-18zM12 7v5l3 2',
   mas: 'M4 6h16M4 12h16M4 18h16',
+  alarmas: 'M6 16V11a6 6 0 0112 0v5l2 2H4l2-2zM10 21h4',
+  eventos: 'M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01',
 }
 export function IconoNav({ nombre, size = 22 }: { nombre: keyof typeof NAV; size?: number }) {
   return (

@@ -69,7 +69,7 @@ export default function Sistema() {
   }, [])
   return (
     <div className="space-y-3 max-w-md md:max-w-none">
-      <h1 className="text-[18px] font-semibold">Estado del sistema</h1>
+      <h1 className="text-xl font-semibold">Estado del sistema</h1>
       <div className="rounded-xl bg-white dark:bg-card shadow-sm divide-y">
         {filasSistema(res, ahora).map(f => (
           <div key={f.titulo} className="flex items-center gap-3 p-3 text-sm">

@@ -109,11 +109,13 @@ describe('frases', () => {
 })
 
 describe('RUTAS_VIEJAS', () => {
-  test('redirige las 3 rutas viejas', () => {
+  test('redirige las rutas viejas', () => {
     expect(RUTAS_VIEJAS).toEqual({
       '/descongelados': '/historial/descongelados',
       '/compresores': '/historial/compresores',
-      '/eventos': '/historial/eventos',
+      '/historial/eventos': '/eventos',
+      '/historial/avisos': '/eventos',
+      '/historial/alarmas': '/alarmas',
     })
   })
 })

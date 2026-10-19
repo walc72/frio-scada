@@ -1,5 +1,5 @@
 // Funciones puras del Historial: agregación de compresores y filas de exportación (columnas visibles, en palabras).
-import { nombreCamara, fechaHora, type FilaDescongelado } from './camaras'
+import { nombreCamara, fechaHora, ventanaPlanta, type FilaDescongelado } from './camaras'
 import type { Estado } from '../store/camaras'
 import { agruparPeriodos, type PeriodoAlarma } from './alarmas'
 import { badgeDescongelado, esRem, fraseEvento, tipoAviso, sigueActivo, type TipoAviso } from './frases'
@@ -21,6 +21,34 @@ export function agruparCompresores(filas: FilaCompresor[]): Compresor[] {
   }
   const n = (g: string) => Number(g.replace(/\D/g, '')) || 0
   return [...m.values()].sort((a, b) => a.camara.localeCompare(b.camara) || n(a.grupo) - n(b.grupo))
+}
+
+// Pestaña Equipos: por cámara, cada equipo con su fila de días (horas en marcha y % del tiempo con datos),
+// el % del período y los descongelados en que participó (filas por etapa con grupos "G1,G3"; sin saltados ni no ejecutados).
+export interface DiaEquipo { dia: string; horas: number; pct: number | null; arranques: number }
+export interface EquipoHist extends Compresor { dias: DiaEquipo[]; pct: number | null; descongelados: number }
+export function equiposPorCamara(filas: FilaCompresor[], descong: FilaDescongelado[], ahora = Date.now()): { camara: string; equipos: EquipoHist[] }[] {
+  const posibles = new Map<string, number>() // horas transcurridas del día de planta (el de hoy, parcial)
+  const posible = (dia: string) => {
+    if (!posibles.has(dia)) {
+      const t0 = Date.parse(ventanaPlanta(dia, dia).desde)
+      posibles.set(dia, Math.max(0, Math.min(24, (ahora - t0) / 36e5)))
+    }
+    return posibles.get(dia)!
+  }
+  const pct = (h: number, base: number) => base > 0.01 ? Math.min(1, h / base) : null
+  const porCamara = new Map<string, EquipoHist[]>()
+  for (const c of agruparCompresores(filas)) {
+    const propias = filas.filter(f => f.camara === c.camara && f.grupo === c.grupo).sort((a, b) => a.dia.localeCompare(b.dia))
+    const dias = propias.map(f => {
+      const h = Number(f.horas) || 0
+      return { dia: f.dia, horas: h, pct: pct(h, posible(f.dia) - (Number(f.horasSinDatos) || 0)), arranques: Number(f.arranques) || 0 }
+    })
+    const base = propias.reduce((s, f) => s + posible(f.dia) - (Number(f.horasSinDatos) || 0), 0)
+    const descongelados = descong.filter(d => d.camara === c.camara && !d.saltado && !d.noEjecutada && d.grupos.split(',').includes(c.grupo)).length
+    porCamara.set(c.camara, [...(porCamara.get(c.camara) ?? []), { ...c, dias, pct: pct(c.horas, base), descongelados }])
+  }
+  return [...porCamara].map(([camara, equipos]) => ({ camara, equipos }))
 }
 
 export const equipoDe = (grupo: string) => `Equipo ${grupo.replace(/^G/, '')}`
@@ -90,8 +118,9 @@ export function prepararAvisos(data: { ts: number; texto: string; estado: string
 export const filasEventos = (a: AvisoFila[]) =>
   a.map(f => ({ Hora: fechaHora(f.ts), Tipo: TIPO[f.tipo], Aviso: f.frase, 'Sigue activo': f.sigue ? 'sí' : '' }))
 
-export const filasCompresores = (c: Compresor[]) => c.map(x => ({
-  Cámara: nombreCamara(x.camara), Equipo: equipoDe(x.grupo), 'Horas en marcha': Math.round(x.horas * 10) / 10, Arranques: x.arranques,
+export const filasCompresores = (c: (Compresor & { pct?: number | null; descongelados?: number })[]) => c.map(x => ({
+  Cámara: nombreCamara(x.camara), Equipo: equipoDe(x.grupo), 'Horas en marcha': Math.round(x.horas * 10) / 10,
+  '% en marcha': x.pct == null ? '' : Math.round(x.pct * 100), Descongelados: x.descongelados ?? '', Arranques: x.arranques,
   'Máximo de arranques por hora': x.maxArranquesHora, 'Horas sin datos': x.horasSinDatos,
 }))
 

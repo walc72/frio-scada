@@ -8,16 +8,14 @@ import { estaVencido, colorEstadoGrupo } from '../lib/estadoGrupo'
 import { nombreCamara, fechaHora, type FilaDescongelado } from '../lib/camaras'
 import { badgeDescongelado, esRem, UMBRAL_ARRANQUES_HORA, type TipoAviso } from '../lib/frases'
 import { agruparActivas, agruparPeriodos, alarmasActivasVista, periodosAlarma, ultimoPorClave } from '../lib/alarmas'
-import { agruparCompresores, duracionTxt, equipoDe, horasTxt, prepararAvisos, filasEventos, filasAlarmas, filasCompresores, filasDescongelados } from '../lib/historial'
+import { equiposPorCamara, duracionTxt, equipoDe, horasTxt, prepararAvisos, filasEventos, type EquipoHist, filasAlarmas, filasCompresores, filasDescongelados } from '../lib/historial'
 import { downloadXlsx } from '../lib/xlsx'
 import { cn } from '../lib/utils'
 import { Icono } from '../components/Icono'
 
 const PESTANAS = [
   { id: 'descongelados', label: 'Descongelados' },
-  { id: 'alarmas', label: 'Alarmas' },
-  { id: 'eventos', label: 'Eventos' },
-  { id: 'compresores', label: 'Compresores' },
+  { id: 'compresores', label: 'Equipos' },
 ]
 const C = (k: string) => colorEstadoGrupo(k).fondo
 const COLOR_BADGE: Record<string, string> = { completo: '#16a34a', 'cortado a mano': C('DESCONGELANDO'), saltado: C('DESCONGELANDO'), 'no se hizo': C('ALARMA RES'), 'sin datos': C('DETENIDO') }
@@ -28,8 +26,45 @@ const Fila = ({ children }: { children: React.ReactNode }) => <li className="fle
 const dia = (ms: number) => fechaHora(ms).split(', ')[0]
 const hm = (ms: number) => (fechaHora(ms).split(', ')[1] ?? '').slice(0, 5)
 
-export default function Historial() {
-  const { pestana = 'descongelados' } = useParams()
+const pctTxt = (p: number | null) => p == null ? '' : ` (${Math.round(p * 100)} %)`
+const colorPct = (p: number | null) => p == null ? 'hsl(var(--muted))' : `rgba(37, 99, 235, ${0.12 + 0.88 * p})`
+const diaCorto = (d: string) => `${d.slice(8, 10)}/${d.slice(5, 7)}`
+
+// Un bloque por cámara: cada equipo con un cuadradito por día (color = % del tiempo en marcha) y sus totales.
+function BloqueEquipos({ camara, equipos }: { camara: string; equipos: EquipoHist[] }) {
+  const dias = equipos[0]?.dias ?? []
+  return (
+    <section className="border-b last:border-0 px-3 py-3 space-y-1.5">
+      <h2 className="text-sm font-semibold">{nombreCamara(camara)}</h2>
+      {dias.length > 1 && <div className="grid grid-cols-[4.5rem_1fr] sm:grid-cols-[4.5rem_1fr_19rem] gap-x-3 text-xs text-muted-foreground">
+        <span /><div className="flex gap-0.5">{dias.map(d => <span key={d.dia} className="flex-1 text-center truncate">{diaCorto(d.dia)}</span>)}</div>
+      </div>}
+      {equipos.map(e => (
+        <div key={e.grupo} className="grid grid-cols-[4.5rem_1fr] sm:grid-cols-[4.5rem_1fr_19rem] gap-x-3 gap-y-0.5 items-center">
+          <span className="text-sm font-medium">{equipoDe(e.grupo)}</span>
+          {e.dias.length === 1 ? ( // un solo día: barra llena según el % en marcha
+            <div className="h-6 rounded-sm bg-muted" title={`${horasTxt(e.dias[0].horas)} en marcha${pctTxt(e.dias[0].pct)} · ${e.dias[0].arranques} arranques`}>
+              <div className="h-6 rounded-sm bg-primary" style={{ width: `${(e.dias[0].pct ?? 0) * 100}%` }} />
+            </div>
+          ) : <div className="flex gap-0.5">
+            {e.dias.map(d => <span key={d.dia} className="h-6 flex-1 rounded-sm" style={{ background: colorPct(d.pct) }}
+              title={`${diaCorto(d.dia)}: ${horasTxt(d.horas)} en marcha${pctTxt(d.pct)} · ${d.arranques} arranques`} />)}
+          </div>}
+          <span className="col-start-2 sm:col-start-auto text-xs text-muted-foreground">
+            <b className="text-foreground">{horasTxt(e.horas)}</b>{pctTxt(e.pct)} · {e.arranques} arranques · {e.descongelados} descongelados
+          </span>
+          {e.maxArranquesHora > UMBRAL_ARRANQUES_HORA && <span className="col-start-2 sm:col-span-2 text-xs text-amber-600">⚠️ Arranca demasiado seguido (hasta {e.maxArranquesHora} veces por hora): conviene revisarlo</span>}
+          {e.horasSinDatos > 0 && <span className="col-start-2 sm:col-span-2 text-xs text-muted-foreground">{horasTxt(e.horasSinDatos)} sin datos</span>}
+        </div>
+      ))}
+    </section>
+  )
+}
+
+// fija: Alarmas y Eventos tienen su propia entrada en el menú; Historial queda con Descongelados y Equipos
+export default function Historial({ fija }: { fija?: 'alarmas' | 'eventos' }) {
+  const { pestana: param = 'descongelados' } = useParams()
+  const pestana = fija ?? param
   const [r, setR] = useState<Rango>({ desde: hoy(), hasta: hoy(), camara: '' })
   const estado = useCamarasStore(s => s.estado)
   const recibidoEn = useCamarasStore(s => s.recibidoEn)
@@ -37,7 +72,9 @@ export default function Historial() {
   const fresco = !estaVencido(recibidoEn, useNow(5000)) && !incompatible
   const ruta = pestana === 'alarmas' ? 'eventos' : pestana
   const { data, error, cargando } = useDatos<any>(ruta, r.desde, r.hasta, r.camara)
-  const comp = useMemo(() => (pestana === 'compresores' ? agruparCompresores(data ?? []) : []), [pestana, data])
+  const desc = useDatos<FilaDescongelado>(pestana === 'compresores' ? 'descongelados' : '', r.desde, r.hasta, r.camara)
+  const porCamara = useMemo(() => (pestana === 'compresores' ? equiposPorCamara(data ?? [], desc.data ?? []) : []), [pestana, data, desc.data])
+  const comp = porCamara.flatMap(c => c.equipos)
   const avisos = useMemo(() => (pestana === 'eventos' ? prepararAvisos(data ?? [], estado, fresco) : []), [pestana, data, estado, fresco])
   const periodos = useMemo(() => (pestana === 'alarmas' ? periodosAlarma(data ?? []) : []), [pestana, data])
   const ultimos = useMemo(() => (pestana === 'alarmas' ? ultimoPorClave(data ?? []) : new Map()), [pestana, data])
@@ -48,16 +85,15 @@ export default function Historial() {
   const grupos = agruparActivas(activas)
   // las abiertas que siguen activas ya están en el recuadro rojo
   const otras = agruparPeriodos(periodos.filter(p => !(p.fin === null && siguen(p.clave))))
-  if (!PESTANAS.some(p => p.id === pestana)) return <Navigate to="/historial/descongelados" replace />
+  if (!fija && !PESTANAS.some(p => p.id === pestana)) return <Navigate to="/historial/descongelados" replace />
   const lista: any[] = data ?? []
   const filas = pestana === 'descongelados' ? filasDescongelados(lista as FilaDescongelado[])
     : pestana === 'eventos' ? filasEventos(avisos) : pestana === 'alarmas' ? filasAlarmas(periodos, siguen) : filasCompresores(comp)
-  const maxH = Math.max(1, ...comp.map(c => c.horas))
 
   return (
     <div className="space-y-3">
-      <h1 className="text-[18px] font-semibold">Historial</h1>
-      <div className="flex gap-2 overflow-x-auto">
+      <h1 className="text-xl font-semibold">{fija === 'alarmas' ? 'Alarmas' : fija === 'eventos' ? 'Eventos' : 'Historial'}</h1>
+      {!fija && <div className="flex gap-2 overflow-x-auto">
         {PESTANAS.map(p => (
           <Link key={p.id} to={`/historial/${p.id}`}
             className={cn('toque inline-flex items-center px-4 rounded-full text-sm font-medium whitespace-nowrap border',
@@ -65,7 +101,7 @@ export default function Historial() {
             {p.label}
           </Link>
         ))}
-      </div>
+      </div>}
       <Filtros r={r} set={setR} />
       {pestana === 'alarmas' && (!fresco || !estado
         ? <div className="rounded-lg border bg-muted px-3 py-2 text-sm text-muted-foreground">Sin datos del PLC</div>
@@ -114,18 +150,11 @@ export default function Historial() {
                 {f.sigue && <span className="text-xs font-semibold text-red-600 whitespace-nowrap">Sigue activo</span>}
               </Fila>
             ))}
-            {pestana === 'compresores' && comp.map(c => (
-              <Fila key={`${c.camara}${c.grupo}`}>
-                <div className="min-w-0 flex-1 space-y-1">
-                  <div className="text-sm font-medium">{nombreCamara(c.camara)} · {equipoDe(c.grupo)}</div>
-                  <div className="h-2 rounded bg-muted"><div className="h-2 rounded bg-primary" style={{ width: `${(c.horas / maxH) * 100}%` }} /></div>
-                  <div className="text-xs text-muted-foreground">{horasTxt(c.horas)} en marcha · {c.arranques} arranques</div>
-                  {c.maxArranquesHora > UMBRAL_ARRANQUES_HORA && <div className="text-xs text-amber-600">⚠️ Arranca demasiado seguido (hasta {c.maxArranquesHora} veces por hora): conviene revisarlo</div>}
-                  {c.horasSinDatos > 0 && <div className="text-xs text-muted-foreground">{Math.round(c.horasSinDatos * 10) / 10} h sin datos</div>}
-                </div>
-              </Fila>
-            ))}
           </ul>
+          {pestana === 'compresores' && porCamara.map(({ camara, equipos }) => <BloqueEquipos key={camara} camara={camara} equipos={equipos} />)}
+          {pestana === 'compresores' && (porCamara[0]?.equipos[0]?.dias.length ?? 0) > 1 && <div className="flex items-center gap-1.5 px-3 py-2 text-xs text-muted-foreground">
+            Cada cuadradito es un día: <span>menos</span>{[0.1, 0.4, 0.7, 1].map(p => <span key={p} className="h-3 w-3 rounded-sm" style={{ background: colorPct(p) }} />)}<span>más tiempo en marcha</span>
+          </div>}
         </>}
       </div>
       <button className="toque px-4 rounded-md border text-sm disabled:opacity-50" disabled={!filas.length}

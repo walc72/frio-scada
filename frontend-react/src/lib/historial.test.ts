@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest'
-import { agruparCompresores, filasCompresores, filasDescongelados, filasEventos, prepararAvisos, quitarRemDuplicados, filasAlarmas, duracionTxt } from './historial'
+import { equiposPorCamara, agruparCompresores, filasCompresores, filasDescongelados, filasEventos, prepararAvisos, quitarRemDuplicados, filasAlarmas, duracionTxt } from './historial'
 
 describe('agruparCompresores', () => {
   const r = agruparCompresores([
@@ -31,7 +31,7 @@ describe('prepararAvisos', () => {
 
 describe('filas de exportación', () => {
   test('compresores', () => expect(filasCompresores(agruparCompresores([{ camara: 'C4', dia: 'd', grupo: 'G2', horas: 3.04, arranques: 4, maxArranquesHora: 2 }])))
-    .toEqual([{ Cámara: 'Cámara 4', Equipo: 'Equipo 2', 'Horas en marcha': 3, Arranques: 4, 'Máximo de arranques por hora': 2, 'Horas sin datos': 0 }]))
+    .toEqual([{ Cámara: 'Cámara 4', Equipo: 'Equipo 2', 'Horas en marcha': 3, '% en marcha': '', Descongelados: '', Arranques: 4, 'Máximo de arranques por hora': 2, 'Horas sin datos': 0 }]))
   test('descongelados', () => expect(filasDescongelados([{ camara: 'C4', horario: 'H1', etapa: 1, grupos: 'G1,G3', inicio: 0, fin: 1, duracionS: 1, cortados: '', saltado: false, noEjecutada: false }])[0])
     .toMatchObject({ Cámara: 'Cámara 4', Equipos: '1,3', Resultado: 'completo', Motivo: 'Terminó normalmente' }))
   test('avisos', () => expect(filasEventos(prepararAvisos([{ ts: 0, texto: 'C4 G1 MODO MANUAL', estado: 1 }], null, false))[0])
@@ -105,4 +105,20 @@ describe('quitarRemDuplicados', () => {
     expect(prepararAvisos([man, rem(5e3)], null, false)).toHaveLength(1)
     expect(filasEventos(prepararAvisos([man, rem(5e3)], null, false))).toHaveLength(1)
   })
+})
+
+describe('equiposPorCamara', () => {
+  const ayer = '2026-10-17', hoyD = '2026-10-18'
+  const ahora = Date.parse('2026-10-18T06:00:00-03:00') // hoy van 6 h
+  const f = (camara: string, grupo: string, dia: string, horas: number, horasSinDatos = 0) => ({ camara, dia, grupo, horas, horasSinDatos, arranques: 2, maxArranquesHora: 1 })
+  const d = (grupos: string, extra = {}) => ({ camara: 'C4', horario: 'H1', etapa: 1, grupos, inicio: 0, fin: 1, duracionS: 1, cortados: '', saltado: false, noEjecutada: false, ...extra })
+  const r = equiposPorCamara([f('C4', 'G2', hoyD, 3), f('C4', 'G2', ayer, 12, 4), f('C4', 'G10', ayer, 1), f('C5', 'G1', ayer, 24)],
+    [d('G1,G2'), d('G2', { saltado: true }), d('G2', { camara: 'C5' })], ahora)
+  test('agrupa por cámara y ordena equipos', () => expect(r.map(c => [c.camara, c.equipos.map(e => e.grupo)])).toEqual([['C4', ['G2', 'G10']], ['C5', ['G1']]]))
+  const g2 = r[0].equipos[0]
+  test('días en orden; % sobre el tiempo con datos y el día de hoy parcial', () =>
+    expect(g2.dias).toEqual([{ dia: ayer, horas: 12, pct: 0.6, arranques: 2 }, { dia: hoyD, horas: 3, pct: 0.5, arranques: 2 }]))
+  test('% del período', () => expect(g2.pct).toBeCloseTo(15 / 26))
+  test('descongelados: solo de su cámara, sin saltados', () => expect(g2.descongelados).toBe(1))
+  test('día futuro sin tiempo: pct null', () => expect(equiposPorCamara([f('C4', 'G1', '2026-10-19', 0)], [], ahora)[0].equipos[0].dias[0].pct).toBeNull())
 })

@@ -94,7 +94,7 @@ export default function App() {
       {/* Fixed header */}
       <header className="h-16 border-b px-4 flex items-center gap-3 bg-card shrink-0 z-20">
         <img src={logoUrl} alt={brandName} className="h-8 w-auto max-w-[160px] object-contain" />
-        <div className="text-sm text-muted-foreground border-l border-border pl-3 leading-none">
+        <div className="text-lg font-bold border-l border-border pl-3 leading-none">
           Cámaras de frío
         </div>
         <div className="ml-auto flex items-center gap-2">
@@ -130,15 +130,16 @@ export default function App() {
         {/* Main content */}
         <div className="flex-1 flex flex-col min-w-0">
           <main className="flex-1 p-3 sm:p-6 pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-6 overflow-auto">
-            <div className="mx-auto w-full max-w-[1440px]">
+            <div className="w-full">
             <RouteErrorBoundary key={pathname}>
             <Suspense fallback={<div className="flex items-center justify-center h-full text-muted-foreground text-sm">Cargando...</div>}>
               <Routes>
                 <Route path="/" element={<General />} />
                 <Route path="/camara/:c" element={<Camara />} />
                 {Object.entries(RUTAS_VIEJAS).map(([de, a]) => <Route key={de} path={de} element={<Navigate to={a} replace />} />)}
-                <Route path="/historial/avisos" element={<Navigate to="/historial/eventos" replace />} />
                 <Route path="/historial/:pestana?" element={<Historial />} />
+                <Route path="/alarmas" element={<Historial fija="alarmas" />} />
+                <Route path="/eventos" element={<Historial fija="eventos" />} />
                 <Route path="/mas" element={<Mas />} />
                 <Route path="/avisos" element={<Avisos />} />
                 <Route path="/reportes" element={<Reportes />} />
