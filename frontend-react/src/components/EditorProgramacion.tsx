@@ -123,7 +123,7 @@ export default function EditorProgramacion({ camaraFija, enDialogo, inicial, onE
                   const en = (e: string) => GRUPOS.filter((_, i) => s[i] === e).join(', ') || 'ninguno'
                   const poner = (i: number, e: '1' | '2') => set(p + 'etapas', s.slice(0, i) + e + s.slice(i + 1))
                   return <>
-                    <div className="grid gap-2 [grid-template-columns:repeat(auto-fill,minmax(150px,1fr))]">
+                    <div className="grid grid-cols-1 gap-2 min-[400px]:grid-cols-2">
                       {GRUPOS.map((g, i) => (
                         <div key={g} className="flex min-w-0 items-center justify-between gap-2 rounded-md border px-2 py-1">
                           <span className="whitespace-nowrap text-sm">Equipo {g}</span>
