@@ -54,3 +54,60 @@ export function periodosAlarma(eventos: Evento[]): PeriodoAlarma[] {
   }
   return r.reverse()
 }
+
+// "C5.G4.alarma_sin_desc" → cámara C5, equipo 4, tipo alarma_sin_desc; "alarma_reloj" → planta
+const parseClave = (clave: string) => {
+  const p = clave.split('.')
+  const g = p.find(x => /^G\d+$/.test(x))
+  return { camara: /^C\d+$/.test(p[0]) ? p[0] : null, equipo: g ? Number(g.slice(1)) : null, tipo: p[p.length - 1] }
+}
+const ordenCamara = (c: string | null) => (c === null ? '' : c)
+// Un solo renglón por (cámara, tipo, instante): "Cámara 5 · Equipos 1, 3: lleva(n)…". camaraImplicita: se omite su nombre (página de esa cámara).
+const titulo = (camara: string | null, equipos: number[], tipo: string, camaraImplicita?: string) => {
+  const t = textoAlarma(tipo)
+  const txt = equipos.length > 1 ? t.textoPlural ?? t.texto : t.texto
+  const eq = equipos.length ? `${equipos.length > 1 ? 'Equipos' : 'Equipo'} ${equipos.join(', ')}` : ''
+  const cam = camara === null ? 'PLC' : camara === camaraImplicita ? '' : nombreCamara(camara)
+  return `${[cam, eq].filter(Boolean).join(' · ')}: ${txt}`
+}
+// El PLC levanta alarmas del mismo evento con segundos de diferencia: se juntan si caen dentro de esta tolerancia
+export const TOLERANCIA_MIN = 5
+const TOL = TOLERANCIA_MIN * 60000
+type T0 = number | null | undefined
+const cerca = (a: T0, b: T0) => (typeof a === 'number' && typeof b === 'number' ? Math.abs(a - b) <= TOL : (a ?? null) === (b ?? null) && typeof a !== 'number')
+// Agrupa en orden de tiempo: entra al primer grupo de la misma base cuyos tiempos (comparados con los del primer miembro) estén dentro de la tolerancia
+function agrupar<T>(items: T[], base: (x: T) => string, tiempos: (x: T) => T0[]): T[][] {
+  const orden = [...items].sort((a, b) => (tiempos(a)[0] ?? -Infinity) - (tiempos(b)[0] ?? -Infinity))
+  const grupos: T[][] = []
+  for (const x of orden) {
+    const g = grupos.find(g => base(g[0]) === base(x) && tiempos(g[0]).every((t, k) => cerca(t, tiempos(x)[k])))
+    if (g) g.push(x); else grupos.push([x])
+  }
+  return grupos
+}
+const minimo = (v: T0[]) => { const n = v.filter((t): t is number => typeof t === 'number'); return n.length ? Math.min(...n) : null }
+const maximo = (v: T0[]) => { const n = v.filter((t): t is number => typeof t === 'number'); return n.length ? Math.max(...n) : null }
+
+export interface GrupoActivo { clave: string; camara: string | null; titulo: string; accion?: string; desde: number | null | undefined; equipos: number[] }
+export function agruparActivas(lista: (Omit<AlarmaActivaVista, 'desde'> & { desde?: number | null })[], opciones: { camaraImplicita?: string } = {}): GrupoActivo[] {
+  const ps = lista.map(a => ({ a, ...parseClave(a.clave) }))
+  return agrupar(ps, x => `${x.camara}|${x.tipo}`, x => [x.a.desde])
+    .map(g => {
+      const equipos = g.map(x => x.equipo).filter((e): e is number => e !== null).sort((a, b) => a - b)
+      const { camara, tipo } = g[0]
+      const desde = minimo(g.map(x => x.a.desde)) ?? g[0].a.desde
+      return { clave: `${camara}|${tipo}|${desde}`, camara, titulo: titulo(camara, equipos, tipo, opciones.camaraImplicita), accion: textoAlarma(tipo).accion, desde, equipos, tipo }
+    })
+    .sort((a, b) => ordenCamara(a.camara).localeCompare(ordenCamara(b.camara)) || a.tipo.localeCompare(b.tipo) || 0)
+    .map(({ tipo: _t, ...r }) => r)
+}
+
+export interface GrupoPeriodo { claves: string[]; camara: string | null; equipos: number[]; texto: string; inicio: number | null; fin: number | null; duracionMin: number | null }
+export function agruparPeriodos(periodos: PeriodoAlarma[]): GrupoPeriodo[] {
+  return agrupar(periodos.map(p => ({ p, ...parseClave(p.clave) })), x => `${x.camara}|${x.tipo}`, x => [x.p.inicio, x.p.fin]).map(g => {
+    const equipos = g.map(x => x.equipo).filter((e): e is number => e !== null).sort((a, b) => a - b)
+    const { camara, tipo } = g[0]
+    const inicio = minimo(g.map(x => x.p.inicio)), fin = maximo(g.map(x => x.p.fin))
+    return { claves: g.map(x => x.p.clave), camara, equipos, texto: titulo(camara, equipos, tipo), inicio, fin, duracionMin: inicio !== null && fin !== null ? Math.round((fin - inicio) / 60000) : null }
+  }).sort((a, b) => (b.inicio ?? b.fin ?? 0) - (a.inicio ?? a.fin ?? 0)) // más nueva primero
+}

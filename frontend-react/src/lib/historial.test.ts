@@ -77,4 +77,10 @@ describe('filasAlarmas', () => {
   test('cerrado: duración en minutos', () =>
     expect(filasAlarmas([{ ...a, fin: 1e12 + 36e5, duracionMin: 60 }])[0]['Duración (min)']).toBe(60))
 })
+test('filasAlarmas agrupa y trae Cámara y Equipos', () => {
+  const p = (g: number) => ({ clave: `C5.G${g}.alarma_sin_desc`, frase: '', inicio: 1e12, fin: 1e12 + 36e5, duracionMin: 60 })
+  const r = filasAlarmas([p(3), p(1)])
+  expect(r).toHaveLength(1)
+  expect(r[0]).toMatchObject({ 'Cámara': 'Cámara 5', Equipos: '1, 3', 'Duración (min)': 60, Alarma: 'llevan demasiadas horas sin descongelar' })
+})
 test('duracionTxt', () => { expect(duracionTxt(45)).toBe('45 min'); expect(duracionTxt(135)).toBe('2 h 15 min') })
