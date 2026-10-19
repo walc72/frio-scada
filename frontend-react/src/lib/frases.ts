@@ -257,7 +257,41 @@ const EVENTOS: RowEvento[] = [
   { re: /^arranque: manual confirmado$/, tipo: 'operario', aparece: () => 'Al arrancar, un operario confirmó dejar los equipos en manual' },
   { re: /^arranque: a auto por operador$/, tipo: 'operario', aparece: () => 'Al arrancar, un operario pasó los equipos a automático' },
   { re: /^arranque: a auto por tiempo$/, tipo: 'operario', aparece: () => 'Al arrancar, los equipos pasaron a automático por tiempo' },
+  { re: /^rem\s+u\d+(?:\s+c(\d))?(?:\s+g(\d))?(?:\s+h(\d))?\s+(.+)$/, tipo: 'operario', aparece: m => fraseRem(m[1], m[2], m[3], m[4]) },
 ]
+// Comandos del portal aplicados por el PLC: "REM u{id} [C] [G] [H] sufijo". No lleva el usuario (lo da la fila de maniobra).
+export const esRem = (texto: string) => /^rem\s+u\d/i.test(String(texto ?? '').trim())
+const REPARTO_MAX = 8
+export const equiposDeReparto = (n: number) => Array.from({ length: REPARTO_MAX }, (_, i) => i + 1).filter(i => (n >> (i - 1)) & 1)
+const minTxt = (s: string) => `${s.replace(/\.0+$/, '').replace('.', ',')} min`
+const ONOFF = (on: string, si: string, no: string) => (on === 'on' ? si : no)
+function fraseRem(c: string | undefined, g: string | undefined, h: string | undefined, suf: string): string {
+  const eq = g ? `equipo ${g}` : 'todos los equipos'
+  const de = g ? `equipo ${g}: ` : ''
+  const hor = h ? `horario ${h}` : 'horario'
+  const s = suf.replace(/\s+/g, ' ')
+  let m: RegExpMatchArray | null
+  const cuerpo =
+    (m = s.match(/^modo (auto|manual|fuera)$/)) ? `${eq} ${g ? 'pasó' : 'pasaron'} a ${m[1] === 'auto' ? 'automático' : m[1] === 'manual' ? 'manual' : 'fuera de servicio'}`
+    : (m = s.match(/^(comp|eva) (on|off)$/)) ? `${de}${m[1] === 'comp' ? 'compresor' : 'evaporador'} ${ONOFF(m[2], 'encendido', 'apagado')}`
+    : s === 'res off' ? `${de}resistencia apagada`
+    : (m = s.match(/^res (\d+) min$/)) ? `${de}resistencia ${m[1]} min`
+    : s === 'salto desc' ? `${de}se saltó el descongelado`
+    : s === 'corte desc' ? `${de}se cortó el descongelado`
+    : s === 'arranque mantener' ? 'al arrancar, se dejan los equipos en manual'
+    : s === 'arranque auto' ? 'al arrancar, se pasan los equipos a automático'
+    : (m = s.match(/^hora (\d{2})(\d{2})$/)) ? `${hor} a las ${m[1]}:${m[2]}`
+    : (m = s.match(/^hab (on|off)$/)) ? `${de}${ONOFF(m[1], 'habilitado', 'deshabilitado')}`
+    : (m = s.match(/^e([12]) t (\d+(?:\.\d+)?)$/)) ? `${hor}, etapa ${m[1]} = ${minTxt(m[2])}`
+    : (m = s.match(/^e([12]) (on|off)$/)) ? `${hor}, etapa ${m[1]} ${ONOFF(m[2], 'activada', 'desactivada')}`
+    : (m = s.match(/^reparto (\d+)$/)) ? `${hor}, etapa 2: ${(q => q.length ? `equipos ${q.join(', ')}` : 'ningún equipo')(equiposDeReparto(Number(m[1])))}`
+    : (m = s.match(/^recup (\d+) min$/)) ? `recuperación ${m[1]} min`
+    : (m = s.match(/^ajuste (\d) ?= ?(\d+)$/)) ? (m[1] === '1' ? `tope de la resistencia en manual = ${Number(m[2]) ? `${m[2]} min` : 'sin tope'}`
+        : m[1] === '2' ? `horas máximas sin descongelar = ${m[2]} h` : m[1] === '3' ? `horas máximas en manual = ${m[2]} h` : `ajuste ${m[1]} = ${m[2]}`)
+    : s === 'reset mant' ? `${de}se reinició el mantenimiento`
+    : s
+  return `Desde el portal: ${c ? `Cámara ${c}, ` : ''}${cuerpo}`
+}
 const normEvento = (texto: string) => String(texto ?? '').trim().toLowerCase()
 function buscarEvento(texto: string) {
   const t = normEvento(texto)
