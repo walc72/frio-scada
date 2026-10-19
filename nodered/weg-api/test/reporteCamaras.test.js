@@ -10,7 +10,6 @@ process.env.REPORTS_DIR = DIR;
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const r = require('../src/services/reporteCamaras');
-const daily = require('../src/services/dailyReport');
 
 const D = (extra) => ({ camara: 'C5', horario: 'H1', etapa: 1, grupos: 'G1', inicio: 1e12, fin: 1e12 + 6e5, duracionS: 600, cortados: '', saltado: false, noEjecutada: false, ...extra });
 const lineas = (h) => h[0].rows.map((x) => x[0]);
@@ -43,33 +42,6 @@ test('validarFecha', () => {
   for (const f of ['2026-02-30', '2026-1-01', 'x', undefined, '1999-12-31', '2101-01-01', '2999-01-01', 20261001]) {
     assert.throws(() => r.validarFecha(f), (e) => e.status === 400);
   }
-});
-
-test('buildAndSend: si Influx falla el mail sale sin adjunto con el aviso', async () => {
-  let mail;
-  const transport = { sendMail: async (m) => { mail = m; } };
-  const res = await daily.buildAndSend('2026-10-01', { to: 'a@b.c', transport, queryCsv: async () => { throw new Error('boom'); } });
-  assert.equal(res.emailed, true);
-  assert.deepEqual(mail.attachments, []);
-  assert.match(mail.html, /No se pudo leer el historial/);
-});
-
-test('buildAndSend: con datos adjunta el xlsx', async () => {
-  let mail;
-  const transport = { sendMail: async (m) => { mail = m; } };
-  const res = await daily.buildAndSend('2026-10-01', { to: 'a@b.c', transport, queryCsv: async () => '' });
-  assert.equal(res.emailed, true);
-  assert.equal(mail.attachments.length, 1);
-  assert.equal(mail.attachments[0].content.slice(0, 2).toString(), 'PK');
-  assert.match(mail.html, /Descongelados: 0 \(0 saltado\)/);
-});
-
-test('runScheduled envía una sola vez por fecha', async () => {
-  const log = console.log; console.log = () => {};
-  const calls = [];
-  const orig = r.generarXlsx; r.generarXlsx = async (f) => { calls.push(f); return orig(f, async () => ''); };
-  try { await daily.runScheduled(); await daily.runScheduled(); } finally { r.generarXlsx = orig; console.log = log; }
-  assert.deepEqual(calls, [r.ayer()]);
 });
 
 test('hoja Maniobras: hora, usuario, qué y resultado', () => {

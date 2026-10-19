@@ -2,6 +2,7 @@
 
 const nodemailer = require('nodemailer');
 const https = require('https');
+const crypto = require('crypto');
 const settings = require('./settings');
 
 // ─── Historial ──────────────────────────────────────────────────────
@@ -38,6 +39,42 @@ function sendTelegram(text) {
       });
     req.on('timeout', () => req.destroy(new Error('timeout')));
     req.on('error', reject);
+    req.end(body);
+  });
+}
+
+// Manda un archivo (sendDocument, multipart/form-data) al chat configurado. Rechaza si Telegram no responde 200;
+// el mensaje de error nunca lleva el token.
+function sendTelegramDocument(contenido, filename, caption, contentType = 'application/pdf') {
+  const { token, chatId } = settings.getTelegramFull();
+  const b = `----frioscada${crypto.randomBytes(12).toString('hex')}`;
+  const CRLF = '\r\n';
+  const parte = (cabeceras) => `--${b}${CRLF}${cabeceras.join(CRLF)}${CRLF}${CRLF}`;
+  const campo = (name, value) => `${parte([`Content-Disposition: form-data; name="${name}"`])}${value}${CRLF}`;
+  const nombre = String(filename).replace(/["\r\n]/g, '');
+  const body = Buffer.concat([
+    Buffer.from(campo('chat_id', chatId) + campo('caption', String(caption || '').slice(0, 1024))
+      + parte([`Content-Disposition: form-data; name="document"; filename="${nombre}"`, `Content-Type: ${contentType}`])),
+    contenido,
+    Buffer.from(`${CRLF}--${b}--${CRLF}`),
+  ]);
+  const sinToken = (m) => (token ? String(m).split(token).join('***') : String(m));
+  return new Promise((resolve, reject) => {
+    const req = https.request(`https://api.telegram.org/bot${token}/sendDocument`, {
+      method: 'POST', timeout: 30000,
+      headers: { 'Content-Type': `multipart/form-data; boundary=${b}`, 'Content-Length': body.length },
+    }, (res) => {
+      let raw = '';
+      res.on('data', (c) => { raw += c; });
+      res.on('end', () => {
+        if (res.statusCode === 200) return resolve();
+        let d = null;
+        try { d = JSON.parse(raw); } catch { /* no es JSON */ }
+        reject(new Error(sinToken(`HTTP ${res.statusCode}${d && d.description ? ` (${String(d.description).slice(0, 200)})` : ''}`)));
+      });
+    });
+    req.on('timeout', () => req.destroy(new Error('timeout')));
+    req.on('error', (e) => reject(new Error(sinToken(e.message))));
     req.end(body);
   });
 }
@@ -119,4 +156,4 @@ async function notifyCanal(canal, texto) {
   } else throw new Error('Canal desconocido');
 }
 
-module.exports = { notify, notifyCanal, sendTelegram, buscarChats, telegramConfigurado, mailConfigurado, getHistory, addHistory };
+module.exports = { notify, notifyCanal, sendTelegram, sendTelegramDocument, buscarChats, telegramConfigurado, mailConfigurado, getHistory, addHistory };

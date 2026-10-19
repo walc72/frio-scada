@@ -4,6 +4,7 @@ const router = require('express').Router();
 const reportService = require('../services/reports');
 const dailyReport = require('../services/dailyReport');
 const reporteCamaras = require('../services/reporteCamaras');
+const reporteDiario = require('../services/reporteDiario');
 const manual = require('../services/manual');
 const { isAdminRole } = require('../middleware/auth');
 
@@ -78,17 +79,6 @@ router.post('/camaras/xlsx', async (req, res) => {
   }
 });
 
-// POST /api/reports/daily/email — envía el reporte de cámaras del día por correo, solo a los
-// destinatarios configurados (Configuración → Correo): un "to" del cuerpo se ignora (no es un relay).
-router.post('/daily/email', async (req, res) => {
-  try {
-    const r = await dailyReport.buildAndSend(req.body.date);
-    res.json(r);
-  } catch (e) {
-    res.status(e.status || 500).json({ error: e.message });
-  }
-});
-
 // POST /api/reports/summary — resumen agregado de un rango (JSON)
 router.post('/summary', async (req, res) => {
   try {
@@ -143,4 +133,22 @@ router.post('/pdf', async (req, res) => {
   }
 });
 
+// GET /api/reportes/diario.pdf?fecha=YYYY-MM-DD (por defecto ayer) — el PDF del reporte diario de ese día.
+// Se monta aparte en server.js (después de requireAuth): cualquier usuario con sesión.
+async function diarioPdf(req, res) {
+  let fecha;
+  try { fecha = reporteCamaras.validarFecha(req.query.fecha === undefined ? reporteCamaras.ayer() : req.query.fecha); } catch (e) { return res.status(400).json({ error: e.message }); }
+  try {
+    const { pdf } = await reporteDiario.generarPdf(fecha, { sigue: dailyReport.sigueVivo() });
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=reporte-camaras_${fecha}.pdf`);
+    res.send(pdf);
+  } catch (e) {
+    console.error('[API] reportes/diario.pdf:', e.message);
+    res.status(502).json({ error: 'Error consultando el histórico' });
+  }
+}
+
 module.exports = router;
+module.exports.diarioPdf = diarioPdf;
+

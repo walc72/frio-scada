@@ -94,19 +94,20 @@ router.post('/telegram/chats', async (req, res) => {
   } catch (e) { fail(res, e); }
 });
 
-// ─── Reporte diario: hora de envío ───────────────────────────────────
+// ─── Reporte diario: hora de envío y canales ─────────────────────────
 // (require diferido: dailyReport arrastra el generador de reportes/PDF)
 const dailyReportInfo = () => {
   const daily = require('../services/dailyReport');
   const next = daily.getNextRunAt();
-  return { ...settings.getDailyReport(), enabled: daily.ENABLED, nextRunAt: next ? next.toISOString() : null };
+  const tg = settings.getTelegramPublic();
+  return { ...settings.getDailyReport(), telegramConfigurado: !!(tg.hasToken && tg.chatId), enabled: daily.ENABLED, nextRunAt: next ? next.toISOString() : null };
 };
 
 router.get('/daily-report', (req, res) => {
   res.json(dailyReportInfo());
 });
 
-// POST: { time: 'HH:MM' } — guarda y reprograma el envío automático
+// POST: { time?: 'HH:MM', canales?: { correo?, telegram? } } — guarda y reprograma el envío automático
 router.post('/daily-report', (req, res) => {
   try {
     settings.setDailyReport(req.body || {});
@@ -114,6 +115,23 @@ router.post('/daily-report', (req, res) => {
     res.json({ ok: true, ...dailyReportInfo() });
   } catch (e) {
     res.status(400).json({ error: e.message });
+  }
+});
+
+// POST /daily-report/enviar: manda ya el reporte de ayer por los canales prendidos. 1 por minuto (todo el servidor).
+// → { ok, date, correo, telegram } con el resultado de cada canal.
+const ENVIAR_CADA_MS = 60e3;
+let ultimoEnvio = -Infinity;
+router.post('/daily-report/enviar', async (req, res) => {
+  const t = Date.now();
+  if (t - ultimoEnvio < ENVIAR_CADA_MS) return res.status(429).json({ error: 'Esperá un minuto antes de volver a mandarlo' });
+  ultimoEnvio = t;
+  try {
+    const r = await require('../services/dailyReport').buildAndSend();
+    res.json({ ok: true, date: r.date, correo: r.correo, telegram: r.telegram, ...(r.historyError && { historyError: true }) });
+  } catch (e) {
+    console.error('[API] daily-report/enviar:', e.message);
+    res.status(500).json({ error: 'No se pudo generar el reporte' });
   }
 });
 

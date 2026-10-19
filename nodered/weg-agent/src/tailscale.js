@@ -47,7 +47,7 @@ function createTailscale({ run, spawnUp, socketExists, sleep = (ms) => new Promi
     if (st.state === 'Running') return st;
     if (!upChild) {
       upError = null;
-      const child = spawnUp(['up', `--hostname=${hostname}`, '--timeout=0']);
+      const child = spawnUp(['up', '--reset', `--hostname=${hostname}`, '--timeout=0'])   // --reset: no falla si el equipo tenía otras opciones de un login anterior (rutas, etc.);
       upChild = child;
       child.on('done', (code, stderr) => {
         if (upChild === child) upChild = null;

@@ -1,25 +1,23 @@
 'use strict';
 const escHtml = (t) => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
-// Reporte diario automático: a la hora configurada genera el Excel de
-// cámaras del día anterior (desde InfluxDB), lo guarda en REPORTS_DIR y —si hay
-// SMTP configurado— lo envía por correo. También se dispara bajo demanda
-// desde /api/reports/daily/email.
+// Reporte diario automático: a la hora configurada genera el PDF de cámaras del día anterior (desde InfluxDB),
+// lo guarda en REPORTS_DIR y lo manda por los canales prendidos (Más → Reporte diario): correo (PDF adjunto)
+// y/o Telegram (sendDocument). Cada canal falla por su cuenta.
+// También se dispara bajo demanda desde POST /api/settings/daily-report/enviar.
 
 const fs = require('fs');
 const path = require('path');
 const nodemailer = require('nodemailer');
 const reporteCamaras = require('./reporteCamaras');
+const reporteDiario = require('./reporteDiario');
 const settings = require('./settings');
+const alerts = require('./alerts');
+const branding = require('./branding');
 
 const REPORTS_DIR = process.env.REPORTS_DIR || '/app/reports';
 const ENABLED = String(process.env.DAILY_REPORT_ENABLED || 'true').toLowerCase() !== 'false';
 // La hora de envío se lee de settings (Configuración → Correo) en cada programación.
-
-function recipients(override) {
-  if (override) return override;
-  return settings.getSmtpFull().to || '';
-}
 
 function getTransport() {
   const c = settings.getSmtpFull();
@@ -32,58 +30,90 @@ function ensureDir(dir) {
   catch (e) { console.error('[DAILY] No se pudo crear REPORTS_DIR:', e.message); return false; }
 }
 
-// Genera el Excel de cámaras del día, lo guarda en disco y opcionalmente lo envía por mail.
-// Si Influx falla, el mail sale igual (sin adjunto) con el aviso; nunca lanza por eso.
+// "Sigue activa": el flag de la alarma sigue prendido en el estado vivo (solo con dato fresco del PLC).
+function sigueVivo() {
+  const e = require('./config').getEstadoCamaras();
+  const fresco = !!e && !!e._conectado && Date.now() - e._ts <= 2 * 60e3;
+  return (clave) => fresco && !!e[clave];
+}
+
+function htmlCorreo(modelo, fecha) {
+  const footer = branding.get().footer;
+  const cuerpo = modelo
+    ? modelo.camaras.map((c) => `<h3 style="margin:12px 0 4px">${escHtml(c.nombre)}</h3><ul style="color:#555;margin:0">${
+      reporteDiario.lineasResumen(c.resumen).map((l) => `<li>${escHtml(l)}</li>`).join('')}</ul>`).join('')
+      + `<p style="color:#555">Alarmas en total: ${modelo.totalAlarmas}. El detalle está en el PDF adjunto.</p>`
+    : '<p style="color:#555">No se pudo leer el historial: error de consulta al servidor de datos. No hay PDF.</p>';
+  return `<div style="font-family:Arial,sans-serif;max-width:620px">
+    <h2 style="color:#E87722;margin-bottom:4px">${escHtml(modelo ? modelo.titulo : `Reporte de cámaras — ${fecha}`)}</h2>
+    ${cuerpo}
+    <p style="color:#999;font-size:11px">Generado automáticamente${footer ? ` · Powered by ${escHtml(footer)}` : ''}</p>
+  </div>`;
+}
+
+const falla = (e) => `error: ${(e && e.message) || 'desconocido'}`;
+
+async function porCorreo({ fecha, modelo, pdf, nombre, transport }) {
+  const smtp = settings.getSmtpFull();
+  const t = smtp.to ? transport || getTransport() : null;
+  if (!t) return 'no configurado';
+  try {
+    await t.sendMail({
+      from: `"Frío SCADA" <${smtp.from || smtp.user}>`,
+      to: smtp.to,
+      subject: `[Frío SCADA] ${modelo ? modelo.titulo : `Reporte de cámaras — ${fecha}`}`,
+      html: htmlCorreo(modelo, fecha),
+      attachments: pdf ? [{ filename: nombre, content: pdf, contentType: 'application/pdf' }] : [],
+    });
+    return 'ok';
+  } catch (e) {
+    console.error('[DAILY] Error al enviar el correo:', e.message);
+    return falla(e);
+  }
+}
+
+async function porTelegram({ fecha, modelo, pdf, nombre, sendDocument, sendText }) {
+  if (!alerts.telegramConfigurado()) return 'no configurado';
+  try {
+    if (pdf) await (sendDocument || alerts.sendTelegramDocument)(pdf, nombre, modelo.caption);
+    else await (sendText || alerts.sendTelegram)(`No se pudo generar el reporte de cámaras del ${fecha}: error al leer el historial`);
+    return 'ok';
+  } catch (e) {
+    console.error('[DAILY] Error al enviar por Telegram:', e.message); // sendTelegramDocument ya saca el token
+    return falla(e);
+  }
+}
+
+// Genera el PDF de cámaras del día, lo guarda y lo manda por los canales prendidos (opts.canales pisa el ajuste).
+// Si Influx falla, los canales mandan el aviso sin PDF; nunca lanza por eso.
+// Devuelve { date, saved, path, correo, telegram } con 'ok' | 'error: …' | 'no configurado' | 'apagado' por canal.
+// opts (tests): queryCsv, sigue, transport, sendDocument, sendText.
 async function buildAndSend(dateStr, opts = {}) {
   const date = reporteCamaras.validarFecha(dateStr || reporteCamaras.ayer());
-  const result = { ok: true, date, saved: false, emailed: false, path: null, to: null };
+  const nombre = `reporte-camaras_${date}.pdf`;
+  const result = { date, saved: false, path: null };
 
-  let xlsx = null;
-  let lineas = [];
+  let pdf = null; let modelo = null;
   try {
-    const r = await reporteCamaras.generarXlsx(date, opts.queryCsv);
-    xlsx = r.xlsx;
-    lineas = r.hojas[0].rows.map((x) => x[0]);
+    ({ pdf, modelo } = await reporteDiario.generarPdf(date, { queryCsv: opts.queryCsv, sigue: opts.sigue || sigueVivo() }));
   } catch (e) {
     console.error('[DAILY] No se pudo leer el historial:', e.message);
     result.historyError = true;
-    lineas = ['No se pudo leer el historial: error de consulta al servidor de datos'];
   }
 
-  if (xlsx && ensureDir(REPORTS_DIR)) {
-    const file = path.join(REPORTS_DIR, `reporte-camaras_${date}.xlsx`);
-    try { fs.writeFileSync(file, xlsx); result.saved = true; result.path = file; }
-    catch (e) { console.error('[DAILY] Error al guardar Excel:', e.message); }
+  if (pdf && ensureDir(REPORTS_DIR)) {
+    const file = path.join(REPORTS_DIR, nombre);
+    try { fs.writeFileSync(file, pdf); result.saved = true; result.path = file; }
+    catch (e) { console.error('[DAILY] Error al guardar el PDF:', e.message); }
   }
 
-  const to = recipients(opts.to);
-  const transport = opts.transport || getTransport();
-  if (to && transport) {
-    try {
-      const smtp = settings.getSmtpFull();
-      const li = lineas.map((l) => `<li>${l.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</li>`).join('');
-      await transport.sendMail({
-        from: `"Frío SCADA" <${smtp.from || smtp.user}>`,
-        to,
-        subject: `[Frío SCADA] Reporte de cámaras — ${date}`,
-        html: `<div style="font-family:Arial,sans-serif;max-width:620px">
-          <h2 style="color:#E87722;margin-bottom:4px">Reporte de cámaras — ${date}</h2>
-          <ul style="color:#555">${li}</ul>
-          <p style="color:#999;font-size:11px">Generado automáticamente${require('./branding').get().footer ? ` · Powered by ${escHtml(require('./branding').get().footer)}` : ''}</p>
-        </div>`,
-        attachments: xlsx ? [{ filename: `reporte-camaras_${date}.xlsx`, content: xlsx,
-          contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }] : [],
-      });
-      result.emailed = true; result.to = to;
-    } catch (e) {
-      console.error('[DAILY] Error al enviar email:', e.message);
-      result.emailError = e.message;
-    }
-  } else if (opts.to) {
-    result.emailError = 'SMTP no configurado (SMTP_USER/SMTP_PASS)';
-  }
-
-  return result;
+  const canales = opts.canales || settings.getDailyReport().canales;
+  const datos = { ...opts, fecha: date, modelo, pdf, nombre };
+  const [correo, telegram] = await Promise.all([
+    canales.correo ? porCorreo(datos) : 'apagado',
+    canales.telegram ? porTelegram(datos) : 'apagado',
+  ]);
+  return { ...result, correo, telegram };
 }
 
 function msUntilNextRun() {
@@ -106,7 +136,7 @@ async function runScheduled() {
   lastSentDate = fecha;
   try {
     const r = await buildAndSend(fecha);
-    console.log(`[DAILY] Reporte ${r.date} — guardado:${r.saved} email:${r.emailed}${r.emailError ? ' (' + r.emailError + ')' : ''}`);
+    console.log(`[DAILY] Reporte ${r.date} — guardado:${r.saved} correo:${r.correo} telegram:${r.telegram}`);
   } catch (e) {
     console.error('[DAILY] Falló la generación programada:', e.message);
   }
@@ -151,4 +181,4 @@ function start() {
 
 const getNextRunAt = () => (ENABLED ? nextRunAt : null);
 
-module.exports = { runScheduled, start, reschedule, getNextRunAt, buildAndSend, REPORTS_DIR, ENABLED };
+module.exports = { sigueVivo, runScheduled, start, reschedule, getNextRunAt, buildAndSend, REPORTS_DIR, ENABLED };

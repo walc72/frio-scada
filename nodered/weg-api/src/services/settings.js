@@ -278,20 +278,42 @@ function envReportTime() {
   return { hour: Number.isInteger(h) && h >= 0 && h <= 23 ? h : 7, minute: 0 };
 }
 
+// canales: por dónde sale (correo y Telegram). Sin guardar: correo sí; Telegram sí si está configurado.
 function getDailyReport() {
   const d = read().dailyReport || {};
   const ok = Number.isInteger(d.hour) && d.hour >= 0 && d.hour <= 23 && Number.isInteger(d.minute) && d.minute >= 0 && d.minute <= 59;
   const t = ok ? { hour: d.hour, minute: d.minute } : envReportTime();
-  return { ...t, time: `${pad2(t.hour)}:${pad2(t.minute)}`, fromEnv: !ok };
+  const c = (d.canales && typeof d.canales === 'object') ? d.canales : {};
+  const tg = getTelegramFull();
+  const canales = {
+    correo: typeof c.correo === 'boolean' ? c.correo : true,
+    telegram: typeof c.telegram === 'boolean' ? c.telegram : !!(tg.token && tg.chatId),
+  };
+  return { ...t, time: `${pad2(t.hour)}:${pad2(t.minute)}`, fromEnv: !ok, canales };
 }
 
-// body: { time: 'HH:MM' }
+// body: { time?: 'HH:MM', canales?: { correo?: boolean, telegram?: boolean } } (al menos uno)
 function setDailyReport(patch) {
-  const m = /^(\d{1,2}):(\d{2})$/.exec(String((patch && patch.time) || '').trim());
-  const hour = m ? +m[1] : NaN, minute = m ? +m[2] : NaN;
-  if (!m || hour > 23 || minute > 59) throw new Error('Hora inválida (HH:MM, de 00:00 a 23:59)');
+  const p = (patch && typeof patch === 'object') ? patch : {};
   const s = read();
-  s.dailyReport = { ...(s.dailyReport || {}), hour, minute };
+  const next = { ...(s.dailyReport || {}) };
+  if (p.time !== undefined || p.canales === undefined) {
+    const m = /^(\d{1,2}):(\d{2})$/.exec(String(p.time || '').trim());
+    const hour = m ? +m[1] : NaN, minute = m ? +m[2] : NaN;
+    if (!m || hour > 23 || minute > 59) throw httpError(400, 'Hora inválida (HH:MM, de 00:00 a 23:59)');
+    Object.assign(next, { hour, minute });
+  }
+  if (p.canales !== undefined) {
+    if (!p.canales || typeof p.canales !== 'object') throw httpError(400, 'Canales inválidos');
+    const canales = { ...(next.canales || {}) };
+    for (const k of ['correo', 'telegram']) {
+      if (p.canales[k] === undefined) continue;
+      if (typeof p.canales[k] !== 'boolean') throw httpError(400, `Canal ${k}: tiene que ser sí o no`);
+      canales[k] = p.canales[k];
+    }
+    next.canales = canales;
+  }
+  s.dailyReport = next;
   write(s);
   return getDailyReport();
 }
