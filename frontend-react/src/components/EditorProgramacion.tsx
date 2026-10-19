@@ -123,10 +123,10 @@ export default function EditorProgramacion({ camaraFija, enDialogo, inicial, onE
                   const en = (e: string) => GRUPOS.filter((_, i) => s[i] === e).join(', ') || 'ninguno'
                   const poner = (i: number, e: '1' | '2') => set(p + 'etapas', s.slice(0, i) + e + s.slice(i + 1))
                   return <>
-                    <div className="grid grid-cols-2 gap-2 min-[560px]:grid-cols-4">
+                    <div className="grid gap-2 [grid-template-columns:repeat(auto-fill,minmax(150px,1fr))]">
                       {GRUPOS.map((g, i) => (
                         <div key={g} className="flex min-w-0 items-center justify-between gap-2 rounded-md border px-2 py-1">
-                          <span className="text-sm">Equipo {g}</span>
+                          <span className="whitespace-nowrap text-sm">Equipo {g}</span>
                           <div className="flex overflow-hidden rounded-md border" role="radiogroup" aria-label={`Etapa del equipo ${g}`}>
                             {(['1', '2'] as const).map(e => (
                               <button key={e} type="button" role="radio" aria-checked={s[i] === e} disabled={off} onClick={() => poner(i, e)}
