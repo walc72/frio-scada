@@ -42,10 +42,14 @@ function BloqueEquipos({ camara, equipos }: { camara: string; equipos: EquipoHis
       {equipos.map(e => (
         <div key={e.grupo} className="grid grid-cols-[4.5rem_1fr] sm:grid-cols-[4.5rem_1fr_19rem] gap-x-3 gap-y-0.5 items-center">
           <span className="text-sm font-medium">{equipoDe(e.grupo)}</span>
-          <div className="flex gap-0.5">
+          {e.dias.length === 1 ? ( // un solo día: barra llena según el % en marcha
+            <div className="h-6 rounded-sm bg-muted" title={`${horasTxt(e.dias[0].horas)} en marcha${pctTxt(e.dias[0].pct)} · ${e.dias[0].arranques} arranques`}>
+              <div className="h-6 rounded-sm bg-primary" style={{ width: `${(e.dias[0].pct ?? 0) * 100}%` }} />
+            </div>
+          ) : <div className="flex gap-0.5">
             {e.dias.map(d => <span key={d.dia} className="h-6 flex-1 rounded-sm" style={{ background: colorPct(d.pct) }}
               title={`${diaCorto(d.dia)}: ${horasTxt(d.horas)} en marcha${pctTxt(d.pct)} · ${d.arranques} arranques`} />)}
-          </div>
+          </div>}
           <span className="col-start-2 sm:col-start-auto text-xs text-muted-foreground">
             <b className="text-foreground">{horasTxt(e.horas)}</b>{pctTxt(e.pct)} · {e.arranques} arranques · {e.descongelados} descongelados
           </span>
@@ -148,7 +152,7 @@ export default function Historial({ fija }: { fija?: 'alarmas' | 'eventos' }) {
             ))}
           </ul>
           {pestana === 'compresores' && porCamara.map(({ camara, equipos }) => <BloqueEquipos key={camara} camara={camara} equipos={equipos} />)}
-          {pestana === 'compresores' && porCamara.length > 0 && <div className="flex items-center gap-1.5 px-3 py-2 text-xs text-muted-foreground">
+          {pestana === 'compresores' && (porCamara[0]?.equipos[0]?.dias.length ?? 0) > 1 && <div className="flex items-center gap-1.5 px-3 py-2 text-xs text-muted-foreground">
             Cada cuadradito es un día: <span>menos</span>{[0.1, 0.4, 0.7, 1].map(p => <span key={p} className="h-3 w-3 rounded-sm" style={{ background: colorPct(p) }} />)}<span>más tiempo en marcha</span>
           </div>}
         </>}
