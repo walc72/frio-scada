@@ -263,6 +263,10 @@ services:
       - OPERADOR_USER=${OPERADOR_USER:-operador}
       - OPERADOR_PASSWORD=${OPERADOR_PASSWORD:-}
       - OPERADOR_PASSWORD_HASH=${OPERADOR_PASSWORD_HASH:-}
+      # Superadmin (Marca, Conexión, Réplicas). El instalador lo crea por la API; esto sirve para stacks armados a mano
+      - SUPERADMIN_USER=${SUPERADMIN_USER:-superadmin}
+      - SUPERADMIN_PASSWORD=${SUPERADMIN_PASSWORD:-}
+      - SUPERADMIN_PASSWORD_HASH=${SUPERADMIN_PASSWORD_HASH:-}
       - ALLOWED_ORIGIN=${ALLOWED_ORIGIN:-*}
       # Réplica de oficina: token de la API /api/replica (vacío = apagada)
       - REPLICA_TOKEN=${REPLICA_TOKEN:-}
