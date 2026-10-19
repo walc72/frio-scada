@@ -94,7 +94,7 @@ export default function App() {
       {/* Fixed header */}
       <header className="h-16 border-b px-4 flex items-center gap-3 bg-card shrink-0 z-20">
         <img src={logoUrl} alt={brandName} className="h-8 w-auto max-w-[160px] object-contain" />
-        <div className="text-sm text-muted-foreground border-l border-border pl-3 leading-none">
+        <div className="text-lg font-bold border-l border-border pl-3 leading-none">
           Cámaras de frío
         </div>
         <div className="ml-auto flex items-center gap-2">
