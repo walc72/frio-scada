@@ -6,6 +6,8 @@ const path = require('path');
 const DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'daily-time-'));
 process.env.CONFIG_PATH = path.join(DIR, 'config.json');
 process.env.DAILY_REPORT_HOUR = '7';
+delete process.env.TELEGRAM_TOKEN;
+delete process.env.TELEGRAM_CHAT_ID;
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -16,12 +18,12 @@ const reset = () => { try { fs.unlinkSync(settings.SETTINGS_PATH); } catch { /* 
 
 test('sin configurar usa DAILY_REPORT_HOUR del .env', () => {
   reset();
-  assert.deepEqual(settings.getDailyReport(), { hour: 7, minute: 0, time: '07:00', fromEnv: true });
+  assert.deepEqual(settings.getDailyReport(), { hour: 7, minute: 0, time: '07:00', fromEnv: true, canales: { correo: true, telegram: false } });
 });
 
 test('guarda HH:MM y valida el formato', () => {
   reset();
-  assert.deepEqual(settings.setDailyReport({ time: '5:30' }), { hour: 5, minute: 30, time: '05:30', fromEnv: false });
+  assert.deepEqual(settings.setDailyReport({ time: '5:30' }), { hour: 5, minute: 30, time: '05:30', fromEnv: false, canales: { correo: true, telegram: false } });
   assert.equal(settings.getDailyReport().time, '05:30');
   for (const bad of ['24:00', '12:60', 'abc', '', '7']) {
     assert.throws(() => settings.setDailyReport({ time: bad }), /Hora inválida/);
