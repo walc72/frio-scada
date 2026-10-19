@@ -1,4 +1,5 @@
 import { useParams, Link } from 'react-router-dom'
+import AjustesCamara from '../components/AjustesCamara'
 import { Card } from '../components/ui/card'
 import { Badge } from '../components/ui/badge'
 import TablaEquipos from '../components/TablaEquipos'
@@ -13,7 +14,7 @@ import { fraseCamara, faltanMin, badgeCamara, proximoTexto } from '../lib/frases
 import { CAMARAS, PLANTA_OFFSET, nombreCamara, txt, num, hhmm, diaPlanta, type FilaDescongelado } from '../lib/camaras'
 import { useNow } from '../lib/useNow'
 import { useDatos } from '../lib/useDatos'
-import { useCallback, useMemo } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { aTramos, horariosVista, type TramoApi } from '../lib/paginaCamara'
 import { agruparActivas, alarmasActivasVista, ultimoPorClave, type Evento } from '../lib/alarmas'
 
@@ -27,6 +28,7 @@ export default function Camara() {
   const recibidoEn = useCamarasStore(s => s.recibidoEn)
   const incompatible = useCamarasStore(s => s.mapa === 'incompatible')
   const admin = useAuthStore(s => s.isAdmin())
+  const [ajustes, setAjustes] = useState(false)
   const ahora = useNow(1000)
   const dia = diaPlanta(ahora)
   const valida = (CAMARAS as readonly string[]).includes(cam)
@@ -60,7 +62,8 @@ export default function Camara() {
         {modo && <span className="text-sm text-muted-foreground">{modo}</span>}
         {hayDatos && <span className="text-sm text-muted-foreground">{falta != null ? `faltan ${falta} min` : (p => p.startsWith('Sin') ? p : `Próximo descongelado: ${p}`)(proximoTexto(estado!, cam, ahora))}</span>}
         {badge && <Badge className="ml-auto border-transparent text-white" style={{ backgroundColor: badge.c }}>{badge.t}</Badge>}
-        {admin && <Link to={`/programacion?camara=${cam}`} className={`toque inline-flex items-center gap-1 rounded-md border px-3 text-sm font-medium hover:bg-muted ${badge ? '' : 'ml-auto'}`}>⚙ Ajustes</Link>}
+        {admin && <button type="button" onClick={() => setAjustes(true)} className={`toque inline-flex items-center gap-1 rounded-md border px-3 text-sm font-medium hover:bg-muted ${badge ? '' : 'ml-auto'}`}>⚙ Ajustes</button>}
+        {admin && ajustes && <AjustesCamara cam={cam} onCerrar={() => setAjustes(false)} />}
         {!hayDatos && <span className="ml-auto text-sm text-amber-600 dark:text-amber-400">{incompatible ? 'El PLC tiene un programa viejo' : ts ? `Sin datos desde ${hhmm(ts)}` : 'Sin datos todavía'}</span>}
       </div>
       {hayDatos && <div><div className="text-sm font-semibold">{f!.titulo}</div>{f!.detalle && <div className="text-xs text-muted-foreground">{f!.detalle}</div>}</div>}
