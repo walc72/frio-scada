@@ -8,6 +8,7 @@ export function useDatos<T = any>(ruta: string, desde: string, hasta: string, ca
   const [error, setError] = useState(false)
   const [cargando, setCargando] = useState(true)
   useEffect(() => {
+    if (!ruta) { setData(null); setCargando(false); return } // ruta vacía: no pedir nada
     let vivo = true
     setCargando(true); setData(null); setError(false) // otra clave (cámara/día): no mostrar datos de la anterior; el refresco periódico no pasa por acá
     const q = new URLSearchParams(ventanaPlanta(desde, hasta))
