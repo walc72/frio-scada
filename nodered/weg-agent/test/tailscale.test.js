@@ -47,7 +47,7 @@ test('login spawns up once and returns the auth url', async () => {
   const { ts, spawned } = fakeTs({ statuses: [NEEDS, NEEDS, WITH_URL] });
   const st = await ts.login('frio-demo');
   assert.equal(st.authUrl, 'https://login.tailscale.com/a/abc');
-  assert.deepEqual(spawned, [['up', '--hostname=frio-demo', '--timeout=0']]);
+  assert.deepEqual(spawned, [['up', '--reset', '--hostname=frio-demo', '--timeout=0']]);
   await ts.login('frio-demo');
   assert.equal(spawned.length, 1, 'no lanza un segundo up mientras el primero sigue');
 });

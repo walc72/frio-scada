@@ -55,7 +55,9 @@ function TailscaleCard({ replica }: { replica: boolean }) {
     setBusy(true)
     try {
       const h = (hostname || st?.hostname || (replica ? 'frio-replica' : 'frio-planta')).trim().toLowerCase()
-      setSt(await apiJson<TsStatus>('/system/tailscale/login', { method: 'POST', body: JSON.stringify({ hostname: h }) }))
+      const r = await apiJson<TsStatus>('/system/tailscale/login', { method: 'POST', body: JSON.stringify({ hostname: h }) })
+      setSt(r)
+      if (!r.authUrl && r.state !== 'Running') toast.error('Tailscale todavía no dio el link de login. Esperá unos segundos y tocá Conectar de nuevo.')
     } catch (e: any) { toast.error(e.message) }
     finally { setBusy(false) }
   }
@@ -100,8 +102,11 @@ function TailscaleCard({ replica }: { replica: boolean }) {
             <div className="flex flex-wrap items-center gap-3">
               {qr && <img src={qr} alt="QR de login de Tailscale" className="rounded-md border bg-white p-1" />}
               <div className="space-y-2 text-sm min-w-0">
-                <p>Abrí el link (o escaneá el QR) e iniciá sesión con la cuenta del tailnet correcto.</p>
-                <a href={st.authUrl} target="_blank" rel="noreferrer" className="break-all text-primary underline">{st.authUrl}</a>
+                <p>Tocá el botón (o escaneá el QR con el celular) e iniciá sesión con la cuenta de Tailscale de la planta. Al aprobarlo, esta pantalla pasa sola a <b>Conectado</b>.</p>
+                <a href={st.authUrl} target="_blank" rel="noreferrer"
+                  className="toque inline-flex items-center gap-2 rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground hover:opacity-90">
+                  <Link2 className="h-4 w-4" />Abrir el login de Tailscale</a>
+                <a href={st.authUrl} target="_blank" rel="noreferrer" className="block break-all text-xs text-muted-foreground underline">{st.authUrl}</a>
                 <p className="text-xs text-muted-foreground flex items-center gap-1"><RefreshCw className="h-3 w-3 animate-spin" />Esperando la aprobación…</p>
               </div>
             </div>
