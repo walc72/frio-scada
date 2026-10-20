@@ -1,4 +1,5 @@
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
+import { marcarTutorial } from '../lib/tutorial'
 import { useAuthStore } from '../store/auth'
 import { ChevronRight } from 'lucide-react'
 
@@ -13,6 +14,8 @@ const ITEMS = [
 
 export default function Mas() {
   const isAdmin = useAuthStore(s => s.isAdmin())
+  const user = useAuthStore(s => s.user)
+  const navigate = useNavigate()
   return (
     <div className="max-w-xl space-y-3">
       <h1 className="text-xl font-semibold">Más</h1>
@@ -25,6 +28,7 @@ export default function Mas() {
           </li>
         ))}
       </ul>
+      <button className="toque px-4 rounded-md border text-sm" onClick={() => { marcarTutorial(user, false); navigate('/') }}>Ver el tutorial de nuevo</button>
     </div>
   )
 }

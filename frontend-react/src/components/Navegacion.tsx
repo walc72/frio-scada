@@ -20,7 +20,7 @@ export default function Navegacion() {
       {ITEMS.map(i => {
         const on = i.activo(pathname)
         return (
-          <NavLink key={i.to} to={i.to} aria-current={on ? 'page' : undefined}
+          <NavLink key={i.to} to={i.to} data-tour={`nav-${i.icono}`} aria-current={on ? 'page' : undefined}
             className={cn(
               'flex-1 md:flex-none flex flex-col md:flex-row items-center justify-center md:justify-start gap-1 md:gap-3 toque md:px-3 md:py-2 md:rounded-md text-xs md:text-base font-medium transition-colors',
               on ? 'text-primary md:bg-primary md:text-primary-foreground' : 'text-muted-foreground hover:text-foreground md:hover:bg-accent'
