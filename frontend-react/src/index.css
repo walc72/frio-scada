@@ -101,3 +101,5 @@ body .driver-popover, body .driver-popover * { font-family: "IBM Plex Sans", sys
 .driver-popover-arrow-side-top.driver-popover-arrow { border-top-color: hsl(var(--card)); }
 .driver-popover-arrow-side-left.driver-popover-arrow { border-left-color: hsl(var(--card)); }
 .driver-popover-arrow-side-right.driver-popover-arrow { border-right-color: hsl(var(--card)); }
+body .driver-popover-footer button:hover, body .driver-popover-footer button:focus { background: hsl(var(--accent)); color: hsl(var(--foreground)); }
+body .driver-popover-footer .driver-popover-next-btn:hover, body .driver-popover-footer .driver-popover-next-btn:focus { background: hsl(var(--primary) / 0.9); color: hsl(var(--primary-foreground)); }
