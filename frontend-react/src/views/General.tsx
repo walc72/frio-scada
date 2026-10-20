@@ -10,7 +10,7 @@ import { iniciarTutorial, tutorialVisto } from '../lib/tutorial'
 export default function General() {
   const user = useAuthStore(s => s.user)
   const admin = useAuthStore(s => s.isAdmin())
-  useEffect(() => { if (!tutorialVisto(user)) iniciarTutorial(user, admin) }, [user, admin])
+  useEffect(() => { if (!tutorialVisto('inicio', user)) iniciarTutorial('inicio', user, admin) }, [user, admin])
   return (
     <div className="space-y-3">
       <AvisoArranque />

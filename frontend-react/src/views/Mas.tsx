@@ -28,7 +28,7 @@ export default function Mas() {
           </li>
         ))}
       </ul>
-      <button className="toque px-4 rounded-md border text-sm" onClick={() => { marcarTutorial(user, false); navigate('/') }}>Ver el tutorial de nuevo</button>
+      <button className="toque px-4 rounded-md border text-sm" onClick={() => { marcarTutorial('inicio', user, false); marcarTutorial('camara', user, false); navigate('/') }}>Ver el tutorial de nuevo</button>
     </div>
   )
 }
