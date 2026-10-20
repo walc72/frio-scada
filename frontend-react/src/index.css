@@ -90,7 +90,8 @@
 }
 
 /* Tutorial (driver.js) con la letra y los botones del portal */
-.driver-popover { font-family: inherit; border-radius: 12px; max-width: 340px; background: hsl(var(--card)); color: hsl(var(--card-foreground)); }
+body .driver-popover, body .driver-popover * { font-family: "IBM Plex Sans", system-ui, sans-serif; }
+.driver-popover { border-radius: 12px; max-width: 340px; background: hsl(var(--card)); color: hsl(var(--card-foreground)); }
 .driver-popover-title { font-size: 16px; font-weight: 700; }
 .driver-popover-description { font-size: 14px; line-height: 20px; }
 .driver-popover-progress-text { font-size: 12px; color: hsl(var(--muted-foreground)); }
