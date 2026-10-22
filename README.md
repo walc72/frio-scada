@@ -257,6 +257,14 @@ docker compose up -d
 
 ---
 
+## Comandos útiles (WSL en Windows)
+
+Reiniciar la API después de cambiar el `.env` (por ejemplo, la contraseña de superadmin). Cierra las sesiones abiertas: hay que volver a entrar al portal.
+
+```bash
+wsl -d Ubuntu -- bash -lc "cd ~/frio-scada/nodered && docker compose up -d frio-api"
+```
+
 ## Estructura del proyecto
 
 ```
