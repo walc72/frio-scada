@@ -91,7 +91,7 @@ router.post('/telegram/chats', async (req, res) => {
   if (!token) return res.status(400).json({ error: 'Primero cargá el token del bot' });
   try {
     // con el bot escuchando ese token no se puede pedir getUpdates (409): se usan los chats que ya vio
-    res.json({ chats: require('../services/telegramBot').chatsVistos(token) ?? await require('../services/alerts').buscarChats(token) });
+    res.json({ chats: (await require('../services/telegramBot').chatsVistos(token)) ?? await require('../services/alerts').buscarChats(token) });
   } catch (e) { fail(res, e); }
 });
 

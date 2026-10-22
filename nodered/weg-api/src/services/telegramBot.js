@@ -81,6 +81,14 @@ function start(opts) {
 }
 
 // Chats vistos por el bot con este token (el más reciente primero), o null si el bot no está escuchando con ese token.
-const chatsVistos = (token) => (activo && token && token === tokenActivo ? [...chats.values()].reverse() : null);
+// Si todavía no vio ninguno, al menos el chat configurado (getChat).
+async function chatsVistos(token) {
+  if (!activo || !token || token !== tokenActivo) return null;
+  if (!chats.size) {
+    const { chatId } = settings.getTelegramFull();
+    try { registrarChat({ message: { chat: await api(token, 'getChat', { chat_id: chatId }) } }); } catch { /* sin datos: lista vacía */ }
+  }
+  return [...chats.values()].reverse();
+}
 
 module.exports = { start, chatsVistos, atender, registrarChat, _chats: chats };
