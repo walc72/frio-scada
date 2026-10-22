@@ -134,8 +134,12 @@ router.post('/daily-report/enviar', async (req, res) => {
   if (t - ultimoEnvio < ENVIAR_CADA_MS) return res.status(429).json({ error: 'Esperá un minuto antes de volver a mandarlo' });
   ultimoEnvio = t;
   try {
-    const r = await require('../services/dailyReport').buildAndSend();
-    res.json({ ok: true, date: r.date, correo: r.correo, telegram: r.telegram, ...(r.historyError && { historyError: true }) });
+    const tipo = (req.body && req.body.tipo) || 'dia';
+    if (!['dia', 'semana', 'mes'].includes(tipo)) { ultimoEnvio = -Infinity; return res.status(400).json({ error: 'Tipo inválido (dia, semana o mes)' }); }
+    const daily = require('../services/dailyReport');
+    const r = tipo === 'dia' ? await daily.buildAndSend()
+      : await daily.buildAndSendPeriodo(tipo, require('../services/reportePeriodo').ultimoCompleto(tipo, require('../services/reporteCamaras').ayer()).desde);
+    res.json({ ok: true, tipo, date: r.date, desde: r.desde, hasta: r.hasta, correo: r.correo, telegram: r.telegram, ...(r.historyError && { historyError: true }) });
   } catch (e) {
     console.error('[API] daily-report/enviar:', e.message);
     res.status(500).json({ error: 'No se pudo generar el reporte' });

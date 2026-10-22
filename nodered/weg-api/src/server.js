@@ -107,6 +107,7 @@ app.use('/api/config', configRoutes);
 app.use('/api/status', statusRoutes);
 app.use('/api/reports', reportRoutes);
 app.get('/api/reportes/diario.pdf', reportRoutes.diarioPdf);
+app.get('/api/reportes/periodo.pdf', reportRoutes.periodoPdf);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/replicas', createReplicasRouter({
   registry: replicaRegistry, isReplica: REPLICA_MODE, legacyToken: process.env.REPLICA_TOKEN || '',

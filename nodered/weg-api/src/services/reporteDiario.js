@@ -191,7 +191,7 @@ function renderPdf(modelo, { ahora = Date.now() } = {}) {
     h1('Resumen');
     for (const c of modelo.camaras) {
       h2(c.nombre);
-      for (const l of lineasResumen(c.resumen)) parrafo(`• ${l}`);
+      for (const l of [...lineasResumen(c.resumen), ...(c.extra || [])]) parrafo(`• ${l}`);
     }
     const revisar = modelo.camaras.flatMap((c) => c.distintos.map((d) => `${c.nombre}, ${f.equipoDe(d.grupo)}: ${d.motivo}.`));
     if (revisar.length) {
@@ -240,7 +240,7 @@ function renderPdf(modelo, { ahora = Date.now() } = {}) {
     for (const c of modelo.camaras) {
       nuevaPagina();
       h1(c.nombre);
-      trendPdf(c.trend);
+      if (c.trend) trendPdf(c.trend); // el semanal/mensual no lo tiene
       for (const t of c.tablas) tablaPdf(t);
     }
 

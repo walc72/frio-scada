@@ -93,10 +93,14 @@ function armarHojas({ descongelados = [], compresores = [], eventos = [], maniob
 
 // Lee un día de Influx por el mismo camino que las rutas /api/camaras. Lanza si falla Influx.
 async function leerDia(fecha, queryCsv = influxRaw.queryAnnotatedCsv) {
-  const p = rangoDia(fecha);
+  return leerRango(rangoDia(fecha), queryCsv);
+}
+
+// Lee un rango {desde, hasta} (ISO), misma forma que leerDia. sinTramos: el semanal/mensual no dibuja el gráfico del día.
+async function leerRango(p, queryCsv = influxRaw.queryAnnotatedCsv, { sinTramos = false } = {}) {
   const [desc, comp, lat, ev, man, tram] = await Promise.all([
     queryCsv(cam.fluxDescongelados(p)), queryCsv(cam.fluxCompresores(p)),
-    queryCsv(cam.fluxLatidos(p)), queryCsv(cam.fluxEventos(p)), queryCsv(cam.fluxMando(p)), queryCsv(cam.fluxTramos(p)),
+    queryCsv(cam.fluxLatidos(p)), queryCsv(cam.fluxEventos(p)), queryCsv(cam.fluxMando(p)), sinTramos ? '' : queryCsv(cam.fluxTramos(p)),
   ]);
   return {
     descongelados: cam.parseDescongelados(desc),
@@ -114,4 +118,4 @@ async function generarXlsx(fecha, queryCsv) {
   return { xlsx: reports.toXLSX(hojas), hojas };
 }
 
-module.exports = { validarFecha, ayer, rangoDia, armarHojas, leerDia, generarXlsx };
+module.exports = { validarFecha, ayer, rangoDia, armarHojas, leerDia, leerRango, generarXlsx };

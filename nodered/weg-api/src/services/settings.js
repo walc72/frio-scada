@@ -289,7 +289,10 @@ function getDailyReport() {
     correo: typeof c.correo === 'boolean' ? c.correo : true,
     telegram: typeof c.telegram === 'boolean' ? c.telegram : !!(tg.token && tg.chatId),
   };
-  return { ...t, time: `${pad2(t.hour)}:${pad2(t.minute)}`, fromEnv: !ok, canales };
+  // semanal (los lunes) y mensual (el día 1): mismos canales y hora que el diario; prendidos salvo que se apaguen
+  const semanal = typeof d.semanal === 'boolean' ? d.semanal : true;
+  const mensual = typeof d.mensual === 'boolean' ? d.mensual : true;
+  return { ...t, time: `${pad2(t.hour)}:${pad2(t.minute)}`, fromEnv: !ok, canales, semanal, mensual };
 }
 
 // body: { time?: 'HH:MM', canales?: { correo?: boolean, telegram?: boolean } } (al menos uno)
@@ -297,7 +300,12 @@ function setDailyReport(patch) {
   const p = (patch && typeof patch === 'object') ? patch : {};
   const s = read();
   const next = { ...(s.dailyReport || {}) };
-  if (p.time !== undefined || p.canales === undefined) {
+  for (const k of ['semanal', 'mensual']) {
+    if (p[k] === undefined) continue;
+    if (typeof p[k] !== 'boolean') throw httpError(400, `Reporte ${k}: tiene que ser sí o no`);
+    next[k] = p[k];
+  }
+  if (p.time !== undefined || (p.canales === undefined && p.semanal === undefined && p.mensual === undefined)) {
     const m = /^(\d{1,2}):(\d{2})$/.exec(String(p.time || '').trim());
     const hour = m ? +m[1] : NaN, minute = m ? +m[2] : NaN;
     if (!m || hour > 23 || minute > 59) throw httpError(400, 'Hora inválida (HH:MM, de 00:00 a 23:59)');

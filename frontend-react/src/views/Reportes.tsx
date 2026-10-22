@@ -11,8 +11,10 @@ import { useAuthStore } from '../store/auth'
 const n = (v: number | null, u = '') => (v == null ? 'sin datos' : `${v}${u}`)
 
 type Canales = { correo: boolean; telegram: boolean }
-type Info = { time: string; canales: Canales; telegramConfigurado: boolean; enabled: boolean }
-type ResultadoEnvio = { correo: string; telegram: string; historyError?: boolean }
+type Info = { time: string; canales: Canales; semanal: boolean; mensual: boolean; telegramConfigurado: boolean; enabled: boolean }
+type Tipo = 'dia' | 'semana' | 'mes'
+const NOMBRE: Record<Tipo, string> = { dia: 'de ayer', semana: 'semanal (última semana completa)', mes: 'mensual (último mes completo)' }
+type ResultadoEnvio = { tipo?: Tipo; correo: string; telegram: string; historyError?: boolean }
 
 // Resultado de un canal en palabras ('ok' | 'error: …' | 'no configurado' | 'apagado')
 const resultado = (r: string) => (r === 'ok' ? 'enviado ✓' : r === 'apagado' ? 'apagado' : r === 'no configurado' ? 'no está configurado' : `no se pudo (${r.replace(/^error: /, '')})`)
@@ -26,16 +28,17 @@ function Envio({ admin }: { admin: boolean }) {
 
   useEffect(() => { if (admin) apiJson<Info>('/settings/daily-report').then(setInfo).catch(e => setErr(e.message)) }, [admin])
 
-  async function cambiar(canal: keyof Canales, valor: boolean) {
+  async function guardar(cambio: object) {
     setGuardando(true); setErr('')
-    try { setInfo(await apiJson<Info>('/settings/daily-report', { method: 'POST', body: JSON.stringify({ canales: { [canal]: valor } }) })) }
+    try { setInfo(await apiJson<Info>('/settings/daily-report', { method: 'POST', body: JSON.stringify(cambio) })) }
     catch (e) { setErr(e instanceof Error ? e.message : 'No se pudo guardar') }
     finally { setGuardando(false) }
   }
+  const cambiar = (canal: keyof Canales, valor: boolean) => guardar({ canales: { [canal]: valor } })
 
-  async function mandar() {
+  async function mandar(tipo: Tipo) {
     setEnviando(true); setErr(''); setEnvio(null)
-    try { setEnvio(await apiJson<ResultadoEnvio>('/settings/daily-report/enviar', { method: 'POST', body: '{}' })) }
+    try { setEnvio(await apiJson<ResultadoEnvio>('/settings/daily-report/enviar', { method: 'POST', body: JSON.stringify({ tipo }) })) }
     catch (e) { setErr(e instanceof Error ? e.message : 'No se pudo mandar') }
     finally { setEnviando(false) }
   }
@@ -60,7 +63,19 @@ function Envio({ admin }: { admin: boolean }) {
         </span>
         <Switch checked={info.telegramConfigurado && info.canales.telegram} disabled={guardando || !info.telegramConfigurado} onCheckedChange={(v) => cambiar('telegram', v)} />
       </label>
-      <Button variant="outline" className="w-full" onClick={mandar} disabled={enviando}>{enviando ? 'Mandando…' : 'Mandar el reporte de ayer ahora'}</Button>
+      <label className="toque flex items-center justify-between gap-3">
+        <span>Reporte semanal<span className="block text-xs text-muted-foreground">Los lunes, de lunes a domingo, con la comparación con la semana anterior</span></span>
+        <Switch checked={info.semanal} disabled={guardando} onCheckedChange={(v) => guardar({ semanal: v })} />
+      </label>
+      <label className="toque flex items-center justify-between gap-3">
+        <span>Reporte mensual<span className="block text-xs text-muted-foreground">El día 1, con el mes anterior completo</span></span>
+        <Switch checked={info.mensual} disabled={guardando} onCheckedChange={(v) => guardar({ mensual: v })} />
+      </label>
+      <div className="space-y-2 pt-1">
+        {(['dia', 'semana', 'mes'] as Tipo[]).map(t => (
+          <Button key={t} variant="outline" className="w-full" onClick={() => mandar(t)} disabled={enviando}>{enviando ? 'Mandando…' : `Mandar el reporte ${NOMBRE[t]} ahora`}</Button>
+        ))}
+      </div>
       {envio && (
         <div>
           {envio.historyError && <div className="text-destructive">No se pudo leer el historial: salió solo el aviso, sin PDF.</div>}
@@ -77,6 +92,7 @@ export default function Reportes() {
   const dia = ayerPlanta()
   const admin = useAuthStore(s => s.isAdmin())
   const [fecha, setFecha] = useState(dia)
+  const [tipo, setTipo] = useState<Tipo>('dia')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   const desc = useDatos<any>('descongelados', dia, dia)
@@ -87,10 +103,11 @@ export default function Reportes() {
   async function descargar() {
     setBusy(true); setErr('')
     try {
-      const blob = await apiBlob(`/reportes/diario.pdf?fecha=${encodeURIComponent(fecha)}`)
+      const q = encodeURIComponent(fecha)
+      const blob = await apiBlob(tipo === 'dia' ? `/reportes/diario.pdf?fecha=${q}` : `/reportes/periodo.pdf?tipo=${tipo}&fecha=${q}`)
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
-      a.href = url; a.download = `reporte-camaras_${fecha}.pdf`; a.click()
+      a.href = url; a.download = tipo === 'dia' ? `reporte-camaras_${fecha}.pdf` : tipo === 'semana' ? `reporte-semanal_${fecha}.pdf` : `reporte-mensual_${fecha.slice(0, 7)}.pdf`; a.click()
       URL.revokeObjectURL(url)
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'Error al descargar')
@@ -99,15 +116,18 @@ export default function Reportes() {
 
   return (
     <div className="space-y-3 max-w-md">
-      <h1 className="text-xl font-semibold">Reporte diario</h1>
+      <h1 className="text-xl font-semibold">Reportes</h1>
       <div className="rounded-xl bg-white dark:bg-card shadow-sm p-3 space-y-1 text-sm">
         <div className="font-semibold">Ayer, {fechaDia(Date.parse(`${dia}T12:00:00-03:00`))}</div>
         <div>Descongelados: {n(r.descongelados)}{r.saltados ? ` (${r.saltados} se saltaron)` : ''}</div>
         <div>Alarmas: {n(r.avisos)} (sin contar acciones de operarios)</div>
         <div>Horas de compresores: {n(r.horas, ' h')}</div>
       </div>
-      <div className="flex items-center gap-2">
-        <input type="date" aria-label="Día del reporte" value={fecha} max={dia} min="2000-01-01" onChange={(e) => setFecha(e.target.value)}
+      <div className="flex flex-wrap items-center gap-2">
+        <select aria-label="Tipo de reporte" value={tipo} onChange={(e) => setTipo(e.target.value as Tipo)} className="toque rounded-md border bg-background px-2 text-sm">
+          <option value="dia">Diario</option><option value="semana">Semanal</option><option value="mes">Mensual</option>
+        </select>
+        <input type="date" aria-label={tipo === 'dia' ? 'Día del reporte' : tipo === 'semana' ? 'Un día de la semana' : 'Un día del mes'} title={tipo === 'dia' ? undefined : `Cualquier día ${tipo === 'semana' ? 'de la semana' : 'del mes'} que querés`} value={fecha} max={dia} min="2000-01-01" onChange={(e) => setFecha(e.target.value)}
           className="toque rounded-md border bg-background px-2 text-sm" />
         <Button className="flex-1" onClick={descargar} disabled={busy || !fecha}>{busy ? 'Generando…' : '⬇ Descargar PDF'}</Button>
       </div>
