@@ -40,7 +40,7 @@ export default function Login() {
     <div className="min-h-screen w-full flex flex-col items-center justify-center p-6 gap-6 bg-background">
       <div className={`w-full max-w-[420px] ${shake ? 'animate-shake' : ''}`}>
         <div className="flex flex-col items-center gap-2 mb-8 text-center">
-          <img src={logoUrl} alt={brandName} className="h-16 w-auto max-w-[280px] object-contain" />
+          <img src={logoUrl} alt={brandName} className="h-[80px] w-auto max-w-[320px] object-contain" />
           <h1 className="text-3xl font-semibold tracking-tight">Cámaras de frío</h1>
           <p className="text-base text-muted-foreground">Unifrisa</p>
         </div>

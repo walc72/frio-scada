@@ -92,8 +92,8 @@ export default function App() {
   return (
     <div className="h-screen flex flex-col overflow-hidden">
       {/* Fixed header */}
-      <header className="h-16 border-b px-4 flex items-center gap-3 bg-card shrink-0 z-20">
-        <img src={logoUrl} alt={brandName} className="h-8 w-auto max-w-[160px] object-contain" />
+      <header className="h-[64px] border-b px-4 flex items-center gap-3 bg-card shrink-0 z-20">
+        <img src={logoUrl} alt={brandName} className="h-[48px] w-auto max-w-[220px] object-contain" />
         <div className="text-lg font-bold border-l border-border pl-3 leading-none">
           Cámaras de frío
         </div>
