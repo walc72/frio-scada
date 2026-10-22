@@ -1,6 +1,6 @@
-import { lazy, Suspense, useEffect, Component, type ReactNode, type ErrorInfo } from 'react'
+import { lazy, Suspense, useEffect, useState, Component, type ReactNode, type ErrorInfo } from 'react'
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
-import { Sun, Moon, LogOut, ShieldCheck, Eye, Lock, Wifi, WifiOff } from 'lucide-react'
+import { Sun, Moon, LogOut, ShieldCheck, Eye, Lock, Wifi, WifiOff, Menu } from 'lucide-react'
 import { useTheme } from './lib/theme'
 import { Button } from './components/ui/button'
 import { RUTAS_VIEJAS } from './lib/rutas'
@@ -87,12 +87,19 @@ export default function App() {
     return () => disconnect()
   }, [authed])
 
+  // ☰ del encabezado: menú lateral completo o solo íconos (se recuerda en este navegador)
+  const [compacto, setCompacto] = useState(() => { try { return localStorage.getItem('frio-menu-compacto') === '1' } catch { return false } })
+  const alternarMenu = () => { const n = !compacto; setCompacto(n); try { localStorage.setItem('frio-menu-compacto', n ? '1' : '0') } catch { /* sin storage */ } }
+
   if (!authed) return <Login />
 
   return (
     <div className="h-screen flex flex-col overflow-hidden">
       {/* Fixed header */}
       <header className="h-[64px] border-b px-4 flex items-center gap-3 bg-card shrink-0 z-20">
+        <Button variant="ghost" size="icon" className="hidden md:inline-flex -ml-1" onClick={alternarMenu} title={compacto ? 'Mostrar el menú' : 'Achicar el menú'} aria-label={compacto ? 'Mostrar el menú' : 'Achicar el menú'} aria-expanded={!compacto}>
+          <Menu className="h-5 w-5" />
+        </Button>
         <img src={logoUrl} alt={brandName} className="h-[48px] w-auto max-w-[220px] object-contain" />
         <div className="text-lg font-bold border-l border-border pl-3 leading-none">
           Cámaras de frío
@@ -125,7 +132,7 @@ export default function App() {
       </header>
 
       <div className="flex-1 flex min-h-0 relative">
-        <Navegacion />
+        <Navegacion compacto={compacto} />
 
         {/* Main content */}
         <div className="flex-1 flex flex-col min-w-0">
