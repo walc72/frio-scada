@@ -62,6 +62,9 @@ test('armarPeriodo: totales, descongelados por día, comparación, para revisar 
   assert.deepEqual(c4.distintos.map((d) => d.grupo), ['G3']);
   assert.match(m.caption, /^Reporte semanal: semana del 12\/10 al 18\/10\/2026 · Cámara 4: 2 de 3 descongelados ⚠ · .* · ⚠ revisar: Cámara 4 Equipo 3$/);
   assert.equal(rp.armarPeriodo(p, vacio).camaras[0].extra.length, 1); // sin previo: sin comparación
+  assert.equal(rp.armarPeriodo(p, datos, vacio).camaras[0].extra[1], 'Comparado con la semana anterior: no hay datos para comparar');
+  // promedio por día sobre los días con datos (acá 1: todas las filas son del 12/10)
+  assert.equal(c4.tablas[1].filas[0][2], '100');
 });
 
 test('PDF semanal y mensual: se generan con el lector inyectado (sin Influx)', async () => {

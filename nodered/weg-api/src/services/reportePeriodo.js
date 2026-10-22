@@ -57,6 +57,8 @@ function totales(c, datos, periodos) {
       horas: r1(equipos.reduce((n, x) => n + x.horas, 0)), arranques: equipos.reduce((n, x) => n + x.arranques, 0),
     },
     minutosAlarma: grupos.reduce((n, g) => n + (g.duracionMin || 0), 0),
+    // días con datos de compresores (los promedios por día se calculan sobre estos, no sobre todo el período)
+    diasConDatos: new Set(datos.compresores.filter((x) => x.camara === c && (x.horas > 0 || x.arranques > 0)).map((x) => x.dia)).size,
   };
 }
 const periodosDe = (datos) => f.periodosAlarma(f.quitarRemDuplicados([...datos.eventos, ...datos.maniobras]));
@@ -71,8 +73,10 @@ function armarPeriodo(p, datos, previo = null) {
   const camaras = cam.CAMARAS.map((c) => {
     const t = totales(c, datos, periodos);
     const extra = [`Alarmas activas en total: ${t.minutosAlarma ? f.duracionTxt(t.minutosAlarma) : 'nada'}`];
-    if (previo) {
-      const a = totales(c, previo, periodosPrev).resumen;
+    const prev = previo ? totales(c, previo, periodosPrev) : null;
+    if (prev && !prev.diasConDatos && !prev.resumen.corridas) extra.push(`Comparado con ${dePeriodo}: no hay datos para comparar`);
+    else if (prev) {
+      const a = prev.resumen;
       const comp = [pct(t.resumen.horas, a.horas) && `horas de marcha ${pct(t.resumen.horas, a.horas)}`,
         pct(t.resumen.arranques, a.arranques) && `arranques ${pct(t.resumen.arranques, a.arranques)}`,
         `alarmas ${t.resumen.alarmas} (antes ${a.alarmas})`, `descongelados hechos ${t.resumen.hechos} (antes ${a.hechos})`].filter(Boolean);
@@ -85,11 +89,11 @@ function armarPeriodo(p, datos, previo = null) {
       porDia.push([ddmm(dia), String(cu.hechos), String(cu.cortados), String(cu.saltados), String(cu.noSeHizo)]);
     }
     return {
-      camara: c, nombre: f.nombreCamara(c), resumen: t.resumen, extra, distintos: f.equiposDistintos(t.equipos, dias), trend: null,
+      camara: c, nombre: f.nombreCamara(c), resumen: t.resumen, extra, distintos: f.equiposDistintos(t.equipos, t.diasConDatos || dias), trend: null,
       tablas: [
         { titulo: 'Descongelados por día', columnas: ['Día', 'Hechos', 'Cortados a mano', 'Saltados', 'No se hicieron'], anchos: [0.2, 0.2, 0.2, 0.2, 0.2], filas: porDia, vacio: 'Sin días.' },
         { titulo: 'Equipos', columnas: ['Equipo', 'Horas de marcha', 'Promedio por día', 'Arranques', 'Horas sin datos'], anchos: [0.2, 0.2, 0.2, 0.2, 0.2], vacio: 'Sin datos de compresores.',
-          filas: t.equipos.map((x) => [f.equipoDe(x.grupo), horasNum(x.horas), horasNum(x.horas / dias), String(x.arranques), horasNum(x.horasSinDatos)]) },
+          filas: t.equipos.map((x) => [f.equipoDe(x.grupo), horasNum(x.horas), horasNum(x.horas / (t.diasConDatos || dias)), String(x.arranques), horasNum(x.horasSinDatos)]) },
         { titulo: 'Alarmas', columnas: ['Alarma', 'Inicio', 'Fin', 'Duración'], anchos: [0.52, 0.14, 0.2, 0.14], vacio: 'No hubo alarmas.',
           filas: t.grupos.map((g) => [g.texto, g.inicio === null ? 'antes del período' : fechaHora(g.inicio), g.fin === null ? 'sin cierre en el período' : fechaHora(g.fin), g.duracionMin === null ? '' : f.duracionTxt(g.duracionMin)]) },
         { titulo: 'Maniobras desde el portal', columnas: ['Fecha', 'Usuario', 'Acción', 'Resultado'], anchos: [0.14, 0.14, 0.42, 0.3], vacio: 'No hubo maniobras desde el portal.',
