@@ -1,12 +1,12 @@
 'use strict';
 // Alertas de las cámaras (Telegram + email) a partir de frio/estado + frio/latido (config.getEstadoCamaras).
-// evaluar() es pura; start() la corre cada 5 s y envía con alerts.notify.
+// evaluar() es pura; start() la corre cada 5 s y envía con alerts.notify. Una alarma activa repite el aviso cada
+// opts.repetirMs hasta opts.veces, salvo que alguien la marque como vista (reconocer, desde el portal o Telegram).
 
 const configService = require('./config');
 const alerts = require('./alerts');
 
 const COM_MAX_MS = 2 * 60 * 1000;     // sin dato fresco > 2 min = PLC sin comunicación
-const REPETIR_MS = 3600 * 1000;       // repetición mientras siga activa
 const DESVIO_MAX_S = 120;
 const APAGADO_MS = 60 * 1000;         // una alarma se resuelve tras 60 s continuos apagada (anti-parpadeo)
 
@@ -50,7 +50,7 @@ function desvioRelojS(estado) {
 // estado: último frio/estado (con _ts/_conectado/_mapa del último latido) o null.
 // memoria: {inicio, ultimoOk, activos:{clave:{ultimo,texto}}} o null.
 // Devuelve {avisos, items:[{clave,texto}], memoria}; memoria asume todos los avisos enviados.
-function evaluar(estado, ahoraMs, memoria) {
+function evaluar(estado, ahoraMs, memoria, { repetirMs = 15 * 60000, veces = 4 } = {}) {
   const m = { inicio: ahoraMs, ultimoOk: null, ...memoria, activos: { ...(memoria && memoria.activos) } };
   const items = [];
   const emitir = (clave, texto, actual, base = texto) => {
@@ -58,9 +58,13 @@ function evaluar(estado, ahoraMs, memoria) {
     if (actual) {
       if (prev && prev.apagadoDesde) m.activos[clave] = { ...prev, apagadoDesde: undefined }; // parpadeo: cancela el resuelto
       const cur = m.activos[clave];
-      if (!cur || ahoraMs - cur.ultimo >= REPETIR_MS) {
-        m.activos[clave] = { ultimo: ahoraMs, texto: base };
-        items.push({ clave, texto: `🚨 ${texto}` });
+      if (!cur) {
+        m.activos[clave] = { ultimo: ahoraMs, desde: ahoraMs, texto: base, repes: 0 };
+        items.push({ clave, texto: `🚨 ${texto}`, alarma: true });
+      } else if (!cur.visto && (cur.repes || 0) < veces && ahoraMs - cur.ultimo >= repetirMs) {
+        const n = (cur.repes || 0) + 1;
+        m.activos[clave] = { ...cur, ultimo: ahoraMs, repes: n };
+        items.push({ clave, texto: `🚨 ${texto} (repetido ${n} de ${veces})`, alarma: true });
       }
     } else if (prev) {
       if (!prev.apagadoDesde) m.activos[clave] = { ...prev, apagadoDesde: ahoraMs };
@@ -99,18 +103,40 @@ function evaluar(estado, ahoraMs, memoria) {
   return { avisos: items.map((i) => i.texto), items, memoria: m };
 }
 
+// Alarmas activas (no las que se están resolviendo) con quién las vio, para el portal
+function activas(memoria) {
+  return Object.entries((memoria && memoria.activos) || {}).filter(([, a]) => !a.apagadoDesde)
+    .map(([clave, a]) => ({ clave, texto: a.texto, desde: a.desde ?? a.ultimo, visto: a.visto || null }));
+}
+
+// Marca como vistas las claves activas que no lo estaban (corta la repetición). Devuelve las que cambió.
+function marcarVistas(memoria, claves, usuario, ahoraMs) {
+  const cambiadas = [];
+  for (const c of claves) {
+    const a = memoria.activos[c];
+    if (!a || a.visto) continue;
+    memoria.activos[c] = { ...a, visto: { usuario, ts: ahoraMs } };
+    cambiadas.push({ clave: c, texto: a.texto });
+  }
+  return cambiadas;
+}
+
 let timer = null;
+const estado = { memoria: { inicio: Date.now(), ultimoOk: null, activos: {} } };
 const fallidos = new Set(); // avisos ya registrados como fallidos (no llenar el historial cada 5 s)
 
 async function tick(state) {
   const ahora = Date.now();
-  const r = evaluar(configService.getEstadoCamaras(), ahora, state.memoria);
+  const rep = require('./settings').getRepeticion();
+  const r = evaluar(configService.getEstadoCamaras(), ahora, state.memoria, { repetirMs: rep.minutos * 60000, veces: rep.veces });
   const textos = new Set(r.items.map((i) => i.texto));
   for (const t of fallidos) if (!textos.has(t)) fallidos.delete(t);
   if (r.items.length) {
     // Un solo mensaje por tick. Si falla, se descartan los cambios de esas claves y se regeneran.
     let ok = false;
-    try { ok = await alerts.notify(r.items.map((i) => i.texto).join('\n')); } catch (e) { console.error('[ALERT] notify:', e.message); }
+    // Telegram: un botón "Visto" por alarma nueva o repetida
+    const botones = r.items.filter((i) => i.alarma).map((i) => ({ texto: `👀 Visto: ${r.memoria.activos[i.clave].texto}`.slice(0, 60), data: `v:${i.clave}` }));
+    try { ok = await alerts.notify(r.items.map((i) => i.texto).join('\n'), { botones }); } catch (e) { console.error('[ALERT] notify:', e.message); }
     if (!ok) {
       for (const it of r.items) {
         const prev = state.memoria.activos[it.clave];
@@ -122,12 +148,16 @@ async function tick(state) {
       else if (!fallidos.has(it.texto)) { fallidos.add(it.texto); alerts.addHistory({ texto: it.texto, enviado: false }); }
     }
   }
+  // Lo marcado como visto mientras se enviaba (portal o Telegram) no se pierde
+  for (const [c, a] of Object.entries(state.memoria.activos)) {
+    if (a.visto && r.memoria.activos[c] && !r.memoria.activos[c].visto) r.memoria.activos[c] = { ...r.memoria.activos[c], visto: a.visto };
+  }
   state.memoria = r.memoria;
 }
 
 function start() {
   console.log('[ALERT] Alertas de cámaras activas (5s)');
-  const state = { memoria: { inicio: Date.now(), ultimoOk: null, activos: {} } };
+  const state = estado;
   let corriendo = false;
   timer = setInterval(async () => {
     if (corriendo) return;
@@ -137,4 +167,8 @@ function start() {
   return timer;
 }
 
-module.exports = { evaluar, start, desvioRelojS, hhmm };
+// Para el portal y el bot de Telegram: sobre la memoria viva del monitoreo
+const getActivas = () => activas(estado.memoria);
+const reconocer = (claves, usuario, ahoraMs = Date.now()) => marcarVistas(estado.memoria, claves, usuario, ahoraMs);
+
+module.exports = { evaluar, start, desvioRelojS, hhmm, activas, marcarVistas, getActivas, reconocer };

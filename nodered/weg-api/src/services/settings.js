@@ -318,6 +318,33 @@ function setDailyReport(patch) {
   return getDailyReport();
 }
 
+// ─── Repetición de avisos de alarma ───
+// Mientras una alarma siga activa y nadie la marque como vista, el aviso se repite cada `minutos`, hasta `veces` (0 = no repetir).
+const REPETIR_DEF = { minutos: 15, veces: 4 };
+function getRepeticion() {
+  const r = read().repeticion || {};
+  return {
+    minutos: Number.isInteger(r.minutos) && r.minutos >= 5 && r.minutos <= 240 ? r.minutos : REPETIR_DEF.minutos,
+    veces: Number.isInteger(r.veces) && r.veces >= 0 && r.veces <= 20 ? r.veces : REPETIR_DEF.veces,
+  };
+}
+function setRepeticion(p) {
+  const b = (p && typeof p === 'object') ? p : {};
+  const s = read();
+  const next = { ...getRepeticion(), ...(s.repeticion || {}) };
+  if (b.minutos !== undefined) {
+    if (!Number.isInteger(b.minutos) || b.minutos < 5 || b.minutos > 240) throw httpError(400, 'Minutos: entre 5 y 240');
+    next.minutos = b.minutos;
+  }
+  if (b.veces !== undefined) {
+    if (!Number.isInteger(b.veces) || b.veces < 0 || b.veces > 20) throw httpError(400, 'Repeticiones: entre 0 y 20');
+    next.veces = b.veces;
+  }
+  s.repeticion = next;
+  write(s);
+  return getRepeticion();
+}
+
 // ─── Id numérico estable por usuario (el PLC lo copia al evento como u{id}) ───
 // Se asigna la primera vez que el usuario manda un comando y no cambia más (ni al renombrar el
 // registro: la clave es el nombre en minúsculas). Cabe en un registro: 1..65535.
@@ -335,6 +362,6 @@ function mandoUserId(user) {
 
 module.exports = {
   ROLES, mandoUserId, listUsers, getUsersFull, findUser, createUser, updateUser, deleteUser, setSuperadmin,
-  getSmtpPublic, getSmtpFull, smtpTransportOptions, setSmtp, getTelegramPublic, getTelegramFull, setTelegram, TG_TOKEN_RE, getDailyReport, setDailyReport,
+  getSmtpPublic, getSmtpFull, smtpTransportOptions, setSmtp, getTelegramPublic, getTelegramFull, setTelegram, TG_TOKEN_RE, getDailyReport, setDailyReport, getRepeticion, setRepeticion,
   hashPassword, SETTINGS_PATH,
 };

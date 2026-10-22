@@ -81,7 +81,7 @@ function armarReporte({ fecha, descongelados = [], compresores = [], eventos = [
     const cuenta = f.contarDescongelados(desc);
     const equipos = f.agruparCompresores(compresores.filter((x) => x.camara === c && (!x.dia || x.dia === fecha)));
     const grupos = f.agruparPeriodos(periodos.filter((p) => p.clave.startsWith(`${c}.`)), { camaraImplicita: c });
-    const man = maniobras.filter((m) => m.camara === c).sort((a, b) => a.ts - b.ts);
+    const man = maniobras.filter((m) => m.camara === c && m.comando !== 'visto').sort((a, b) => a.ts - b.ts);
     const resumen = {
       ...cuenta, corridas: cuenta.hechos + cuenta.saltados + cuenta.noSeHizo,
       alarmas: grupos.length, alarmasAbiertas: grupos.filter((g) => g.fin === null).length, maniobras: man.length,
