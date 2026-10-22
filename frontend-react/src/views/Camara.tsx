@@ -56,8 +56,8 @@ export default function Camara() {
 
   return (
     <div className="space-y-3">
-      <div data-tour="cam-selector" className="grid grid-cols-2 gap-1 rounded-lg bg-muted p-1 text-center text-sm font-medium">
-        {CAMARAS.map(k => <Link key={k} to={`/camara/${k}`} className={`toque flex items-center justify-center rounded-md ${k === cam ? 'bg-background shadow-sm' : 'text-muted-foreground'}`}>{nombreCamara(k)}</Link>)}
+      <div data-tour="cam-selector" className="grid grid-cols-2 gap-1 rounded-lg border bg-card p-1 text-center text-sm font-semibold shadow-sm">
+        {CAMARAS.map(k => <Link key={k} to={`/camara/${k}`} aria-current={k === cam ? 'page' : undefined} className={`toque flex items-center justify-center rounded-md transition-colors ${k === cam ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-accent hover:text-foreground'}`}>{nombreCamara(k)}</Link>)}
       </div>
 
       <div data-tour="cam-estado" className="flex flex-wrap items-center gap-x-3 gap-y-1">
