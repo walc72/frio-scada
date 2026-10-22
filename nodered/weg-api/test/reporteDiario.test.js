@@ -122,8 +122,34 @@ test('frases del portal: REM y eventos (mismos casos que frases.test.ts)', () =>
   assert.equal(f.camaraDeEvento('ARRANQUE DEL PLC'), null);
 });
 
+const iso = (hhmm) => new Date(t(hhmm)).toISOString();
+const TRAMOS = [
+  { camara: 'C4', grupo: 'G1', inicio: iso('00:00'), fin: iso('06:00'), estado: 'frio' },
+  { camara: 'C4', grupo: 'G1', inicio: iso('06:00'), fin: iso('06:20'), estado: 'descongelando' },
+  { camara: 'C4', grupo: 'G1', inicio: iso('06:20'), fin: new Date(t('23:59') + 60e3).toISOString(), estado: 'sin-datos' },
+  { camara: 'C5', grupo: 'G1', inicio: iso('00:00'), fin: iso('12:00'), estado: 'apagado' },
+];
+
+test('trend: tramos en fracción del día por equipo, marcas al inicio de cada horario', () => {
+  const m = rd.armarReporte({ fecha: FECHA, tramos: TRAMOS, descongelados: [D(), D({ etapa: 2, inicio: t('06:20') }), D({ horario: 'H2', inicio: t('12:00') }), D({ horario: 'H4', inicio: null })] });
+  const c4 = m.camaras.find((c) => c.camara === 'C4').trend;
+  assert.equal(c4.filas.length, 8);
+  assert.deepEqual(c4.filas[0].tramos.map((x) => [x.a, Math.round(x.b * 1440), x.estado]), [[0, 360, 'frio'], [0.25, 380, 'descongelando'], [380 / 1440, 1440, 'sin-datos']]);
+  assert.deepEqual(c4.filas[1].tramos, []);
+  assert.deepEqual(c4.marcas.map((x) => x.hora), ['06:00', '12:00']); // una por horario (la primera etapa); sin inicio no hay marca
+  assert.equal(c4.hayDatos, true);
+  const c5 = m.camaras.find((c) => c.camara === 'C5').trend;
+  assert.equal(c5.filas[0].tramos[0].b, 0.5);
+  assert.equal(rd.armarReporte({ fecha: FECHA }).camaras[0].trend.hayDatos, false);
+});
+
+test('anclasEtiquetas: igual que la del portal', () => {
+  assert.deepEqual(rd.anclasEtiquetas([100, 400], 30), ['middle', 'middle']);
+  assert.deepEqual(rd.anclasEtiquetas([100, 120, 600], 30), ['end', 'start', 'middle']);
+});
+
 test('PDF: Buffer no vacío que empieza con %PDF, también sin datos', async () => {
-  for (const m of [muestra(), rd.armarReporte({ fecha: FECHA })]) {
+  for (const m of [muestra(), rd.armarReporte({ fecha: FECHA }), rd.armarReporte({ fecha: FECHA, tramos: TRAMOS, descongelados: [D(), D({ horario: 'H2', inicio: t('06:30') })] })]) {
     const pdf = await rd.renderPdf(m);
     assert.ok(Buffer.isBuffer(pdf) && pdf.length > 1000);
     assert.equal(pdf.subarray(0, 4).toString(), '%PDF');

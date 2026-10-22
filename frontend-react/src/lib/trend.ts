@@ -43,3 +43,17 @@ export function posicionTarjeta(cursorX: number, anchoTarjeta: number, anchoCont
   const izq = cursorX + margen + anchoTarjeta <= anchoContenedor ? cursorX + margen : cursorX - margen - anchoTarjeta
   return Math.max(0, Math.min(izq, anchoContenedor - anchoTarjeta))
 }
+
+// Anclaje de las etiquetas de horario (xs ordenadas): si dos quedan a menos de `minimo`, la primera se corre a la
+// izquierda de su marca y la segunda a la derecha, así "10:00" y "10:41" no se pisan. Copia en weg-api/services/reporteDiario.js.
+export type Ancla = 'start' | 'middle' | 'end'
+export function anclasEtiquetas(xs: number[], minimo: number): Ancla[] {
+  const r: Ancla[] = xs.map(() => 'middle')
+  for (let i = 0; i + 1 < xs.length; i++) {
+    if (xs[i + 1] - xs[i] < minimo) {
+      if (r[i] === 'middle') r[i] = 'end'
+      r[i + 1] = 'start'
+    }
+  }
+  return r
+}

@@ -44,8 +44,35 @@ function filasEventos(eventos) {
     : [hhmm(e.ts), f.TIPO[f.tipoAviso(e.texto, e.estado)], f.fraseEvento(e.texto, e.estado)]));
 }
 
-// datos: { fecha, descongelados, compresores, eventos, maniobras } (forma de reporteCamaras.leerDia).
-function armarReporte({ fecha, descongelados = [], compresores = [], eventos = [], maniobras = [] }, { sigue = () => false } = {}) {
+// Etiquetas de horario: si dos quedan a menos de `minimo`, la primera va a la izquierda de su marca y la segunda a
+// la derecha (copia de anclasEtiquetas de frontend-react/src/lib/trend.ts).
+function anclasEtiquetas(xs, minimo) {
+  const r = xs.map(() => 'middle');
+  for (let i = 0; i + 1 < xs.length; i++) {
+    if (xs[i + 1] - xs[i] < minimo) { if (r[i] === 'middle') r[i] = 'end'; r[i + 1] = 'start'; }
+  }
+  return r;
+}
+
+// "Qué hizo cada equipo" del día, en fracciones del día (0 = 00:00, 1 = 24:00): una fila por equipo con sus tramos
+// (frio, descongelando, apagado, sin-datos) y las marcas de los horarios donde empezaron los descongelados.
+const GRUPOS = [1, 2, 3, 4, 5, 6, 7, 8];
+function armarTrend(c, fecha, tramos, desc) {
+  const t0 = Date.parse(`${fecha}T00:00:00Z`) - cam.offsetMs();
+  const fr = (t) => Math.min(1, Math.max(0, (t - t0) / 864e5));
+  const filas = GRUPOS.map((g) => ({
+    equipo: g,
+    tramos: tramos.filter((t) => t.camara === c && t.grupo === `G${g}`)
+      .map((t) => ({ a: fr(Date.parse(t.inicio)), b: fr(Date.parse(t.fin)), estado: t.estado })).filter((t) => t.b > t.a),
+  }));
+  const inicio = new Map(); // horario → primer inicio del día
+  for (const d of desc) if (d.inicio != null && (!inicio.has(d.horario) || d.inicio < inicio.get(d.horario))) inicio.set(d.horario, d.inicio);
+  const marcas = [...inicio.values()].sort((a, b) => a - b).map((t) => ({ x: fr(t), hora: hhmm(t) }));
+  return { filas, marcas, hayDatos: filas.some((f) => f.tramos.length) };
+}
+
+// datos: { fecha, descongelados, compresores, eventos, maniobras, tramos } (forma de reporteCamaras.leerDia).
+function armarReporte({ fecha, descongelados = [], compresores = [], eventos = [], maniobras = [], tramos = [] }, { sigue = () => false } = {}) {
   const todos = f.quitarRemDuplicados([...eventos, ...maniobras]);
   const camDe = (e) => (e.maniobra ? e.camara || null : f.camaraDeEvento(e.texto));
   const periodos = f.periodosAlarma(todos);
@@ -61,7 +88,7 @@ function armarReporte({ fecha, descongelados = [], compresores = [], eventos = [
       horas: r1(equipos.reduce((n, x) => n + x.horas, 0)), arranques: equipos.reduce((n, x) => n + x.arranques, 0),
     };
     return {
-      camara: c, nombre: f.nombreCamara(c), resumen,
+      camara: c, nombre: f.nombreCamara(c), resumen, trend: armarTrend(c, fecha, tramos, desc),
       tablas: [
         tabla('descongelados', desc.map((d) => {
           const b = f.badgeDescongelado(d);
@@ -168,9 +195,46 @@ function renderPdf(modelo, { ahora = Date.now() } = {}) {
     tablaPdf({ ...modelo.planta.alarmas, titulo: 'Alarmas de la planta (PLC)' });
     if (modelo.planta.eventos.filas.length) tablaPdf({ ...modelo.planta.eventos, titulo: 'Eventos de la planta' });
 
+    // Gráfico "Qué hizo cada equipo" (mismos colores que el portal; sin "ahora": el día ya terminó)
+    const COLOR = { frio: '#1E6FD9', descongelando: '#F28C28', apagado: '#9A9A9A', 'sin-datos': '#E5E7EB' };
+    const VERDE = '#047857';
+    function trendPdf(t) {
+      h2('Qué hizo cada equipo');
+      if (!t.hayDatos) { parrafo('Sin datos de los equipos en el día.'); return; }
+      const LBL = 46, RH = 11, x0 = mL + LBL, w = contentW - LBL - 6;
+      const X = (fr) => x0 + fr * w;
+      espacio(30 + GRUPOS.length * RH + 30);
+      const top = doc.y + 18, alto = t.filas.length * RH, abajo = top + alto;
+      for (let h = 0; h <= 24; h++) {
+        doc.moveTo(X(h / 24), top - 3).lineTo(X(h / 24), abajo).lineWidth(0.4).strokeColor('#e5e5e5').stroke();
+        if (h % 2 === 0) doc.font('Helvetica').fontSize(6.5).fillColor(GREY).text(`${String(h).padStart(2, '0')}:00`, X(h / 24) - 15, abajo + 3, { width: 30, align: 'center', lineBreak: false });
+      }
+      t.filas.forEach((fl, i) => {
+        const y = top + i * RH;
+        doc.font('Helvetica').fontSize(7.5).fillColor(DARK).text(`Equipo ${fl.equipo}`, mL, y + 1.5, { width: LBL - 4, lineBreak: false });
+        for (const tr of fl.tramos) doc.rect(X(tr.a), y + 1, X(tr.b) - X(tr.a), RH - 3).fill(COLOR[tr.estado] || COLOR['sin-datos']);
+      });
+      const anclas = anclasEtiquetas(t.marcas.map((m) => X(m.x)), 24);
+      t.marcas.forEach((m, i) => {
+        const x = X(m.x);
+        doc.moveTo(x - 3, top - 8).lineTo(x + 3, top - 8).lineTo(x, top - 3).fill(VERDE);
+        doc.moveTo(x, top - 3).lineTo(x, abajo).lineWidth(0.6).dash(1.5, { space: 2 }).strokeColor(VERDE).stroke().undash();
+        const tw = 26, lx = anclas[i] === 'end' ? x + 2 - tw : anclas[i] === 'start' ? x - 2 : x - tw / 2;
+        doc.font('Helvetica-Bold').fontSize(7).fillColor(VERDE).text(m.hora, lx, top - 17, { width: tw, align: anclas[i] === 'end' ? 'right' : anclas[i] === 'start' ? 'left' : 'center', lineBreak: false });
+      });
+      let lx = mL; const ly = abajo + 14;
+      for (const [k, txt] of [['frio', 'Enfriando'], ['descongelando', 'Descongelando'], ['apagado', 'Apagado'], ['sin-datos', 'Sin datos']]) {
+        doc.rect(lx, ly + 1, 7, 7).fill(COLOR[k]);
+        doc.font('Helvetica').fontSize(7).fillColor(DARK).text(txt, lx + 10, ly, { lineBreak: false });
+        lx += 10 + doc.widthOfString(txt) + 14;
+      }
+      doc.x = mL; doc.y = ly + 14;
+    }
+
     for (const c of modelo.camaras) {
       nuevaPagina();
       h1(c.nombre);
+      trendPdf(c.trend);
       for (const t of c.tablas) tablaPdf(t);
     }
 
@@ -197,4 +261,4 @@ async function generarPdf(fecha, { queryCsv, sigue } = {}) {
   return { modelo, pdf: await renderPdf(modelo) };
 }
 
-module.exports = { armarReporte, lineasResumen, renderPdf, generarPdf, resultadoManiobra };
+module.exports = { armarReporte, lineasResumen, renderPdf, generarPdf, resultadoManiobra, anclasEtiquetas };

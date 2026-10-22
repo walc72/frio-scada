@@ -2,7 +2,7 @@ import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 're
 import { Card } from './ui/card'
 import { GRUPOS, hhmm, type FilaDescongelado } from '../lib/camaras'
 import { COLOR_TRAMO, TEXTO_TRAMO, HACHURA, type Tramo, type HorarioVista } from '../lib/paginaCamara'
-import { detalleEnInstante, posicionTarjeta, type DetalleInstante, type EstadoInstante } from '../lib/trend'
+import { anclasEtiquetas, detalleEnInstante, posicionTarjeta, type DetalleInstante, type EstadoInstante } from '../lib/trend'
 
 const W = 1000, L = 64, R = 10, Y0 = 26, RH = 14, H = Y0 + GRUPOS.length * RH + 20
 const DIA = 24 * 3600000
@@ -63,6 +63,8 @@ export default function TrendEquipos({ tramos, filas, horarios, camara, dia0, ah
   if (!tramos) return <Card className="p-3 rounded-xl text-sm text-muted-foreground">Cargando…</Card>
 
   const paso = ancho < 480 ? 4 : 2
+  const marcas = horarios.filter(h => h.estado !== 'mal configurado' && Math.abs(x(dia0 + h.min * 60000) - x(ahora)) >= 40).sort((p, q) => p.min - q.min)
+  const anclas = anclasEtiquetas(marcas.map(h => x(dia0 + h.min * 60000)), 32)
   const d = det?.descongelado
   const enCurso = !!d && d.finEtapa == null
   const nCam = camara.replace(/\D/g, '')
@@ -97,10 +99,10 @@ export default function TrendEquipos({ tramos, filas, horarios, camara, dia0, ah
               </g>
             )
           })}
-          {horarios.filter(h => h.estado !== 'mal configurado' && Math.abs(x(dia0 + h.min * 60000) - x(ahora)) >= 40).map(h => (
-            // La punta del triángulo y la línea punteada marcan la hora exacta (el texto va centrado arriba)
+          {marcas.map((h, i) => (
+            // La punta del triángulo y la línea punteada marcan la hora exacta (el texto va arriba; corrido si hay otra cerca)
             <g key={h.h} className="fill-emerald-700 stroke-emerald-700 dark:fill-emerald-400 dark:stroke-emerald-400">
-              <text x={x(dia0 + h.min * 60000)} y={9} textAnchor="middle" fontSize={10} stroke="none">{h.hora}</text>
+              <text x={x(dia0 + h.min * 60000) + (anclas[i] === 'start' ? -3 : anclas[i] === 'end' ? 3 : 0)} y={9} textAnchor={anclas[i]} fontSize={10} stroke="none">{h.hora}</text>
               <polygon points={`${x(dia0 + h.min * 60000) - 4},12 ${x(dia0 + h.min * 60000) + 4},12 ${x(dia0 + h.min * 60000)},18`} stroke="none" />
               <line x1={x(dia0 + h.min * 60000)} x2={x(dia0 + h.min * 60000)} y1={18} y2={Y0 + GRUPOS.length * RH} strokeWidth={1} strokeDasharray="2 3" opacity={0.6} />
             </g>
