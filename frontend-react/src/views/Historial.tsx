@@ -8,7 +8,7 @@ import { estaVencido, colorEstadoGrupo } from '../lib/estadoGrupo'
 import { nombreCamara, fechaHora, type FilaDescongelado } from '../lib/camaras'
 import { badgeDescongelado, esRem, UMBRAL_ARRANQUES_HORA, type TipoAviso } from '../lib/frases'
 import { agruparActivas, agruparPeriodos, alarmasActivasVista, periodosAlarma, ultimoPorClave } from '../lib/alarmas'
-import { equiposPorCamara, duracionTxt, equipoDe, horasTxt, prepararAvisos, filasEventos, type EquipoHist, filasAlarmas, filasCompresores, filasDescongelados } from '../lib/historial'
+import { equiposPorCamara, equiposDistintos, duracionTxt, equipoDe, horasTxt, prepararAvisos, filasEventos, type EquipoHist, filasAlarmas, filasCompresores, filasDescongelados } from '../lib/historial'
 import { downloadXlsx } from '../lib/xlsx'
 import { cn } from '../lib/utils'
 import { Icono } from '../components/Icono'
@@ -35,6 +35,7 @@ const diaCorto = (d: string) => `${d.slice(8, 10)}/${d.slice(5, 7)}`
 // Un bloque por cámara: cada equipo con un cuadradito por día (color = % del tiempo en marcha) y sus totales.
 function BloqueEquipos({ camara, equipos }: { camara: string; equipos: EquipoHist[] }) {
   const dias = equipos[0]?.dias ?? []
+  const distintos = new Map(equiposDistintos(equipos, dias.length).map(d => [d.grupo, d.motivo]))
   return (
     <section className="border-b last:border-0 px-3 py-3 space-y-1.5">
       <h2 className="text-sm font-semibold">{nombreCamara(camara)}</h2>
@@ -55,6 +56,7 @@ function BloqueEquipos({ camara, equipos }: { camara: string; equipos: EquipoHis
           <span className="col-start-2 sm:col-start-auto text-xs text-muted-foreground">
             <b className="text-foreground">{horasTxt(e.horas)}</b>{pctTxt(e.pct)} · {e.arranques} arranques · {e.descongelados} descongelados
           </span>
+          {distintos.has(e.grupo) && <span className="col-start-2 sm:col-span-2 text-xs font-medium text-amber-700 dark:text-amber-400">⚠️ Trabaja distinto al resto: {distintos.get(e.grupo)}. Conviene revisarlo.</span>}
           {e.maxArranquesHora > UMBRAL_ARRANQUES_HORA && <span className="col-start-2 sm:col-span-2 text-xs text-amber-600">⚠️ Arranca demasiado seguido (hasta {e.maxArranquesHora} veces por hora): conviene revisarlo</span>}
           {e.horasSinDatos > 0 && <span className="col-start-2 sm:col-span-2 text-xs text-muted-foreground">{horasTxt(e.horasSinDatos)} sin datos</span>}
         </div>

@@ -155,3 +155,19 @@ test('PDF: Buffer no vacío que empieza con %PDF, también sin datos', async () 
     assert.equal(pdf.subarray(0, 4).toString(), '%PDF');
   }
 });
+
+test('equiposDistintos: el que anda mucho más va a "Para revisar" y al texto del mensaje', () => {
+  const comp = Array.from({ length: 8 }, (_, i) => ({ camara: 'C4', dia: FECHA, grupo: `G${i + 1}`, horas: i === 2 ? 21 : 16, horasSinDatos: 0, arranques: 5, maxArranquesHora: 1 }));
+  const m = rd.armarReporte({ fecha: FECHA, compresores: comp });
+  assert.deepEqual(m.camaras.find((c) => c.camara === 'C4').distintos, [{ grupo: 'G3', motivo: 'anduvo 21 h y el resto ~16 h' }]);
+  assert.match(m.caption, /⚠ revisar: Cámara 4 Equipo 3$/);
+  assert.deepEqual(rd.armarReporte({ fecha: FECHA }).camaras[0].distintos, []);
+});
+
+test('equiposDistintos: mismos casos que el portal', () => {
+  const base = (h, a = 5) => Array.from({ length: 8 }, (_, i) => ({ grupo: `G${i + 1}`, horas: h, arranques: a }));
+  const e = base(18, 5); e[0] = { ...e[0], horas: 6 }; e[7] = { ...e[7], arranques: 14 };
+  assert.deepEqual(f.equiposDistintos(e), [{ grupo: 'G1', motivo: 'anduvo solo 6 h y el resto ~18 h' }, { grupo: 'G8', motivo: 'arrancó 14 veces y el resto ~5' }]);
+  const v = base(16 * 7); v[1] = { ...v[1], horas: 21 * 7 };
+  assert.deepEqual(f.equiposDistintos(v, 7), [{ grupo: 'G2', motivo: 'anduvo 21 h por día y el resto ~16 h' }]);
+});

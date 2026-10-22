@@ -267,8 +267,30 @@ function quitarRemDuplicados(eventos) {
   return eventos.filter((e) => e.maniobra || !esRem(e.texto) || !man.some((t) => Math.abs(t - e.ts) <= VENTANA_REM_MS));
 }
 
+// Equipos que trabajan distinto al resto de su cámara (copia de equiposDistintos de frontend-react/src/lib/historial.ts).
+// Contra la mediana: bastante más horas (≥ +25 % y +2 h), muchos más arranques (≥ ×2 y +6) o bastante menos horas (≤ ½ y −4 h).
+// ponytail: umbrales fijos; si en planta molestan, pasarlos a Configuración.
+const mediana = (v) => { const s = [...v].sort((a, b) => a - b); const m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
+const h1 = (x) => (Math.round(x * 10) / 10).toString().replace('.', ',');
+function equiposDistintos(equipos, dias = 1) {
+  if (equipos.length < 4) return [];
+  const d = Math.max(1, dias);
+  const hs = equipos.map((e) => e.horas / d), as = equipos.map((e) => e.arranques / d);
+  const mh = mediana(hs), ma = mediana(as);
+  const r = [];
+  equipos.forEach((e, i) => {
+    const h = hs[i], a = as[i];
+    const motivos = [];
+    if (mh > 0 && h >= mh * 1.25 && h - mh >= 2) motivos.push(`anduvo ${h1(h)} h${d > 1 ? ' por día' : ''} y el resto ~${h1(mh)} h`);
+    if (mh > 0 && h <= mh * 0.5 && mh - h >= 4) motivos.push(`anduvo solo ${h1(h)} h${d > 1 ? ' por día' : ''} y el resto ~${h1(mh)} h`);
+    if (a >= Math.max(1, ma) * 2 && a - ma >= 6) motivos.push(`arrancó ${h1(a)} veces${d > 1 ? ' por día' : ''} y el resto ~${h1(ma)}`);
+    if (motivos.length) r.push({ grupo: e.grupo, motivo: motivos.join('; ') });
+  });
+  return r;
+}
+
 module.exports = {
   nombreCamara, textoAlarma, badgeDescongelado, esRem, fraseEvento, tipoAviso, claveAlarmaDeEvento, camaraDeEvento,
-  periodosAlarma, agruparPeriodos, TOLERANCIA_MIN, agruparCompresores, equipoDe, horasTxt, duracionTxt, contarDescongelados,
+  periodosAlarma, agruparPeriodos, TOLERANCIA_MIN, agruparCompresores, equiposDistintos, equipoDe, horasTxt, duracionTxt, contarDescongelados,
   TIPO, textoManiobra, quitarRemDuplicados,
 };
