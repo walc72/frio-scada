@@ -19,7 +19,10 @@ const DEFAULTS = {
   name: 'Frío SCADA',
   subtitle: 'Monitoreo remoto de cámaras frías.',
   footer: 'Tecno Electric S.A.',   // "Powered by …" del pie (vacío = sin pie)
+  colorInforme: '#E87722',          // títulos, línea y cabeceras de tablas del PDF
 };
+// Color principal del portal: null = el del tema (azul). Los colores de estado de los equipos no se tocan.
+const HEX = /^#[0-9a-f]{6}$/i;
 
 function read() {
   try {
@@ -80,6 +83,8 @@ function get() {
     customLogo: p !== DEFAULT_LOGO,
     faviconUrl: `/api/branding/favicon?v=${fv}`,
     customFavicon: fp !== DEFAULT_FAVICON,
+    colorPortal: HEX.test(s.colorPortal || '') ? s.colorPortal : null,
+    colorInforme: HEX.test(s.colorInforme || '') ? s.colorInforme : DEFAULTS.colorInforme,
   };
 }
 
@@ -103,6 +108,14 @@ function set(patch) {
   if (subtitle !== undefined) s.subtitle = subtitle;
   const footer = text(patch.footer, 'Pie de página', 80);
   if (footer !== undefined) s.footer = footer;
+  // colores: '#rrggbb', o null/'' para volver al original
+  for (const [k, label] of [['colorPortal', 'Color del portal'], ['colorInforme', 'Color del informe']]) {
+    const v = patch[k];
+    if (v === undefined) continue;
+    if (v === null || v === '') { delete s[k]; continue; }
+    if (typeof v !== 'string' || !HEX.test(v)) throw new Error(`${label} inválido (usá #rrggbb)`);
+    s[k] = v.toLowerCase();
+  }
 
   if (patch.logo !== undefined) {
     if (typeof patch.logo !== 'string') throw new Error('logo inválido');

@@ -6,6 +6,7 @@ import { Input } from '../components/ui/input'
 import { Label } from '../components/ui/label'
 import { Loader2, Save, RotateCcw, Upload } from 'lucide-react'
 import { toast } from 'sonner'
+import { aplicarColorPortal } from '../lib/color'
 
 const MAX_LOGO_BYTES = 1024 * 1024
 const MAX_FAVICON_BYTES = 256 * 1024
@@ -27,8 +28,13 @@ export default function BrandingTab() {
   const [logo, setLogo] = useState<string | null>(null) // data URL pendiente de guardar
   const [favicon, setFavicon] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [colorPortal, setColorPortal] = useState<string | null>(b.colorPortal)
+  const [colorInforme, setColorInforme] = useState(b.colorInforme)
+  // muestra en vivo; al salir sin guardar vuelve al guardado
+  useEffect(() => { aplicarColorPortal(colorPortal) }, [colorPortal])
+  useEffect(() => () => aplicarColorPortal(useBrandingStore.getState().colorPortal), [])
 
-  useEffect(() => { setName(b.name); setSubtitle(b.subtitle); setFooter(b.footer) }, [b.name, b.subtitle, b.footer])
+  useEffect(() => { setName(b.name); setSubtitle(b.subtitle); setFooter(b.footer); setColorPortal(b.colorPortal); setColorInforme(b.colorInforme) }, [b.name, b.subtitle, b.footer, b.colorPortal, b.colorInforme])
 
   async function pick(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0]
@@ -51,14 +57,14 @@ export default function BrandingTab() {
   async function save() {
     if (!name.trim()) { toast.error('El nombre no puede quedar vacío'); return }
     setSaving(true)
-    const r = await b.save({ name: name.trim(), subtitle: subtitle.trim(), footer: footer.trim(), ...(logo ? { logo } : {}), ...(favicon ? { favicon } : {}) })
+    const r = await b.save({ name: name.trim(), subtitle: subtitle.trim(), footer: footer.trim(), colorPortal, colorInforme, ...(logo ? { logo } : {}), ...(favicon ? { favicon } : {}) })
     setSaving(false)
     if (r.ok) { setLogo(null); setFavicon(null); toast.success('Marca guardada') }
     else toast.error(`No se pudo guardar: ${r.error}`)
   }
 
   async function restore() {
-    if (!confirm('¿Restaurar nombre, subtítulo, logo y favicon por defecto?')) return
+    if (!confirm('¿Restaurar nombre, subtítulo, pie, logo, favicon y colores por defecto?')) return
     setSaving(true)
     const r = await b.reset()
     setSaving(false)
@@ -108,6 +114,27 @@ export default function BrandingTab() {
             {favicon && <span className="text-xs text-muted-foreground">sin guardar</span>}
           </div>
           <p className="text-xs text-muted-foreground">Cuadrado, idealmente 192×192 o 512×512 px</p>
+        </div>
+        <div className="space-y-2">
+          <Label>Colores</Label>
+          <div className="flex items-center gap-3 flex-wrap">
+            <input type="color" aria-label="Color principal del portal" value={colorPortal ?? '#2563eb'} onChange={e => setColorPortal(e.target.value)} className="h-9 w-12 cursor-pointer rounded border bg-transparent p-0.5" />
+            <div className="text-sm"><div className="font-medium">Portal</div><div className="text-xs text-muted-foreground">Botones, menú, pestañas y enlaces{colorPortal ? ` · ${colorPortal}` : ' · original'}</div></div>
+            <Button size="sm" className="ml-auto">Así se ve un botón</Button>
+            {colorPortal && <Button size="sm" variant="outline" onClick={() => setColorPortal(null)}>Volver al original</Button>}
+          </div>
+          <div className="flex items-center gap-3 flex-wrap">
+            <input type="color" aria-label="Color del informe PDF" value={colorInforme} onChange={e => setColorInforme(e.target.value)} className="h-9 w-12 cursor-pointer rounded border bg-transparent p-0.5" />
+            <div className="text-sm"><div className="font-medium">Informe PDF</div><div className="text-xs text-muted-foreground">Títulos, línea del encabezado y tablas · {colorInforme}</div></div>
+            <div className="ml-auto w-40 rounded border bg-white p-2" aria-hidden="true">
+              <div className="h-0.5" style={{ background: colorInforme }} />
+              <div className="mt-1.5 h-1.5 w-16 rounded-sm" style={{ background: colorInforme }} />
+              <div className="mt-1.5 h-2.5 rounded-sm" style={{ background: colorInforme }} />
+              <div className="mt-0.5 h-1.5 rounded-sm bg-gray-100" /><div className="mt-0.5 h-1.5 rounded-sm bg-gray-200" />
+            </div>
+            {colorInforme.toLowerCase() !== DEFAULT_BRANDING.colorInforme.toLowerCase() && <Button size="sm" variant="outline" onClick={() => setColorInforme(DEFAULT_BRANDING.colorInforme)}>Volver al original</Button>}
+          </div>
+          <p className="text-xs text-muted-foreground">Los colores de estado de los equipos (enfriando, descongelando, alarma…) no cambian.</p>
         </div>
         <div className="flex justify-between pt-1">
           <Button size="sm" variant="outline" disabled={saving} onClick={restore}>

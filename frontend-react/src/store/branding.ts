@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { authFetch } from './auth'
+import { aplicarColorPortal } from '../lib/color'
 
 const API_BASE = (import.meta.env.VITE_API_BASE as string) || '/api'
 const MODE = (import.meta.env.VITE_DATA_MODE as string) || 'mock'
@@ -12,6 +13,8 @@ export interface Branding {
   customLogo: boolean
   faviconUrl: string
   customFavicon: boolean
+  colorPortal: string | null   // null = azul del tema
+  colorInforme: string         // títulos y tablas del PDF
 }
 
 export const DEFAULT_BRANDING: Branding = {
@@ -22,13 +25,15 @@ export const DEFAULT_BRANDING: Branding = {
   customLogo: false,
   faviconUrl: '/icon-192.png',
   customFavicon: false,
+  colorPortal: null,
+  colorInforme: '#E87722',
 }
 
 type Result = { ok: boolean; error?: string }
 
 interface BrandingState extends Branding {
   load: () => Promise<void>
-  save: (patch: { name?: string; subtitle?: string; footer?: string; logo?: string; favicon?: string }) => Promise<Result>
+  save: (patch: { name?: string; subtitle?: string; footer?: string; logo?: string; favicon?: string; colorPortal?: string | null; colorInforme?: string | null }) => Promise<Result>
   reset: () => Promise<Result>
 }
 
@@ -63,14 +68,15 @@ function setIcons(href: string) {
 function apply(b: Branding) {
   document.title = b.name
   setIcons(b.faviconUrl)
+  aplicarColorPortal(b.colorPortal)
   try {
-    const { name, subtitle, footer, logoUrl, customLogo, faviconUrl, customFavicon } = b
-    localStorage.setItem(CACHE_KEY, JSON.stringify({ name, subtitle, footer, logoUrl, customLogo, faviconUrl, customFavicon }))
+    const { name, subtitle, footer, logoUrl, customLogo, faviconUrl, customFavicon, colorPortal, colorInforme } = b
+    localStorage.setItem(CACHE_KEY, JSON.stringify({ name, subtitle, footer, logoUrl, customLogo, faviconUrl, customFavicon, colorPortal, colorInforme }))
   } catch { /* sin storage: solo se pierde el arranque rápido */ }
 }
 
 const initial = cached()
-if (initial !== DEFAULT_BRANDING) { document.title = initial.name; setIcons(initial.faviconUrl) }
+if (initial !== DEFAULT_BRANDING) { document.title = initial.name; setIcons(initial.faviconUrl); aplicarColorPortal(initial.colorPortal) }
 
 export const useBrandingStore = create<BrandingState>((set, get) => ({
   ...initial,
@@ -89,7 +95,7 @@ export const useBrandingStore = create<BrandingState>((set, get) => ({
 
   save: async (patch) => {
     if (MODE === 'mock') {
-      const b = { ...get(), ...(patch.name !== undefined ? { name: patch.name } : {}), ...(patch.subtitle !== undefined ? { subtitle: patch.subtitle } : {}), ...(patch.footer !== undefined ? { footer: patch.footer } : {}) }
+      const b = { ...get(), ...(patch.name !== undefined ? { name: patch.name } : {}), ...(patch.subtitle !== undefined ? { subtitle: patch.subtitle } : {}), ...(patch.footer !== undefined ? { footer: patch.footer } : {}), ...(patch.colorPortal !== undefined ? { colorPortal: patch.colorPortal } : {}) }
       set(b); apply(b)
       return { ok: true }
     }

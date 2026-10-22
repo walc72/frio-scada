@@ -119,6 +119,21 @@ test('footer: por defecto Tecno Electric, se cambia, vacío lo oculta, se valida
   branding.reset();
 });
 
+test('colores: portal null y PDF naranja por defecto; se cambian, se validan, null vuelve al original', () => {
+  branding.reset();
+  assert.equal(branding.get().colorPortal, null);
+  assert.equal(branding.get().colorInforme, '#E87722');
+  const b = branding.set({ colorPortal: '#0A7F3F', colorInforme: '#123456' });
+  assert.equal(b.colorPortal, '#0a7f3f');
+  assert.equal(b.colorInforme, '#123456');
+  assert.throws(() => branding.set({ colorPortal: 'red' }), /Color del portal inválido/);
+  assert.throws(() => branding.set({ colorInforme: '#12345' }), /Color del informe inválido/);
+  assert.equal(branding.set({ colorPortal: null }).colorPortal, null);
+  assert.equal(branding.set({ colorInforme: '' }).colorInforme, '#E87722');
+  branding.set({ colorPortal: '#111111' });
+  assert.equal(branding.reset().colorPortal, null);
+});
+
 test('favicon: se guarda, se valida, reset lo borra', () => {
   branding.reset();
   const d = branding.get();
