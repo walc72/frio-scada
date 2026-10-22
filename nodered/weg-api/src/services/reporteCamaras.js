@@ -94,15 +94,16 @@ function armarHojas({ descongelados = [], compresores = [], eventos = [], maniob
 // Lee un día de Influx por el mismo camino que las rutas /api/camaras. Lanza si falla Influx.
 async function leerDia(fecha, queryCsv = influxRaw.queryAnnotatedCsv) {
   const p = rangoDia(fecha);
-  const [desc, comp, lat, ev, man] = await Promise.all([
+  const [desc, comp, lat, ev, man, tram] = await Promise.all([
     queryCsv(cam.fluxDescongelados(p)), queryCsv(cam.fluxCompresores(p)),
-    queryCsv(cam.fluxLatidos(p)), queryCsv(cam.fluxEventos(p)), queryCsv(cam.fluxMando(p)),
+    queryCsv(cam.fluxLatidos(p)), queryCsv(cam.fluxEventos(p)), queryCsv(cam.fluxMando(p)), queryCsv(cam.fluxTramos(p)),
   ]);
   return {
     descongelados: cam.parseDescongelados(desc),
     compresores: cam.parseCompresores(comp, { ...p, latidos: lat }),
     eventos: cam.parseEventos(ev),
     maniobras: cam.parseMando(man),
+    tramos: cam.parseTramos(tram, { ...p, latidos: lat }),
     temperaturas: [],
   };
 }

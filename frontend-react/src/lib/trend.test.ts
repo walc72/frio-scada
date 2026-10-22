@@ -59,3 +59,10 @@ test('horario con prefijo H sigue dando el número', () => {
   const f = filas.map(x => ({ ...x, horario: 'H2' }))
   expect(detalleEnInstante(tramos, f, 'C5', m(3)).descongelado).toMatchObject({ horario: 2, etapa: 1 })
 })
+
+import { anclasEtiquetas } from './trend'
+test('anclasEtiquetas: separa las cercanas, deja centradas las lejanas', () => {
+  expect(anclasEtiquetas([100, 400], 30)).toEqual(['middle', 'middle'])
+  expect(anclasEtiquetas([100, 120, 600], 30)).toEqual(['end', 'start', 'middle'])
+  expect(anclasEtiquetas([], 30)).toEqual([])
+})
