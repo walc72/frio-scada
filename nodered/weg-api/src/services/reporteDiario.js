@@ -99,9 +99,10 @@ function lineasResumen(r) {
 }
 
 // ─── PDF ────────────────────────────────────────────────────────────
-const ORANGE = '#E87722', DARK = '#333333', GREY = '#888888';
+const DARK = '#333333', GREY = '#888888';
 
 function renderPdf(modelo, { ahora = Date.now() } = {}) {
+  const ORANGE = branding.get().colorInforme; // color de la marca (Config avanzada → Marca)
   const PDFDocument = require('pdfkit');
   const doc = new PDFDocument({ size: 'A4', margin: 40, bufferPages: true });
   const chunks = [];
