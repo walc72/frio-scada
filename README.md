@@ -257,12 +257,39 @@ docker compose up -d
 
 ---
 
-## Comandos útiles (WSL en Windows)
+## Comandos útiles
 
-Reiniciar la API después de cambiar el `.env` (por ejemplo, la contraseña de superadmin). Cierra las sesiones abiertas: hay que volver a entrar al portal.
+### En la PC de la planta (Linux, instalada con `install.sh`)
 
-```bash
-wsl -d Ubuntu -- bash -lc "cd ~/frio-scada/nodered && docker compose up -d frio-api"
+| Para qué | Comando |
+|---|---|
+| Ver si todos los servicios están andando | `frio-scada status` |
+| Ver los logs (todos, o uno: `frio-api`, `modbus-poller`, `frontend`…) | `frio-scada logs frio-api` |
+| Reiniciar todo | `frio-scada restart` |
+| Frenar todo / volver a arrancar | `frio-scada stop` / `frio-scada start` |
+| Actualizar a la última versión (o a una: `v0.2.11`) | `frio-scada update` |
+| Cambiar usuario y contraseña del superadmin | `frio-scada superadmin` |
+| Ver qué versión está instalada | `frio-scada version` |
+
+### En Windows con WSL (desarrollo / pruebas)
+
+Todos se corren desde PowerShell o una terminal de Windows.
+
+| Para qué | Comando |
+|---|---|
+| Ver si todos los servicios están andando | `wsl -d Ubuntu -- bash -lc "cd ~/frio-scada/nodered && docker compose ps"` |
+| Ver los logs de la API (Ctrl+C para salir) | `wsl -d Ubuntu -- bash -lc "cd ~/frio-scada/nodered && docker compose logs -f --tail=100 frio-api"` |
+| Reiniciar la API (después de cambiar el `.env`; cierra las sesiones) | `wsl -d Ubuntu -- bash -lc "cd ~/frio-scada/nodered && docker compose up -d frio-api"` |
+| Reiniciar todo | `wsl -d Ubuntu -- bash -lc "cd ~/frio-scada/nodered && docker compose restart"` |
+| Frenar todo (p. ej. antes de poner en marcha la PC de la planta: un solo poller por PLC) | `wsl -d Ubuntu -- bash -lc "cd ~/frio-scada/nodered && docker compose stop"` |
+| Volver a arrancar todo | `wsl -d Ubuntu -- bash -lc "cd ~/frio-scada/nodered && docker compose up -d"` |
+| Ver la contraseña del superadmin | `wsl -d Ubuntu -- grep '^SUPERADMIN_PASSWORD=' /home/<usuario>/frio-scada/nodered/.env` |
+| Cambiar usuario y contraseña del superadmin | `wsl -d Ubuntu -- docker exec -it frio-api node src/cli/superadmin.js` |
+
+Si el portal deja de responder desde la red (por la IP de la PC) pero anda en `http://127.0.0.1:9090`, se cayó el reenvío de puertos de Windows. En PowerShell **como administrador**:
+
+```powershell
+Restart-Service iphlpsvc -Force
 ```
 
 ## Estructura del proyecto
