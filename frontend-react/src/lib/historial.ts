@@ -100,8 +100,8 @@ export const textoManiobra = (f: { texto: string; estado: string | number }) =>
 // El PLC registra "REM u.." al aplicar un comando del portal, y el API ya guarda esa misma acción como maniobra: se oculta el REM
 // si hay una maniobra a +-120 s (sin maniobra cercana, p.ej. falló la auditoría, se queda).
 const VENTANA_REM_MS = 120e3
-export function quitarRemDuplicados<T extends { ts: number; texto: string; maniobra?: boolean }>(eventos: T[]): T[] {
-  const man = eventos.filter(e => e.maniobra).map(e => e.ts)
+export function quitarRemDuplicados<T extends { ts: number; texto: string; maniobra?: boolean; comando?: string }>(eventos: T[]): T[] {
+  const man = eventos.filter(e => e.maniobra && e.comando !== 'visto').map(e => e.ts) // un "visto" no genera REM en el PLC
   return eventos.filter(e => e.maniobra || !esRem(e.texto) || !man.some(t => Math.abs(t - e.ts) <= VENTANA_REM_MS))
 }
 // Más nuevo primero. "Sigue activo" solo en el último evento de cada texto, si apareció (estado 1) y el flag vivo sigue prendido.

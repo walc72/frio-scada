@@ -263,7 +263,7 @@ const TIPO = { alarma: 'Alarma', atencion: 'Atención', resuelto: 'Resuelto', co
 const textoManiobra = (f) => (Number(f.estado) === 1 ? f.texto : `${f.texto} (${Number(f.estado) === 0 ? 'sin confirmar' : 'no se hizo'})`);
 const VENTANA_REM_MS = 120e3;
 function quitarRemDuplicados(eventos) {
-  const man = eventos.filter((e) => e.maniobra).map((e) => e.ts);
+  const man = eventos.filter((e) => e.maniobra && e.comando !== 'visto').map((e) => e.ts); // un "visto" no genera REM en el PLC
   return eventos.filter((e) => e.maniobra || !esRem(e.texto) || !man.some((t) => Math.abs(t - e.ts) <= VENTANA_REM_MS));
 }
 

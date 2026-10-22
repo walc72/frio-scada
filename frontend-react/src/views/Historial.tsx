@@ -12,6 +12,8 @@ import { equiposPorCamara, duracionTxt, equipoDe, horasTxt, prepararAvisos, fila
 import { downloadXlsx } from '../lib/xlsx'
 import { cn } from '../lib/utils'
 import { Icono } from '../components/Icono'
+import BotonVisto from '../components/BotonVisto'
+import { useVistas } from '../lib/vistas'
 
 const PESTANAS = [
   { id: 'descongelados', label: 'Descongelados' },
@@ -83,6 +85,7 @@ export default function Historial({ fija }: { fija?: 'alarmas' | 'eventos' }) {
   const activas = pestana === 'alarmas' && fresco && estado ? alarmasActivasVista(estado, ultimos) : []
   const siguen = (clave: string) => finHoy && activas.some(a => a.clave === clave)
   const grupos = agruparActivas(activas)
+  const { vistas, marcar } = useVistas(grupos.length > 0)
   // las abiertas que siguen activas ya están en el recuadro rojo
   const otras = agruparPeriodos(periodos.filter(p => !(p.fin === null && siguen(p.clave))))
   if (!fija && !PESTANAS.some(p => p.id === pestana)) return <Navigate to="/historial/descongelados" replace />
@@ -112,6 +115,7 @@ export default function Historial({ fija }: { fija?: 'alarmas' | 'eventos' }) {
                 <span className="font-semibold">{a.titulo}</span>
                 {a.accion && <span> · {a.accion}</span>}
                 {cargado && finHoy && (!r.camara || a.camara === r.camara) && <span className="text-xs"> · {a.desde ? `desde ${dia(a.desde).slice(0, 5)} ${hm(a.desde)}` : 'desde antes de este período'}</span>}
+                {' '}<BotonVisto claves={a.claves} vistas={vistas} marcar={marcar} />
               </li>)}
             </ul>)}
       {pestana === 'alarmas' && <h2 className="text-sm font-semibold">Alarmas del período</h2>}
