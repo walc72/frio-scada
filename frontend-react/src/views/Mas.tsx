@@ -4,7 +4,7 @@ import { useAuthStore } from '../store/auth'
 import { ChevronRight } from 'lucide-react'
 
 const ITEMS = [
-  { to: '/reportes', label: 'Reporte diario', admin: false },
+  { to: '/reportes', label: 'Reportes (diario, semanal y mensual)', admin: false },
   { to: '/avisos', label: 'Avisos por Telegram y mail', admin: false },
   { to: '/programacion', label: 'Programación de descongelados', admin: true },
   { to: '/usuarios', label: 'Usuarios', admin: true },

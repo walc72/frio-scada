@@ -88,7 +88,7 @@ function agrupar<T>(items: T[], base: (x: T) => string, tiempos: (x: T) => T0[])
 const minimo = (v: T0[]) => { const n = v.filter((t): t is number => typeof t === 'number'); return n.length ? Math.min(...n) : null }
 const maximo = (v: T0[]) => { const n = v.filter((t): t is number => typeof t === 'number'); return n.length ? Math.max(...n) : null }
 
-export interface GrupoActivo { clave: string; camara: string | null; titulo: string; accion?: string; desde: number | null | undefined; equipos: number[] }
+export interface GrupoActivo { clave: string; claves: string[]; camara: string | null; titulo: string; accion?: string; desde: number | null | undefined; equipos: number[] }
 export function agruparActivas(lista: (Omit<AlarmaActivaVista, 'desde'> & { desde?: number | null })[], opciones: { camaraImplicita?: string } = {}): GrupoActivo[] {
   const ps = lista.map(a => ({ a, ...parseClave(a.clave) }))
   return agrupar(ps, x => `${x.camara}|${x.tipo}`, x => [x.a.desde])
@@ -96,7 +96,7 @@ export function agruparActivas(lista: (Omit<AlarmaActivaVista, 'desde'> & { desd
       const equipos = g.map(x => x.equipo).filter((e): e is number => e !== null).sort((a, b) => a - b)
       const { camara, tipo } = g[0]
       const desde = minimo(g.map(x => x.a.desde)) ?? g[0].a.desde
-      return { clave: `${camara}|${tipo}|${desde}`, camara, titulo: titulo(camara, equipos, tipo, opciones.camaraImplicita), accion: textoAlarma(tipo).accion, desde, equipos, tipo }
+      return { clave: `${camara}|${tipo}|${desde}`, claves: g.map(x => x.a.clave), camara, titulo: titulo(camara, equipos, tipo, opciones.camaraImplicita), accion: textoAlarma(tipo).accion, desde, equipos, tipo }
     })
     .sort((a, b) => ordenCamara(a.camara).localeCompare(ordenCamara(b.camara)) || a.tipo.localeCompare(b.tipo) || 0)
     .map(({ tipo: _t, ...r }) => r)

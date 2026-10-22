@@ -81,14 +81,14 @@ function armarReporte({ fecha, descongelados = [], compresores = [], eventos = [
     const cuenta = f.contarDescongelados(desc);
     const equipos = f.agruparCompresores(compresores.filter((x) => x.camara === c && (!x.dia || x.dia === fecha)));
     const grupos = f.agruparPeriodos(periodos.filter((p) => p.clave.startsWith(`${c}.`)), { camaraImplicita: c });
-    const man = maniobras.filter((m) => m.camara === c).sort((a, b) => a.ts - b.ts);
+    const man = maniobras.filter((m) => m.camara === c && m.comando !== 'visto').sort((a, b) => a.ts - b.ts);
     const resumen = {
       ...cuenta, corridas: cuenta.hechos + cuenta.saltados + cuenta.noSeHizo,
       alarmas: grupos.length, alarmasAbiertas: grupos.filter((g) => g.fin === null).length, maniobras: man.length,
       horas: r1(equipos.reduce((n, x) => n + x.horas, 0)), arranques: equipos.reduce((n, x) => n + x.arranques, 0),
     };
     return {
-      camara: c, nombre: f.nombreCamara(c), resumen, trend: armarTrend(c, fecha, tramos, desc),
+      camara: c, nombre: f.nombreCamara(c), resumen, distintos: f.equiposDistintos(equipos), trend: armarTrend(c, fecha, tramos, desc),
       tablas: [
         tabla('descongelados', desc.map((d) => {
           const b = f.badgeDescongelado(d);
@@ -109,8 +109,9 @@ function armarReporte({ fecha, descongelados = [], compresores = [], eventos = [
   const fechaTxt = ddmmaaaa(fecha);
 
   const descTxt = (r) => `${r.hechos} de ${r.corridas} descongelados${r.corridas && r.hechos === r.corridas ? ' ✓' : r.corridas ? ' ⚠' : ''}`;
+  const revisar = camaras.flatMap((c) => c.distintos.map((d) => `${c.nombre} ${f.equipoDe(d.grupo)}`));
   const caption = [`Reporte del ${fechaTxt.slice(0, 5)}`, ...camaras.map((c) => `${c.nombre}: ${descTxt(c.resumen)}`),
-    totalAlarmas === 1 ? '1 alarma' : `${totalAlarmas} alarmas`].join(' · ').slice(0, 1024);
+    totalAlarmas === 1 ? '1 alarma' : `${totalAlarmas} alarmas`, ...(revisar.length ? [`⚠ revisar: ${revisar.join(', ')}`] : [])].join(' · ').slice(0, 1024);
   return { fecha, fechaTxt, titulo: `Reporte de cámaras — ${fechaTxt}`, camaras, planta, totalAlarmas, caption };
 }
 
@@ -190,7 +191,12 @@ function renderPdf(modelo, { ahora = Date.now() } = {}) {
     h1('Resumen');
     for (const c of modelo.camaras) {
       h2(c.nombre);
-      for (const l of lineasResumen(c.resumen)) parrafo(`• ${l}`);
+      for (const l of [...lineasResumen(c.resumen), ...(c.extra || [])]) parrafo(`• ${l}`);
+    }
+    const revisar = modelo.camaras.flatMap((c) => c.distintos.map((d) => `${c.nombre}, ${f.equipoDe(d.grupo)}: ${d.motivo}.`));
+    if (revisar.length) {
+      h2('Para revisar: equipos que trabajaron distinto al resto');
+      for (const l of revisar) parrafo(`• ${l}`);
     }
     tablaPdf({ ...modelo.planta.alarmas, titulo: 'Alarmas de la planta (PLC)' });
     if (modelo.planta.eventos.filas.length) tablaPdf({ ...modelo.planta.eventos, titulo: 'Eventos de la planta' });
@@ -234,7 +240,7 @@ function renderPdf(modelo, { ahora = Date.now() } = {}) {
     for (const c of modelo.camaras) {
       nuevaPagina();
       h1(c.nombre);
-      trendPdf(c.trend);
+      if (c.trend) trendPdf(c.trend); // el semanal/mensual no lo tiene
       for (const t of c.tablas) tablaPdf(t);
     }
 

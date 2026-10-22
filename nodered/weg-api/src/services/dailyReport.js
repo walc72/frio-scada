@@ -11,6 +11,7 @@ const path = require('path');
 const nodemailer = require('nodemailer');
 const reporteCamaras = require('./reporteCamaras');
 const reporteDiario = require('./reporteDiario');
+const reportePeriodo = require('./reportePeriodo');
 const settings = require('./settings');
 const alerts = require('./alerts');
 const branding = require('./branding');
@@ -41,11 +42,12 @@ function htmlCorreo(modelo, fecha) {
   const footer = branding.get().footer;
   const cuerpo = modelo
     ? modelo.camaras.map((c) => `<h3 style="margin:12px 0 4px">${escHtml(c.nombre)}</h3><ul style="color:#555;margin:0">${
-      reporteDiario.lineasResumen(c.resumen).map((l) => `<li>${escHtml(l)}</li>`).join('')}</ul>`).join('')
+      [...reporteDiario.lineasResumen(c.resumen), ...(c.extra || [])].map((l) => `<li>${escHtml(l)}</li>`).join('')}${
+      (c.distintos || []).map((d) => `<li style="color:#b45309">⚠ ${escHtml(`Equipo ${d.grupo.replace(/^G/, '')}: ${d.motivo}. Conviene revisarlo.`)}</li>`).join('')}</ul>`).join('')
       + `<p style="color:#555">Alarmas en total: ${modelo.totalAlarmas}. El detalle está en el PDF adjunto.</p>`
     : '<p style="color:#555">No se pudo leer el historial: error de consulta al servidor de datos. No hay PDF.</p>';
   return `<div style="font-family:Arial,sans-serif;max-width:620px">
-    <h2 style="color:#E87722;margin-bottom:4px">${escHtml(modelo ? modelo.titulo : `Reporte de cámaras — ${fecha}`)}</h2>
+    <h2 style="color:${branding.get().colorInforme};margin-bottom:4px">${escHtml(modelo ? modelo.titulo : `Reporte de cámaras — ${fecha}`)}</h2>
     ${cuerpo}
     <p style="color:#999;font-size:11px">Generado automáticamente${footer ? ` · Powered by ${escHtml(footer)}` : ''}</p>
   </div>`;
@@ -116,6 +118,32 @@ async function buildAndSend(dateStr, opts = {}) {
   return { ...result, correo, telegram };
 }
 
+// Semanal ('semana') o mensual ('mes') del período que contiene a fechaRef (por defecto ayer): mismo flujo que el diario.
+async function buildAndSendPeriodo(tipo, fechaRef, opts = {}) {
+  const ref = reporteCamaras.validarFecha(fechaRef || reporteCamaras.ayer());
+  const p = reportePeriodo.periodo(tipo, ref);
+  const result = { tipo, desde: p.desde, hasta: p.hasta, saved: false, path: null };
+  let pdf = null; let modelo = null;
+  try {
+    ({ pdf, modelo } = await reportePeriodo.generarPdf(tipo, ref, { queryCsv: opts.queryCsv }));
+  } catch (e) {
+    console.error(`[DAILY] No se pudo leer el historial (${tipo}):`, e.message);
+    result.historyError = true;
+  }
+  if (pdf && ensureDir(REPORTS_DIR)) {
+    const file = path.join(REPORTS_DIR, p.archivo);
+    try { fs.writeFileSync(file, pdf); result.saved = true; result.path = file; }
+    catch (e) { console.error('[DAILY] Error al guardar el PDF:', e.message); }
+  }
+  const canales = opts.canales || settings.getDailyReport().canales;
+  const datos = { ...opts, fecha: p.nombre, modelo, pdf, nombre: p.archivo };
+  const [correo, telegram] = await Promise.all([
+    canales.correo ? porCorreo(datos) : 'apagado',
+    canales.telegram ? porTelegram(datos) : 'apagado',
+  ]);
+  return { ...result, correo, telegram };
+}
+
 function msUntilNextRun() {
   const now = new Date();
   const next = new Date(now);
@@ -130,6 +158,12 @@ let nextRunAt = null;   // Date del próximo envío programado (null si deshabil
 
 let lastSentDate = null;   // fecha ya procesada por el programador (una vez por proceso)
 
+// Ayer domingo → semanal (lunes a domingo); ayer último día del mes → mensual (si están prendidos)
+function periodosQueCierran(ayer, { semanal, mensual }) {
+  const t = Date.parse(`${ayer}T00:00:00Z`);
+  return [semanal && new Date(t).getUTCDay() === 0 && 'semana', mensual && new Date(t + 864e5).getUTCDate() === 1 && 'mes'].filter(Boolean);
+}
+
 async function runScheduled() {
   const fecha = reporteCamaras.ayer();
   if (fecha === lastSentDate) { console.log(`[DAILY] Reporte ${fecha} ya enviado, se omite`); return; }
@@ -139,6 +173,12 @@ async function runScheduled() {
     console.log(`[DAILY] Reporte ${r.date} — guardado:${r.saved} correo:${r.correo} telegram:${r.telegram}`);
   } catch (e) {
     console.error('[DAILY] Falló la generación programada:', e.message);
+  }
+  for (const tipo of periodosQueCierran(fecha, settings.getDailyReport())) {
+    try {
+      const r = await buildAndSendPeriodo(tipo, fecha);
+      console.log(`[DAILY] Reporte ${tipo} ${r.desde}..${r.hasta} — guardado:${r.saved} correo:${r.correo} telegram:${r.telegram}`);
+    } catch (e) { console.error(`[DAILY] Falló el reporte ${tipo}:`, e.message); }
   }
 }
 
@@ -181,4 +221,4 @@ function start() {
 
 const getNextRunAt = () => (ENABLED ? nextRunAt : null);
 
-module.exports = { sigueVivo, runScheduled, start, reschedule, getNextRunAt, buildAndSend, REPORTS_DIR, ENABLED };
+module.exports = { sigueVivo, runScheduled, start, reschedule, getNextRunAt, buildAndSend, buildAndSendPeriodo, periodosQueCierran, REPORTS_DIR, ENABLED };

@@ -27,10 +27,11 @@ function getTransport() {
 
 const telegramConfigurado = () => { const c = settings.getTelegramFull(); return !!(c.token && c.chatId); };
 
-// Rechaza si Telegram no responde 200.
-function sendTelegram(text) {
+// Rechaza si Telegram no responde 200. botones: [{texto, data}] → un botón por renglón (callback_data ≤ 64 bytes).
+function sendTelegram(text, botones = []) {
   const { token, chatId } = settings.getTelegramFull();
-  const body = JSON.stringify({ chat_id: chatId, text });
+  const body = JSON.stringify({ chat_id: chatId, text,
+    ...(botones.length ? { reply_markup: { inline_keyboard: botones.map((b) => [{ text: b.texto, callback_data: b.data }]) } } : {}) });
   return new Promise((resolve, reject) => {
     const req = https.request(`https://api.telegram.org/bot${token}/sendMessage`,
       { method: 'POST', headers: { 'Content-Type': 'application/json' }, timeout: 10000 }, (res) => {
@@ -131,10 +132,10 @@ function sendMail(texto) {
 // lo entregó (o si no hay ninguno configurado); false si todos los configurados
 // fallaron. Un fallo parcial (p. ej. SMTP caído) cuenta como enviado: así no se
 // repite el mensaje en Telegram cada 5 s.
-async function notify(texto) {
+async function notify(texto, { botones = [] } = {}) {
   console.log(`[ALERT] ${texto}`);
   const canales = [];
-  if (telegramConfigurado()) canales.push(['TG', sendTelegram(texto)]);
+  if (telegramConfigurado()) canales.push(['TG', sendTelegram(texto, botones)]);
   const mail = sendMail(texto);
   if (mail) canales.push(['EMAIL', mail]);
   const res = await Promise.allSettled(canales.map((c) => c[1]));

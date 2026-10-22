@@ -105,7 +105,7 @@ function parseEventos(csv, { camara, texto } = {}) {
 function parseMando(csv, { camara, texto } = {}) {
   const q = texto ? String(texto).toLowerCase() : '';
   return filasPivot(csv).map((o) => ({ ts: ms(o._time), hora_plc: '', texto: `${o.usuario}: ${o.texto}`, estado: num(o.resultado), maniobra: true,
-    usuario: o.usuario, accion: o.texto, camara: o.camara, respuesta: o.respuesta ?? '' }))
+    usuario: o.usuario, accion: o.texto, camara: o.camara, respuesta: o.respuesta ?? '', comando: o.comando }))
     .filter((e) => (!camara || e.camara === camara) && (!q || e.texto.toLowerCase().includes(q)));
 }
 

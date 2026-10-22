@@ -149,6 +149,29 @@ async function diarioPdf(req, res) {
   }
 }
 
+// GET /api/reportes/periodo.pdf?tipo=semana|mes[&fecha=YYYY-MM-DD] — semanal o mensual del período que contiene a
+// fecha (por defecto el último completo). Cualquier usuario con sesión.
+async function periodoPdf(req, res) {
+  const reportePeriodo = require('../services/reportePeriodo');
+  let p;
+  try {
+    const tipo = req.query.tipo;
+    p = req.query.fecha === undefined
+      ? reportePeriodo.ultimoCompleto(tipo, reporteCamaras.ayer())
+      : reportePeriodo.periodo(tipo, reporteCamaras.validarFecha(req.query.fecha));
+  } catch (e) { return res.status(400).json({ error: e.message }); }
+  try {
+    const { pdf, nombre } = await reportePeriodo.generarPdf(p.tipo, p.desde);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=${nombre}`);
+    res.send(pdf);
+  } catch (e) {
+    console.error('[API] reportes/periodo.pdf:', e.message);
+    res.status(502).json({ error: 'Error consultando el histórico' });
+  }
+}
+
 module.exports = router;
 module.exports.diarioPdf = diarioPdf;
+module.exports.periodoPdf = periodoPdf;
 

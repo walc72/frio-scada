@@ -2,7 +2,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { evaluar, desvioRelojS } = require('../src/services/alertasCamaras');
+const { evaluar, desvioRelojS, activas, marcarVistas } = require('../src/services/alertasCamaras');
 
 test('desvioRelojS: hora_plc local de planta (UTC-3, huso 0) -> 0; 5 min adelantado -> +300', () => {
   const ts = Date.parse('2026-10-15T15:00:00Z');
@@ -81,18 +81,19 @@ test('API reiniciada durante el corte: sin un _conectado true conocido -> "desde
 });
 
 test('mapa incompatible: aviso propio en vez del de comunicación, con repetición y resuelto', () => {
+  const ev = (e, t, m) => evaluar(e, t, m, { repetirMs: 60 * MIN }); // repetición cada hora
   const inc = (t) => ({ ...est(t), _conectado: false, _mapa: 'incompatible', _version: 1 });
-  let r = evaluar(est(T0), T0, null);
-  r = evaluar(inc(T0 + MIN), T0 + MIN, r.memoria);
+  let r = ev(est(T0), T0, null);
+  r = ev(inc(T0 + MIN), T0 + MIN, r.memoria);
   assert.deepEqual(r.avisos, []);
-  r = evaluar(inc(T0 + 3 * MIN), T0 + 3 * MIN, r.memoria);
+  r = ev(inc(T0 + 3 * MIN), T0 + 3 * MIN, r.memoria);
   assert.deepEqual(r.avisos, ['🚨 Mapa del PLC incompatible (version 1): cargar la v19']);
-  r = evaluar(inc(T0 + 30 * MIN), T0 + 30 * MIN, r.memoria);
+  r = ev(inc(T0 + 30 * MIN), T0 + 30 * MIN, r.memoria);
   assert.deepEqual(r.avisos, []);
-  r = evaluar(inc(T0 + 64 * MIN), T0 + 64 * MIN, r.memoria);
+  r = ev(inc(T0 + 64 * MIN), T0 + 64 * MIN, r.memoria);
   assert.equal(r.avisos.length, 1);
-  r = evaluar(est(T0 + 65 * MIN), T0 + 65 * MIN, r.memoria);
-  r = evaluar(est(T0 + 67 * MIN), T0 + 67 * MIN, r.memoria);
+  r = ev(est(T0 + 65 * MIN), T0 + 65 * MIN, r.memoria);
+  r = ev(est(T0 + 67 * MIN), T0 + 67 * MIN, r.memoria);
   assert.deepEqual(r.avisos, ['✅ resuelto: Mapa del PLC incompatible']);
 });
 
@@ -168,4 +169,36 @@ test('mezclarEstado: el latido (1 s) actualiza _ts/_conectado/_mapa; _tsEstado q
   assert.equal(m._ts, T0 + 20000); assert.equal(m._tsEstado, T0); assert.equal(m._conectado, false); assert.equal(m._mapa, 'incompatible');
   assert.equal(mezclarEstado({ ...e, _mapa: 'incompatible' }, { _ts: T0 + 1000, _conectado: true })._mapa, undefined);
   assert.equal(mezclarEstado(e, { _ts: T0 - 1000, _conectado: false })._conectado, true); // latido viejo no pisa
+});
+
+test('repetición: cada 15 min hasta 4 veces, con "(repetido n de 4)"; después no más', () => {
+  let r = evaluar(est(T0, A), T0, null);
+  const repetidos = [];
+  for (let k = 1; k <= 6; k++) {
+    r = evaluar(est(T0 + k * 15 * MIN, A), T0 + k * 15 * MIN, r.memoria);
+    repetidos.push(...r.avisos);
+  }
+  assert.deepEqual(repetidos, [1, 2, 3, 4].map((n) => `🚨 C5: alarma de manual prolongado (repetido ${n} de 4)`));
+  assert.ok(r.items.every((i) => i.alarma !== false));
+});
+
+test('veces 0: solo el primer aviso', () => {
+  let r = evaluar(est(T0, A), T0, null, { veces: 0 });
+  r = evaluar(est(T0 + 60 * MIN, A), T0 + 60 * MIN, r.memoria, { veces: 0 });
+  assert.deepEqual(r.avisos, []);
+});
+
+test('visto: corta la repetición, queda quién y cuándo; el resuelto llega igual', () => {
+  let r = evaluar(est(T0, A), T0, null);
+  assert.equal(r.items[0].alarma, true);
+  const mem = r.memoria;
+  assert.deepEqual(marcarVistas(mem, ['C5.alarma_manual', 'C4.alarma_manual'], 'ana', T0 + MIN), [{ clave: 'C5.alarma_manual', texto: 'C5: alarma de manual prolongado' }]);
+  assert.deepEqual(marcarVistas(mem, ['C5.alarma_manual'], 'bob', T0 + 2 * MIN), []); // ya vista: no cambia
+  assert.deepEqual(activas(mem), [{ clave: 'C5.alarma_manual', texto: 'C5: alarma de manual prolongado', desde: T0, visto: { usuario: 'ana', ts: T0 + MIN } }]);
+  r = evaluar(est(T0 + 20 * MIN, A), T0 + 20 * MIN, mem);
+  assert.deepEqual(r.avisos, []);
+  r = evaluar(est(T0 + 21 * MIN), T0 + 21 * MIN, r.memoria);
+  assert.deepEqual(activas(r.memoria), []); // resolviéndose: ya no está activa
+  r = evaluar(est(T0 + 23 * MIN), T0 + 23 * MIN, r.memoria);
+  assert.deepEqual(r.avisos, ['✅ resuelto: C5: alarma de manual prolongado']);
 });

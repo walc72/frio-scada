@@ -18,12 +18,20 @@ const reset = () => { try { fs.unlinkSync(settings.SETTINGS_PATH); } catch { /* 
 
 test('sin configurar usa DAILY_REPORT_HOUR del .env', () => {
   reset();
-  assert.deepEqual(settings.getDailyReport(), { hour: 7, minute: 0, time: '07:00', fromEnv: true, canales: { correo: true, telegram: false } });
+  assert.deepEqual(settings.getDailyReport(), { hour: 7, minute: 0, time: '07:00', fromEnv: true, canales: { correo: true, telegram: false }, semanal: true, mensual: true });
+});
+
+test('semanal y mensual: prendidos por defecto, se apagan y se validan', () => {
+  reset();
+  assert.equal(settings.setDailyReport({ semanal: false }).semanal, false);
+  assert.equal(settings.getDailyReport().mensual, true);
+  assert.throws(() => settings.setDailyReport({ mensual: 'no' }), /Reporte mensual: tiene que ser sí o no/);
+  reset();
 });
 
 test('guarda HH:MM y valida el formato', () => {
   reset();
-  assert.deepEqual(settings.setDailyReport({ time: '5:30' }), { hour: 5, minute: 30, time: '05:30', fromEnv: false, canales: { correo: true, telegram: false } });
+  assert.deepEqual(settings.setDailyReport({ time: '5:30' }), { hour: 5, minute: 30, time: '05:30', fromEnv: false, canales: { correo: true, telegram: false }, semanal: true, mensual: true });
   assert.equal(settings.getDailyReport().time, '05:30');
   for (const bad of ['24:00', '12:60', 'abc', '', '7']) {
     assert.throws(() => settings.setDailyReport({ time: bad }), /Hora inválida/);

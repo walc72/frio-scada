@@ -168,6 +168,40 @@ function SmtpTab() {
 }
 
 // ─── Telegram ─────────────────────────────────────────────────────────
+// Repetición de los avisos de alarma por Telegram y correo, mientras nadie toque "Visto"
+function RepeticionCard() {
+  const [minutos, setMinutos] = useState('15')
+  const [veces, setVeces] = useState('4')
+  const [guardando, setGuardando] = useState(false)
+  useEffect(() => {
+    authFetch(`${API_BASE}/settings/repeticion`).then(r => r.ok ? r.json() : null)
+      .then(d => { if (d) { setMinutos(String(d.minutos)); setVeces(String(d.veces)) } }).catch(() => {})
+  }, [])
+  async function guardar() {
+    setGuardando(true)
+    try {
+      const r = await authFetch(`${API_BASE}/settings/repeticion`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ minutos: Number(minutos), veces: Number(veces) }) })
+      const d = await r.json().catch(() => null)
+      if (!r.ok) throw new Error(d?.error || `HTTP ${r.status}`)
+      setMinutos(String(d.minutos)); setVeces(String(d.veces))
+      toast.success('Repetición guardada')
+    } catch (e: any) { toast.error(e.message) } finally { setGuardando(false) }
+  }
+  return (
+    <Card className="p-3 space-y-3 mt-3">
+      <div>
+        <div className="font-semibold">Repetir el aviso de alarma</div>
+        <p className="text-sm text-muted-foreground">Mientras la alarma siga activa y nadie toque "Visto" (en el portal o en Telegram), el aviso se manda de nuevo. 0 veces = no repetir.</p>
+      </div>
+      <div className="flex flex-wrap items-end gap-3">
+        <div><Label htmlFor="rep-min">Cada (minutos)</Label><Input id="rep-min" type="number" min={5} max={240} className="w-28" value={minutos} onChange={e => setMinutos(e.target.value)} /></div>
+        <div><Label htmlFor="rep-veces">Hasta (veces)</Label><Input id="rep-veces" type="number" min={0} max={20} className="w-28" value={veces} onChange={e => setVeces(e.target.value)} /></div>
+        <Button size="sm" disabled={guardando} onClick={guardar}>{guardando ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Save className="h-3.5 w-3.5 mr-1" />}Guardar</Button>
+      </div>
+    </Card>
+  )
+}
+
 function TelegramTab() {
   const [chatId, setChatId] = useState('')
   const [token, setToken] = useState('')
@@ -297,6 +331,7 @@ function TelegramTab() {
           </Button>
         </div>
       </Card>
+      <RepeticionCard />
     </div>
   )
 }

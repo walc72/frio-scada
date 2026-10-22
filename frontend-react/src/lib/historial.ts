@@ -100,8 +100,8 @@ export const textoManiobra = (f: { texto: string; estado: string | number }) =>
 // El PLC registra "REM u.." al aplicar un comando del portal, y el API ya guarda esa misma acción como maniobra: se oculta el REM
 // si hay una maniobra a +-120 s (sin maniobra cercana, p.ej. falló la auditoría, se queda).
 const VENTANA_REM_MS = 120e3
-export function quitarRemDuplicados<T extends { ts: number; texto: string; maniobra?: boolean }>(eventos: T[]): T[] {
-  const man = eventos.filter(e => e.maniobra).map(e => e.ts)
+export function quitarRemDuplicados<T extends { ts: number; texto: string; maniobra?: boolean; comando?: string }>(eventos: T[]): T[] {
+  const man = eventos.filter(e => e.maniobra && e.comando !== 'visto').map(e => e.ts) // un "visto" no genera REM en el PLC
   return eventos.filter(e => e.maniobra || !esRem(e.texto) || !man.some(t => Math.abs(t - e.ts) <= VENTANA_REM_MS))
 }
 // Más nuevo primero. "Sigue activo" solo en el último evento de cada texto, si apareció (estado 1) y el flag vivo sigue prendido.
@@ -132,3 +132,27 @@ export const filasAlarmas = (p: PeriodoAlarma[], sigue: (clave: string) => boole
   Fin: x.fin === null ? (x.claves.every(sigue) ? 'sigue activa' : 'sin cierre en el período') : fechaHora(x.fin),
   'Duración (min)': x.duracionMin ?? '', Alarma: x.texto.replace(/^[^:]*: /, ''),
 }))
+
+// Equipos que trabajan distinto al resto de su cámara (por día: con varios días se compara el promedio diario).
+// Contra la mediana de la cámara: bastante más horas (≥ +25 % y +2 h), muchos más arranques (≥ ×2 y +6) o bastante
+// menos horas (≤ ½ y −4 h). Copia en weg-api/src/services/frases.js (equiposDistintos): mantener iguales.
+// ponytail: umbrales fijos; si en planta molestan, pasarlos a Configuración.
+export interface Distinto { grupo: string; motivo: string }
+const mediana = (v: number[]) => { const s = [...v].sort((a, b) => a - b); const m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2 }
+const h1 = (x: number) => (Math.round(x * 10) / 10).toString().replace('.', ',')
+export function equiposDistintos(equipos: { grupo: string; horas: number; arranques: number }[], dias = 1): Distinto[] {
+  if (equipos.length < 4) return []
+  const d = Math.max(1, dias)
+  const hs = equipos.map(e => e.horas / d), as = equipos.map(e => e.arranques / d)
+  const mh = mediana(hs), ma = mediana(as)
+  const r: Distinto[] = []
+  equipos.forEach((e, i) => {
+    const h = hs[i], a = as[i]
+    const motivos: string[] = []
+    if (mh > 0 && h >= mh * 1.25 && h - mh >= 2) motivos.push(`anduvo ${h1(h)} h${d > 1 ? ' por día' : ''} y el resto ~${h1(mh)} h`)
+    if (mh > 0 && h <= mh * 0.5 && mh - h >= 4) motivos.push(`anduvo solo ${h1(h)} h${d > 1 ? ' por día' : ''} y el resto ~${h1(mh)} h`)
+    if (a >= Math.max(1, ma) * 2 && a - ma >= 6) motivos.push(`arrancó ${h1(a)} veces${d > 1 ? ' por día' : ''} y el resto ~${h1(ma)}`)
+    if (motivos.length) r.push({ grupo: e.grupo, motivo: motivos.join('; ') })
+  })
+  return r
+}

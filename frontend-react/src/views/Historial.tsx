@@ -8,10 +8,12 @@ import { estaVencido, colorEstadoGrupo } from '../lib/estadoGrupo'
 import { nombreCamara, fechaHora, type FilaDescongelado } from '../lib/camaras'
 import { badgeDescongelado, esRem, UMBRAL_ARRANQUES_HORA, type TipoAviso } from '../lib/frases'
 import { agruparActivas, agruparPeriodos, alarmasActivasVista, periodosAlarma, ultimoPorClave } from '../lib/alarmas'
-import { equiposPorCamara, duracionTxt, equipoDe, horasTxt, prepararAvisos, filasEventos, type EquipoHist, filasAlarmas, filasCompresores, filasDescongelados } from '../lib/historial'
+import { equiposPorCamara, equiposDistintos, duracionTxt, equipoDe, horasTxt, prepararAvisos, filasEventos, type EquipoHist, filasAlarmas, filasCompresores, filasDescongelados } from '../lib/historial'
 import { downloadXlsx } from '../lib/xlsx'
 import { cn } from '../lib/utils'
 import { Icono } from '../components/Icono'
+import BotonVisto from '../components/BotonVisto'
+import { useVistas } from '../lib/vistas'
 
 const PESTANAS = [
   { id: 'descongelados', label: 'Descongelados' },
@@ -33,6 +35,7 @@ const diaCorto = (d: string) => `${d.slice(8, 10)}/${d.slice(5, 7)}`
 // Un bloque por cámara: cada equipo con un cuadradito por día (color = % del tiempo en marcha) y sus totales.
 function BloqueEquipos({ camara, equipos }: { camara: string; equipos: EquipoHist[] }) {
   const dias = equipos[0]?.dias ?? []
+  const distintos = new Map(equiposDistintos(equipos, dias.length).map(d => [d.grupo, d.motivo]))
   return (
     <section className="border-b last:border-0 px-3 py-3 space-y-1.5">
       <h2 className="text-sm font-semibold">{nombreCamara(camara)}</h2>
@@ -53,6 +56,7 @@ function BloqueEquipos({ camara, equipos }: { camara: string; equipos: EquipoHis
           <span className="col-start-2 sm:col-start-auto text-xs text-muted-foreground">
             <b className="text-foreground">{horasTxt(e.horas)}</b>{pctTxt(e.pct)} · {e.arranques} arranques · {e.descongelados} descongelados
           </span>
+          {distintos.has(e.grupo) && <span className="col-start-2 sm:col-span-2 text-xs font-medium text-amber-700 dark:text-amber-400">⚠️ Trabaja distinto al resto: {distintos.get(e.grupo)}. Conviene revisarlo.</span>}
           {e.maxArranquesHora > UMBRAL_ARRANQUES_HORA && <span className="col-start-2 sm:col-span-2 text-xs text-amber-600">⚠️ Arranca demasiado seguido (hasta {e.maxArranquesHora} veces por hora): conviene revisarlo</span>}
           {e.horasSinDatos > 0 && <span className="col-start-2 sm:col-span-2 text-xs text-muted-foreground">{horasTxt(e.horasSinDatos)} sin datos</span>}
         </div>
@@ -83,6 +87,7 @@ export default function Historial({ fija }: { fija?: 'alarmas' | 'eventos' }) {
   const activas = pestana === 'alarmas' && fresco && estado ? alarmasActivasVista(estado, ultimos) : []
   const siguen = (clave: string) => finHoy && activas.some(a => a.clave === clave)
   const grupos = agruparActivas(activas)
+  const { vistas, marcar } = useVistas(grupos.length > 0)
   // las abiertas que siguen activas ya están en el recuadro rojo
   const otras = agruparPeriodos(periodos.filter(p => !(p.fin === null && siguen(p.clave))))
   if (!fija && !PESTANAS.some(p => p.id === pestana)) return <Navigate to="/historial/descongelados" replace />
@@ -112,6 +117,7 @@ export default function Historial({ fija }: { fija?: 'alarmas' | 'eventos' }) {
                 <span className="font-semibold">{a.titulo}</span>
                 {a.accion && <span> · {a.accion}</span>}
                 {cargado && finHoy && (!r.camara || a.camara === r.camara) && <span className="text-xs"> · {a.desde ? `desde ${dia(a.desde).slice(0, 5)} ${hm(a.desde)}` : 'desde antes de este período'}</span>}
+                {' '}<BotonVisto claves={a.claves} vistas={vistas} marcar={marcar} />
               </li>)}
             </ul>)}
       {pestana === 'alarmas' && <h2 className="text-sm font-semibold">Alarmas del período</h2>}

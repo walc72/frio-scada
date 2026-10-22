@@ -289,7 +289,10 @@ function getDailyReport() {
     correo: typeof c.correo === 'boolean' ? c.correo : true,
     telegram: typeof c.telegram === 'boolean' ? c.telegram : !!(tg.token && tg.chatId),
   };
-  return { ...t, time: `${pad2(t.hour)}:${pad2(t.minute)}`, fromEnv: !ok, canales };
+  // semanal (los lunes) y mensual (el día 1): mismos canales y hora que el diario; prendidos salvo que se apaguen
+  const semanal = typeof d.semanal === 'boolean' ? d.semanal : true;
+  const mensual = typeof d.mensual === 'boolean' ? d.mensual : true;
+  return { ...t, time: `${pad2(t.hour)}:${pad2(t.minute)}`, fromEnv: !ok, canales, semanal, mensual };
 }
 
 // body: { time?: 'HH:MM', canales?: { correo?: boolean, telegram?: boolean } } (al menos uno)
@@ -297,7 +300,12 @@ function setDailyReport(patch) {
   const p = (patch && typeof patch === 'object') ? patch : {};
   const s = read();
   const next = { ...(s.dailyReport || {}) };
-  if (p.time !== undefined || p.canales === undefined) {
+  for (const k of ['semanal', 'mensual']) {
+    if (p[k] === undefined) continue;
+    if (typeof p[k] !== 'boolean') throw httpError(400, `Reporte ${k}: tiene que ser sí o no`);
+    next[k] = p[k];
+  }
+  if (p.time !== undefined || (p.canales === undefined && p.semanal === undefined && p.mensual === undefined)) {
     const m = /^(\d{1,2}):(\d{2})$/.exec(String(p.time || '').trim());
     const hour = m ? +m[1] : NaN, minute = m ? +m[2] : NaN;
     if (!m || hour > 23 || minute > 59) throw httpError(400, 'Hora inválida (HH:MM, de 00:00 a 23:59)');
@@ -318,6 +326,33 @@ function setDailyReport(patch) {
   return getDailyReport();
 }
 
+// ─── Repetición de avisos de alarma ───
+// Mientras una alarma siga activa y nadie la marque como vista, el aviso se repite cada `minutos`, hasta `veces` (0 = no repetir).
+const REPETIR_DEF = { minutos: 15, veces: 4 };
+function getRepeticion() {
+  const r = read().repeticion || {};
+  return {
+    minutos: Number.isInteger(r.minutos) && r.minutos >= 5 && r.minutos <= 240 ? r.minutos : REPETIR_DEF.minutos,
+    veces: Number.isInteger(r.veces) && r.veces >= 0 && r.veces <= 20 ? r.veces : REPETIR_DEF.veces,
+  };
+}
+function setRepeticion(p) {
+  const b = (p && typeof p === 'object') ? p : {};
+  const s = read();
+  const next = { ...getRepeticion(), ...(s.repeticion || {}) };
+  if (b.minutos !== undefined) {
+    if (!Number.isInteger(b.minutos) || b.minutos < 5 || b.minutos > 240) throw httpError(400, 'Minutos: entre 5 y 240');
+    next.minutos = b.minutos;
+  }
+  if (b.veces !== undefined) {
+    if (!Number.isInteger(b.veces) || b.veces < 0 || b.veces > 20) throw httpError(400, 'Repeticiones: entre 0 y 20');
+    next.veces = b.veces;
+  }
+  s.repeticion = next;
+  write(s);
+  return getRepeticion();
+}
+
 // ─── Id numérico estable por usuario (el PLC lo copia al evento como u{id}) ───
 // Se asigna la primera vez que el usuario manda un comando y no cambia más (ni al renombrar el
 // registro: la clave es el nombre en minúsculas). Cabe en un registro: 1..65535.
@@ -335,6 +370,6 @@ function mandoUserId(user) {
 
 module.exports = {
   ROLES, mandoUserId, listUsers, getUsersFull, findUser, createUser, updateUser, deleteUser, setSuperadmin,
-  getSmtpPublic, getSmtpFull, smtpTransportOptions, setSmtp, getTelegramPublic, getTelegramFull, setTelegram, TG_TOKEN_RE, getDailyReport, setDailyReport,
+  getSmtpPublic, getSmtpFull, smtpTransportOptions, setSmtp, getTelegramPublic, getTelegramFull, setTelegram, TG_TOKEN_RE, getDailyReport, setDailyReport, getRepeticion, setRepeticion,
   hashPassword, SETTINGS_PATH,
 };

@@ -68,7 +68,7 @@ test('enviar: manda el de ayer, devuelve el resultado por canal y limita a 1 por
     await servir('admin', async (f) => {
       const r = await f('/api/settings/daily-report/enviar', 'POST', {});
       assert.equal(r.status, 200);
-      assert.deepEqual(await r.json(), { ok: true, date: '2026-10-17', correo: 'ok', telegram: 'error: HTTP 400' });
+      assert.deepEqual(await r.json(), { ok: true, tipo: 'dia', date: '2026-10-17', correo: 'ok', telegram: 'error: HTTP 400' });
       const r2 = await f('/api/settings/daily-report/enviar', 'POST', {});
       assert.equal(r2.status, 429);
       assert.match((await r2.json()).error, /Esperá un minuto/);

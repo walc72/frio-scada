@@ -122,3 +122,29 @@ describe('equiposPorCamara', () => {
   test('descongelados: solo de su cámara, sin saltados', () => expect(g2.descongelados).toBe(1))
   test('día futuro sin tiempo: pct null', () => expect(equiposPorCamara([f('C4', 'G1', '2026-10-19', 0)], [], ahora)[0].equipos[0].dias[0].pct).toBeNull())
 })
+
+import { equiposDistintos } from './historial'
+describe('equiposDistintos', () => {
+  const base = (h: number, a = 5) => Array.from({ length: 8 }, (_, i) => ({ grupo: `G${i + 1}`, horas: h, arranques: a }))
+  test('parejos: nada', () => expect(equiposDistintos(base(18))).toEqual([]))
+  test('uno anda mucho más', () => {
+    const e = base(16); e[2] = { ...e[2], horas: 21 }
+    expect(equiposDistintos(e)).toEqual([{ grupo: 'G3', motivo: 'anduvo 21 h y el resto ~16 h' }])
+  })
+  test('diferencia chica no cuenta (25 % pero menos de 2 h)', () => {
+    const e = base(4); e[0] = { ...e[0], horas: 5.5 }
+    expect(equiposDistintos(e)).toEqual([])
+  })
+  test('uno anda mucho menos y otro arranca demasiado', () => {
+    const e = base(18, 5); e[0] = { ...e[0], horas: 6 }; e[7] = { ...e[7], arranques: 14 }
+    expect(equiposDistintos(e)).toEqual([{ grupo: 'G1', motivo: 'anduvo solo 6 h y el resto ~18 h' }, { grupo: 'G8', motivo: 'arrancó 14 veces y el resto ~5' }])
+  })
+  test('varios días: compara por día', () => {
+    const e = base(16 * 7); e[1] = { ...e[1], horas: 21 * 7 }
+    expect(equiposDistintos(e, 7)).toEqual([{ grupo: 'G2', motivo: 'anduvo 21 h por día y el resto ~16 h' }])
+  })
+  test('menos de 4 equipos o sin marcha: nada', () => {
+    expect(equiposDistintos(base(16).slice(0, 3))).toEqual([])
+    expect(equiposDistintos(base(0))).toEqual([])
+  })
+})

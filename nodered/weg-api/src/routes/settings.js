@@ -90,7 +90,8 @@ router.post('/telegram/chats', async (req, res) => {
   const token = t && settings.TG_TOKEN_RE.test(t) ? t : settings.getTelegramFull().token;
   if (!token) return res.status(400).json({ error: 'Primero cargá el token del bot' });
   try {
-    res.json({ chats: await require('../services/alerts').buscarChats(token) });
+    // con el bot escuchando ese token no se puede pedir getUpdates (409): se usan los chats que ya vio
+    res.json({ chats: (await require('../services/telegramBot').chatsVistos(token)) ?? await require('../services/alerts').buscarChats(token) });
   } catch (e) { fail(res, e); }
 });
 
@@ -102,6 +103,12 @@ const dailyReportInfo = () => {
   const tg = settings.getTelegramPublic();
   return { ...settings.getDailyReport(), telegramConfigurado: !!(tg.hasToken && tg.chatId), enabled: daily.ENABLED, nextRunAt: next ? next.toISOString() : null };
 };
+
+// ─── Repetición de avisos de alarma ({minutos, veces}) ────────────────
+router.get('/repeticion', (req, res) => res.json(settings.getRepeticion()));
+router.post('/repeticion', (req, res) => {
+  try { res.json({ ok: true, ...settings.setRepeticion(req.body || {}) }); } catch (e) { res.status(e.status || 400).json({ error: e.message }); }
+});
 
 router.get('/daily-report', (req, res) => {
   res.json(dailyReportInfo());
@@ -127,8 +134,12 @@ router.post('/daily-report/enviar', async (req, res) => {
   if (t - ultimoEnvio < ENVIAR_CADA_MS) return res.status(429).json({ error: 'Esperá un minuto antes de volver a mandarlo' });
   ultimoEnvio = t;
   try {
-    const r = await require('../services/dailyReport').buildAndSend();
-    res.json({ ok: true, date: r.date, correo: r.correo, telegram: r.telegram, ...(r.historyError && { historyError: true }) });
+    const tipo = (req.body && req.body.tipo) || 'dia';
+    if (!['dia', 'semana', 'mes'].includes(tipo)) { ultimoEnvio = -Infinity; return res.status(400).json({ error: 'Tipo inválido (dia, semana o mes)' }); }
+    const daily = require('../services/dailyReport');
+    const r = tipo === 'dia' ? await daily.buildAndSend()
+      : await daily.buildAndSendPeriodo(tipo, require('../services/reportePeriodo').ultimoCompleto(tipo, require('../services/reporteCamaras').ayer()).desde);
+    res.json({ ok: true, tipo, date: r.date, desde: r.desde, hasta: r.hasta, correo: r.correo, telegram: r.telegram, ...(r.historyError && { historyError: true }) });
   } catch (e) {
     console.error('[API] daily-report/enviar:', e.message);
     res.status(500).json({ error: 'No se pudo generar el reporte' });

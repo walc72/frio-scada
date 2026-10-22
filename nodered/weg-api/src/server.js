@@ -107,6 +107,7 @@ app.use('/api/config', configRoutes);
 app.use('/api/status', statusRoutes);
 app.use('/api/reports', reportRoutes);
 app.get('/api/reportes/diario.pdf', reportRoutes.diarioPdf);
+app.get('/api/reportes/periodo.pdf', reportRoutes.periodoPdf);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/replicas', createReplicasRouter({
   registry: replicaRegistry, isReplica: REPLICA_MODE, legacyToken: process.env.REPLICA_TOKEN || '',
@@ -120,7 +121,19 @@ app.use('/api/replica-link', createReplicaLinkRouter({
 app.use('/api/camaras', createCamarasRouter({
   queryCsv: influxRaw.queryAnnotatedCsv, getEstado: configService.getEstadoCamaras,
 }));
-app.use('/api/avisos', createAvisosRouter({ notifyCanal: alerts.notifyCanal, isReplica: REPLICA_MODE }));
+// "Visto" de una alarma (portal o Telegram): corta la repetición y queda en Eventos como acción del usuario
+async function marcarVisto(claves, usuario) {
+  const cambiadas = alertasCamaras.reconocer(claves, usuario);
+  const ts = Date.now();
+  if (cambiadas.length) {
+    await influxRaw.writeLines(cambiadas.map((c, i) => require('./services/mando').lineaMando({
+      usuario, camara: (/^(C\d+)\./.exec(c.clave) || [])[1] || 'general', comando: 'visto', destino: 0, anterior: null, valor: 0,
+      resultado: 1, motivo: 0, texto: `Vio la alarma: ${c.texto}`, respuesta: '', ts: ts + i,
+    })).join('\n')).catch((e) => console.error('[VISTO] no se pudo registrar:', e.message));
+  }
+  return cambiadas;
+}
+app.use('/api/avisos', createAvisosRouter({ notifyCanal: alerts.notifyCanal, isReplica: REPLICA_MODE, getActivas: alertasCamaras.getActivas, marcarVisto }));
 // Maniobras al PLC: pasan por el poller (único escritor del 502) con MANDO_TOKEN; ver docs/modbus/mapa_modbus.md
 app.use('/api/mando', createMandoRouter({
   pollerUrl: process.env.POLLER_URL || '', token: process.env.MANDO_TOKEN || '', getEstado: configService.getEstadoCamaras,
@@ -180,7 +193,10 @@ const server = app.listen(PORT, '0.0.0.0', () => {
 
   // Start alert monitoring (en la réplica no: las alertas salen de planta)
   if (REPLICA_MODE) console.log('[API] Modo réplica: alertas desactivadas');
-  else alertasCamaras.start();
+  else {
+    alertasCamaras.start();
+    require('./services/telegramBot').start({ onVisto: marcarVisto, avisar: (t) => alerts.sendTelegram(t) });
+  }
 
   // Reporte diario automático (cron interno -> PDF por correo y/o Telegram); en la réplica no: sale de planta
   if (!REPLICA_MODE) dailyReportService.start();

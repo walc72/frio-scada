@@ -110,3 +110,23 @@ test('replica: avisos/prueba 409 y resumen replica:true', async () => {
   const rs = createSistemaResumenRouter({ queryCsv: async () => '', getEstado: () => null, telegramConfigurado: () => false, mailConfigurado: () => false, desvioRelojS: () => null, isReplica: true, backupDir: '/no/existe' });
   assert.equal((await servir('operador', rs, '/api/sistema', (f) => f('/resumen'))).body.replica, true);
 });
+
+test('avisos/activas y visto: cualquier usuario marca con su nombre; claves inválidas 400; réplica 409', async () => {
+  const marcadas = [];
+  const router = createAvisosRouter({
+    notifyCanal: async () => {},
+    getActivas: () => [{ clave: 'C4.alarma_manual', texto: 't', desde: 1, visto: null }],
+    marcarVisto: async (claves, usuario) => { marcadas.push([claves, usuario]); return [{ clave: claves[0], texto: 't' }]; },
+  });
+  await servir('operador', router, '/api/avisos', async (f) => {
+    assert.deepEqual((await f('/activas')).body.activas, [{ clave: 'C4.alarma_manual', texto: 't', desde: 1, visto: null }]);
+    const r = await f('/visto', { claves: ['C4.alarma_manual'] });
+    assert.deepEqual(r.body, { ok: true, vistas: [{ clave: 'C4.alarma_manual', texto: 't' }] });
+    assert.equal((await f('/visto', { claves: [] })).status, 400);
+    assert.equal((await f('/visto', { claves: ['a b'] })).status, 400);
+    assert.equal((await f('/visto', {})).status, 400);
+  });
+  assert.deepEqual(marcadas, [[['C4.alarma_manual'], 'x']]);
+  const rep = createAvisosRouter({ notifyCanal: async () => {}, isReplica: true });
+  assert.equal((await servir('admin', rep, '/api/avisos', (f) => f('/visto', { claves: ['C4.alarma_manual'] }))).status, 409);
+});
