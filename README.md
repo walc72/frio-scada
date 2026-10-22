@@ -59,6 +59,72 @@ Para una instalación desatendida, las respuestas se pueden pasar por variables 
 
 Cómo se arma cada release: [`packaging/README.md`](packaging/README.md).
 
+### Paso a paso en un servidor Ubuntu (PC de la planta)
+
+**Antes de empezar**
+
+- Ubuntu Server 22.04 o 24.04 (o Desktop), con internet y un usuario con `sudo`.
+- IP fija para el servidor: lo más simple es una **reserva DHCP en el router** para la placa de red del servidor.
+- El servidor tiene que estar en la misma red que el PLC. Comprobalo (cambiá la IP por la del PLC):
+
+```bash
+ping -c 3 192.168.3.71
+```
+
+- Si otra PC ya está leyendo el mismo PLC con Frío SCADA (por ejemplo, la de pruebas con WSL), frenala antes de poner en marcha esta: tiene que haber **un solo poller por PLC**. Ver [Comandos útiles](#comandos-útiles).
+
+**1. Actualizar el sistema**
+
+```bash
+sudo apt update && sudo apt upgrade -y
+```
+
+**2. Correr el instalador** (instala la última versión)
+
+```bash
+curl -fsSL https://github.com/walc72/frio-scada/releases/latest/download/install.sh | sudo bash
+```
+
+Para instalar una versión puntual (por ejemplo `v0.2.12`):
+
+```bash
+curl -fsSL https://github.com/walc72/frio-scada/releases/latest/download/install.sh | sudo FRIO_VERSION=v0.2.12 bash
+```
+
+**3. Responder las preguntas**
+
+| Pregunta | Qué poner |
+|---|---|
+| ¿Qué servidor es? | `1` (Planta) |
+| Zona horaria | Enter si propone la correcta (p. ej. `America/Asuncion`) |
+| IP del PLC / Unit id Modbus | La del PLC de las cámaras (por defecto `192.168.3.71` y `255`). Se puede cambiar después en Configuración avanzada → Cámaras |
+| Telegram y SMTP | Enter para omitir: se cargan después desde el portal |
+| Usuario y contraseña del superadmin | Elegí una contraseña segura y guardala: es el único que ve Marca, Conexión y Réplicas |
+| Usuario y contraseña del administrador | Tiene que ser otro usuario que el superadmin |
+| ¿Instalar Tailscale? | `si` para poder entrar desde afuera |
+
+Al terminar muestra la dirección del portal, por ejemplo `http://192.168.3.50`.
+
+**4. Entrar al portal y revisar**
+
+- Abrí `http://<IP del servidor>` desde cualquier PC de la red y entrá con el administrador.
+- En Inicio tienen que aparecer las dos cámaras con sus equipos y "Actualizado hace … s". Si dice "Sin datos", revisá la IP del PLC en Configuración avanzada → Cámaras y los logs del poller: `sudo frio-scada logs modbus-poller`.
+- Si el servidor tiene firewall activo (`sudo ufw status` dice `active`), abrí el puerto del portal: `sudo ufw allow 80/tcp`.
+
+**5. Configurar desde el portal**
+
+- **Acceso remoto:** entrá como superadmin → Configuración avanzada → Conexión → "Abrir el login de Tailscale" e iniciá sesión con la cuenta de Tailscale.
+- **Avisos:** Configuración avanzada → Telegram y Correo (con "Enviar prueba" para verificar).
+- **Reporte diario:** Más → Reporte diario: elegí si va por correo, por Telegram o los dos.
+- **Marca:** como superadmin, Configuración avanzada → Marca (logo, nombre, colores).
+
+**6. Más adelante**
+
+```bash
+sudo frio-scada update            # actualizar a la última versión
+sudo frio-scada status            # ver si todo está andando
+```
+
 ---
 
 ## Instalacion manual desde el codigo (desarrollo)
